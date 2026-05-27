@@ -1,26 +1,98 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ─────────────────────────────────────────────
+   DESIGN TOKENS — edit here, propagates everywhere
+   ───────────────────────────────────────────── */
+@theme {
+  /* Colours */
+  --color-bg-primary:    #0c0c0b;
+  --color-bg-secondary:  #131312;
+  --color-bg-card:       #181817;
+  --color-bg-card-hover: #1e1e1c;
+
+  --color-border:        #2a2a27;
+  --color-border-subtle: #1f1f1d;
+
+  --color-gold:          #c9a84c;
+  --color-gold-light:    #dbb96a;
+  --color-gold-dim:      #a08535;
+  --color-gold-muted:    rgba(201,168,76,0.12);
+
+  --color-text-primary:  #f0ede6;
+  --color-text-secondary:#8a8780;
+  --color-text-muted:    #5a5855;
+
+  /* Typography — values come from next/font/google in layout.tsx */
+  --font-display: var(--font-dm-serif-display), Georgia, serif;
+  --font-sans:    var(--font-dm-sans), system-ui, sans-serif;
+
+  /* Spacing scale extensions */
+  --spacing-18: 4.5rem;
+  --spacing-22: 5.5rem;
+  --spacing-28: 7rem;
+  --spacing-32: 8rem;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* ─────────────────────────────────────────────
+   BASE RESETS
+   ───────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: theme(--color-bg-primary);
+  color: theme(--color-text-primary);
+  font-family: theme(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
+
+/* ─────────────────────────────────────────────
+   SCROLLBAR
+   ───────────────────────────────────────────── */
+::-webkit-scrollbar       { width: 4px; }
+::-webkit-scrollbar-track { background: theme(--color-bg-primary); }
+::-webkit-scrollbar-thumb { background: theme(--color-border); border-radius: 2px; }
+
+/* ─────────────────────────────────────────────
+   TYPOGRAPHY UTILITY
+   ───────────────────────────────────────────── */
+.font-display {
+  font-family: theme(--font-display);
+}
+
+/* ─────────────────────────────────────────────
+   ANIMATIONS
+   ───────────────────────────────────────────── */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.anim-fade-up {
+  opacity: 0;
+  animation: fade-up 0.75s ease forwards;
+}
+
+.anim-fade-in {
+  opacity: 0;
+  animation: fade-in 0.6s ease forwards;
+}
+
+/* Delay utilities — used on hero elements */
+.delay-100 { animation-delay: 0.1s; }
+.delay-200 { animation-delay: 0.2s; }
+.delay-300 { animation-delay: 0.3s; }
+.delay-400 { animation-delay: 0.4s; }
+.delay-500 { animation-delay: 0.5s; }
+.delay-600 { animation-delay: 0.6s; }
