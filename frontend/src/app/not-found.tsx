@@ -57,7 +57,7 @@ export default function NotFound() {
             mistyped the address. Let&apos;s get you back on track.
           </p>
 
-          <div className="flex justify-center">
+          <div className="flex flex-wrap items-center justify-center gap-4">
             <Link
               href="/"
               className="inline-flex items-center gap-2 px-7 py-3 rounded-full no-underline bg-gold text-bg-primary text-sm font-medium tracking-wide transition-all duration-200 hover:bg-gold-light hover:-translate-y-px"
@@ -66,6 +66,12 @@ export default function NotFound() {
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
                 <path d="M2.5 7H11.5M8 3.5L11.5 7L8 10.5" stroke="#0c0c0b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
+            </Link>
+            <Link
+              href="/login"
+              className="inline-flex items-center gap-2 px-7 py-3 rounded-full no-underline bg-transparent text-text-secondary border border-border text-sm font-light transition-all duration-200 hover:border-gold hover:text-gold"
+            >
+              Join Foundry
             </Link>
           </div>
         </div>

@@ -1,14 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-
-/* ── Grad years (current year down to 1950) ───────────────────────── */
-const CURRENT_YEAR = new Date().getFullYear();
-const GRAD_YEARS = Array.from(
-  { length: CURRENT_YEAR - 1949 },
-  (_, i) => CURRENT_YEAR - i,
-);
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 /* ── Decorative background ────────────────────────────────────────── */
 function BackgroundEffects() {
@@ -62,11 +57,26 @@ function MicrosoftIcon() {
   );
 }
 
+/* ── Google icon ──────────────────────────────────────────────────── */
+function GoogleIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden>
+      <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" />
+      <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z" />
+      <path fill="#FBBC05" d="M3.964 10.71c-.18-.54-.282-1.117-.282-1.71s.102-1.17.282-1.71V4.958H.957C.347 6.173 0 7.547 0 9s.348 2.827.957 4.042l3.007-2.332z" />
+      <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" />
+    </svg>
+  );
+}
+
 /* ── Page ─────────────────────────────────────────────────────────── */
 type Mode = "signin" | "signup";
 type Role = "student" | "alum" | null;
 
 export default function LoginPage() {
+  const router = useRouter();
+  const supabase = createClient();
+
   const [mode, setMode] = useState<Mode>("signup");
   const [role, setRole] = useState<Role>(null);
 
@@ -76,10 +86,56 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [repeatPassword, setRepeatPassword] = useState("");
-  const [gradYear, setGradYear] = useState("");
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // The /auth/callback route bounces failed OAuth attempts back here with
+  // ?error=...; read it on mount (not during render — that would cause
+  // a hydration mismatch since the server never sees window.location),
+  // then strip it from the URL so a refresh doesn't re-show.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const e = params.get("error");
+    if (!e) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setError(e);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("error");
+    window.history.replaceState({}, "", url.toString());
+  }, []);
+
+  // Sign-in successful — route by admin status + profile state.
+  // Mirrors /auth/callback/route.ts so email + OAuth paths land in the same
+  // place. Fail-closed: any RPC/lookup failure sends them to '/' rather than
+  // risk wrong-routing.
+  const routeAfterSignIn = async () => {
+    const { data: isAdmin } = await supabase.rpc("is_admin");
+    if (isAdmin) {
+      router.replace("/admin");
+      router.refresh();
+      return;
+    }
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      router.replace("/");
+      router.refresh();
+      return;
+    }
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("status")
+      .eq("id", user.id)
+      .single();
+    const dest =
+      profile?.status === "pending_onboarding" ? "/onboarding"
+      : profile?.status === "pending_review"   ? "/pending"
+      : profile?.status === "approved"         ? "/community"
+      : profile?.status === "rejected"         ? "/rejected"
+      : "/";
+    router.replace(dest);
+    router.refresh();
+  };
 
   const resetForm = () => {
     setFirstName("");
@@ -87,7 +143,6 @@ export default function LoginPage() {
     setEmail("");
     setPassword("");
     setRepeatPassword("");
-    setGradYear("");
     setError("");
   };
 
@@ -102,24 +157,45 @@ export default function LoginPage() {
     resetForm();
   };
 
-  const handleMicrosoft = () => {
+  const handleMicrosoft = async () => {
     setError("");
     setIsLoading(true);
-    // TODO: Supabase Auth — Microsoft OAuth, single-tenant against Imperial's Azure AD tenant.
-    setTimeout(() => setIsLoading(false), 1000);
+    const { error: oauthError } = await supabase.auth.signInWithOAuth({
+      provider: "azure",
+      options: {
+        scopes: "email openid profile",
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+    if (oauthError) {
+      setError(oauthError.message);
+      setIsLoading(false);
+    }
+    // On success, Supabase redirects to Microsoft; no further work here.
   };
 
-  const handleAlumSubmit = (e: React.FormEvent) => {
+  const handleGoogle = async () => {
+    setError("");
+    setIsLoading(true);
+    const { error: oauthError } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+    if (oauthError) {
+      setError(oauthError.message);
+      setIsLoading(false);
+    }
+  };
+
+  const handleAlumSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
     if (mode === "signup") {
       if (!firstName.trim() || !surname.trim()) {
         setError("First name and surname are required.");
-        return;
-      }
-      if (!gradYear) {
-        setError("Please select your graduation year.");
         return;
       }
       if (password !== repeatPassword) {
@@ -138,8 +214,41 @@ export default function LoginPage() {
     }
 
     setIsLoading(true);
-    // TODO: Supabase Auth — email/password sign-up / sign-in for alumni.
-    setTimeout(() => setIsLoading(false), 1000);
+
+    if (mode === "signup") {
+      const { error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          // These keys are read by the tg_handle_new_user trigger to populate
+          // public.profiles with role/first_name/surname on insert.
+          // grad_year is collected later during onboarding.
+          data: {
+            role: "alum",
+            first_name: firstName.trim(),
+            surname: surname.trim(),
+          },
+        },
+      });
+      if (signUpError) {
+        setError(signUpError.message);
+        setIsLoading(false);
+        return;
+      }
+      await routeAfterSignIn();
+      return;
+    }
+
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    if (signInError) {
+      setError(signInError.message);
+      setIsLoading(false);
+      return;
+    }
+    await routeAfterSignIn();
   };
 
   const heading =
@@ -219,9 +328,9 @@ export default function LoginPage() {
                 email={email} setEmail={setEmail}
                 password={password} setPassword={setPassword}
                 repeatPassword={repeatPassword} setRepeatPassword={setRepeatPassword}
-                gradYear={gradYear} setGradYear={setGradYear}
                 isLoading={isLoading}
                 onSubmit={handleAlumSubmit}
+                onGoogle={handleGoogle}
                 onBack={backToChooser}
               />
             )}
@@ -344,8 +453,7 @@ function AlumForm({
   email, setEmail,
   password, setPassword,
   repeatPassword, setRepeatPassword,
-  gradYear, setGradYear,
-  isLoading, onSubmit, onBack,
+  isLoading, onSubmit, onGoogle, onBack,
 }: {
   mode: Mode;
   firstName: string; setFirstName: (v: string) => void;
@@ -353,9 +461,9 @@ function AlumForm({
   email: string; setEmail: (v: string) => void;
   password: string; setPassword: (v: string) => void;
   repeatPassword: string; setRepeatPassword: (v: string) => void;
-  gradYear: string; setGradYear: (v: string) => void;
   isLoading: boolean;
   onSubmit: (e: React.FormEvent) => void;
+  onGoogle: () => void;
   onBack: () => void;
 }) {
   const inputCls =
@@ -364,6 +472,22 @@ function AlumForm({
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <BackLink onClick={onBack} />
+
+      <button
+        type="button"
+        onClick={onGoogle}
+        disabled={isLoading}
+        className="w-full flex items-center justify-center gap-3 px-6 py-3 rounded-xl bg-white text-[#1a1a1a] text-[0.85rem] font-medium tracking-wide border-0 cursor-pointer transition-all duration-200 hover:bg-white/90 hover:-translate-y-px disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+      >
+        <GoogleIcon />
+        Continue with Google
+      </button>
+
+      <div className="flex items-center gap-3 py-1">
+        <div className="flex-1 h-px bg-border-subtle" />
+        <span className="text-[0.7rem] text-text-muted uppercase tracking-widest">or</span>
+        <div className="flex-1 h-px bg-border-subtle" />
+      </div>
 
       {mode === "signup" && (
         <div className="flex gap-3">
@@ -421,35 +545,18 @@ function AlumForm({
       </div>
 
       {mode === "signup" && (
-        <>
-          <div>
-            <label htmlFor="repeat-password" className="block text-[0.75rem] text-text-muted mb-1.5">Repeat password</label>
-            <input
-              id="repeat-password"
-              type="password"
-              autoComplete="new-password"
-              placeholder="Repeat password"
-              value={repeatPassword}
-              onChange={(e) => setRepeatPassword(e.target.value)}
-              className={inputCls}
-            />
-          </div>
-
-          <div>
-            <label htmlFor="grad-year" className="block text-[0.75rem] text-text-muted mb-1.5">Year you graduated from Imperial</label>
-            <select
-              id="grad-year"
-              value={gradYear}
-              onChange={(e) => setGradYear(e.target.value)}
-              className={`${inputCls} appearance-none cursor-pointer`}
-            >
-              <option value="" disabled>Select year</option>
-              {GRAD_YEARS.map((y) => (
-                <option key={y} value={y}>{y}</option>
-              ))}
-            </select>
-          </div>
-        </>
+        <div>
+          <label htmlFor="repeat-password" className="block text-[0.75rem] text-text-muted mb-1.5">Repeat password</label>
+          <input
+            id="repeat-password"
+            type="password"
+            autoComplete="new-password"
+            placeholder="Repeat password"
+            value={repeatPassword}
+            onChange={(e) => setRepeatPassword(e.target.value)}
+            className={inputCls}
+          />
+        </div>
       )}
 
       <button
