@@ -9,6 +9,8 @@ export default async function RejectedPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  const { data: isAdmin } = await supabase.rpc("is_admin");
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("status, first_name")
@@ -16,9 +18,12 @@ export default async function RejectedPage() {
     .single();
 
   if (!profile) redirect("/login");
-  if (profile.status === "pending_onboarding") redirect("/onboarding");
-  if (profile.status === "pending_review")     redirect("/pending");
-  if (profile.status === "approved")           redirect("/community");
+  // Admins bypass status gates so they can preview the page for diagnostics.
+  if (!isAdmin) {
+    if (profile.status === "pending_onboarding") redirect("/onboarding");
+    if (profile.status === "pending_review")     redirect("/pending");
+    if (profile.status === "approved")           redirect("/community");
+  }
 
   return (
     <div className="relative min-h-screen bg-bg-primary flex flex-col">

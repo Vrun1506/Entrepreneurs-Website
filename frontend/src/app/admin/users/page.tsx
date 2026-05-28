@@ -19,6 +19,7 @@ export default async function AdminUsersPage() {
       bio,
       working_on,
       linkedin_url,
+      github_url,
       created_at,
       profile_skills ( skills ( id, name ) ),
       profile_sectors ( sectors ( id, name ) )
@@ -49,7 +50,7 @@ export default async function AdminUsersPage() {
           </div>
           <Link
             href="/admin"
-            className="text-[0.8rem] text-text-muted no-underline transition-colors duration-150 hover:text-text-secondary"
+            className="text-[0.8rem] text-text-secondary no-underline transition-colors duration-150 hover:text-text-primary"
           >
             ← Admin home
           </Link>
@@ -78,6 +79,7 @@ type RawRow = {
   bio: string | null;
   working_on: string | null;
   linkedin_url: string | null;
+  github_url: string | null;
   created_at: string;
   profile_skills:  { skills:  { id: number; name: string } | null }[];
   profile_sectors: { sectors: { id: number; name: string } | null }[];
@@ -93,6 +95,7 @@ function toMember(r: RawRow) {
     bio: r.bio,
     workingOn: r.working_on,
     linkedinUrl: r.linkedin_url,
+    githubUrl: r.github_url,
     createdAt: r.created_at,
     skills:  r.profile_skills.map((s)  => s.skills?.name).filter((n): n is string => !!n),
     sectors: r.profile_sectors.map((s) => s.sectors?.name).filter((n): n is string => !!n),

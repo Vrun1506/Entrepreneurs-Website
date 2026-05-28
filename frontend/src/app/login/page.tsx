@@ -277,7 +277,7 @@ export default function LoginPage() {
       <header className="relative z-10 px-8 py-5">
         <div className="max-w-[1200px] mx-auto flex items-center justify-between">
           <Logo />
-          <Link href="/" className="text-[0.8rem] text-text-muted no-underline transition-colors duration-150 hover:text-text-secondary">
+          <Link href="/" className="text-[0.8rem] text-text-secondary no-underline transition-colors duration-150 hover:text-text-primary">
             ← Back to home
           </Link>
         </div>
@@ -357,7 +357,7 @@ export default function LoginPage() {
       <footer className="relative z-10 px-8 py-5">
         <div className="max-w-[1200px] mx-auto flex justify-center gap-8">
           {["Privacy", "Terms", "Contact"].map((link) => (
-            <a key={link} href="#" className="text-[0.75rem] text-text-muted no-underline transition-colors duration-150 hover:text-text-secondary">
+            <a key={link} href="#" className="text-[0.75rem] text-text-secondary no-underline transition-colors duration-150 hover:text-text-primary">
               {link}
             </a>
           ))}

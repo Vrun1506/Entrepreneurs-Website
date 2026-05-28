@@ -16,6 +16,7 @@ type Props = {
 };
 
 const LINKEDIN_RE = /^https?:\/\/([a-z0-9-]+\.)*linkedin\.com\//i;
+const GITHUB_RE   = /^https?:\/\/([a-z0-9-]+\.)*github\.com\//i;
 
 const GRAD_YEARS = (() => {
   const now = new Date().getFullYear();
@@ -29,6 +30,7 @@ export default function OnboardingForm({ role, firstName, surname, skills, secto
   const supabase = createClient();
 
   const [linkedin, setLinkedin] = useState("");
+  const [github, setGithub] = useState("");
   const [gradYear, setGradYear] = useState<string>("");
   const [bio, setBio] = useState("");
   const [workingOn, setWorkingOn] = useState("");
@@ -52,6 +54,10 @@ export default function OnboardingForm({ role, firstName, surname, skills, secto
       setError("Please enter a valid LinkedIn URL (e.g. https://www.linkedin.com/in/your-handle).");
       return;
     }
+    if (github.trim() && !GITHUB_RE.test(github.trim())) {
+      setError("Please enter a valid GitHub URL (e.g. https://github.com/your-handle) or leave it blank.");
+      return;
+    }
     let gradYearNum: number | null = null;
     if (role === "alum") {
       gradYearNum = parseInt(gradYear, 10);
@@ -72,6 +78,7 @@ export default function OnboardingForm({ role, firstName, surname, skills, secto
     setIsLoading(true);
     const { error: rpcError } = await supabase.rpc("submit_onboarding", {
       p_linkedin_url: linkedin.trim(),
+      p_github_url:   github.trim() || null,
       p_grad_year:    gradYearNum,
       p_bio:          bio.trim() || null,
       p_working_on:   workingOn.trim() || null,
@@ -147,6 +154,20 @@ export default function OnboardingForm({ role, firstName, surname, skills, secto
                 onChange={(e) => setLinkedin(e.target.value)}
                 className={inputCls}
                 required
+              />
+            </div>
+
+            <div>
+              <label htmlFor="github" className="block text-[0.75rem] text-text-muted mb-1.5">
+                GitHub URL <span className="text-text-muted/70 ml-1">— optional</span>
+              </label>
+              <input
+                id="github"
+                type="url"
+                placeholder="https://github.com/your-handle"
+                value={github}
+                onChange={(e) => setGithub(e.target.value)}
+                className={inputCls}
               />
             </div>
 

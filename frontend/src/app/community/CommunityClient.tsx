@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import SocialLinks from "@/components/SocialLinks";
 
 type Member = {
   id: string;
@@ -11,6 +12,7 @@ type Member = {
   bio: string | null;
   workingOn: string | null;
   linkedinUrl: string | null;
+  githubUrl: string | null;
   skills: string[];
   sectors: string[];
 };
@@ -59,26 +61,13 @@ export default function CommunityClient({ members }: { members: Member[] }) {
 function MemberCard({ member: m }: { member: Member }) {
   return (
     <article className="p-5 rounded-2xl bg-bg-card border border-border-subtle hover:border-border transition-colors duration-150">
-      <header className="flex items-start justify-between gap-3 mb-3">
-        <div>
-          <div className="text-[0.95rem] font-medium text-text-primary">
-            {m.firstName} {m.surname}
-          </div>
-          <div className="text-[0.725rem] text-text-muted mt-0.5">
-            {m.role === "alum" ? `Alum · ${m.gradYear ?? "—"}` : "Imperial student"}
-          </div>
+      <header className="mb-3">
+        <div className="text-[0.95rem] font-medium text-text-primary">
+          {m.firstName} {m.surname}
         </div>
-        {m.linkedinUrl && (
-          <a
-            href={m.linkedinUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[0.7rem] text-text-muted hover:text-gold no-underline transition-colors"
-            aria-label="LinkedIn"
-          >
-            LinkedIn ↗
-          </a>
-        )}
+        <div className="text-[0.725rem] text-text-muted mt-0.5">
+          {m.role === "alum" ? `Alum · ${m.gradYear ?? "—"}` : "Imperial student"}
+        </div>
       </header>
 
       {m.bio && (
@@ -93,18 +82,23 @@ function MemberCard({ member: m }: { member: Member }) {
         </div>
       )}
 
-      {(m.skills.length > 0 || m.sectors.length > 0) && (
-        <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-border-subtle">
-          {m.sectors.map((s) => (
-            <span key={`sec-${s}`} className="px-2 py-0.5 rounded-full text-[0.7rem] bg-gold-muted text-gold-light border border-gold/20">
-              {s}
-            </span>
-          ))}
-          {m.skills.map((s) => (
-            <span key={`skl-${s}`} className="px-2 py-0.5 rounded-full text-[0.7rem] bg-white/[0.03] text-text-secondary border border-border">
-              {s}
-            </span>
-          ))}
+      {(m.skills.length > 0 || m.sectors.length > 0 || m.linkedinUrl || m.githubUrl) && (
+        <div className="mt-3 pt-3 border-t border-border-subtle flex flex-col gap-3">
+          {(m.skills.length > 0 || m.sectors.length > 0) && (
+            <div className="flex flex-wrap gap-1.5">
+              {m.sectors.map((s) => (
+                <span key={`sec-${s}`} className="px-2 py-0.5 rounded-full text-[0.7rem] bg-gold-muted text-gold-light border border-gold/20">
+                  {s}
+                </span>
+              ))}
+              {m.skills.map((s) => (
+                <span key={`skl-${s}`} className="px-2 py-0.5 rounded-full text-[0.7rem] bg-white/[0.03] text-text-secondary border border-border">
+                  {s}
+                </span>
+              ))}
+            </div>
+          )}
+          <SocialLinks linkedinUrl={m.linkedinUrl} githubUrl={m.githubUrl} />
         </div>
       )}
     </article>

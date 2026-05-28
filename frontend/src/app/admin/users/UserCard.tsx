@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { approveUser, rejectUser } from "./actions";
+import SocialLinks from "@/components/SocialLinks";
 
 type Member = {
   id: string;
@@ -12,6 +13,7 @@ type Member = {
   bio: string | null;
   workingOn: string | null;
   linkedinUrl: string | null;
+  githubUrl: string | null;
   createdAt: string;
   skills: string[];
   sectors: string[];
@@ -44,32 +46,20 @@ export default function UserCard({ member }: { member: Member }) {
     });
   };
 
-  const submitted = new Date(member.createdAt).toLocaleDateString(undefined, {
+  const submitted = new Date(member.createdAt).toLocaleDateString("en-GB", {
     year: "numeric", month: "short", day: "numeric",
   });
 
   return (
     <article className="rounded-2xl bg-bg-card border border-border-subtle p-6">
-      <header className="flex items-start justify-between gap-4 mb-4">
-        <div>
-          <div className="text-[1.05rem] font-medium text-text-primary">
-            {member.firstName} {member.surname}
-          </div>
-          <div className="text-[0.75rem] text-text-muted mt-1">
-            {member.role === "alum" ? `Alum · grad ${member.gradYear ?? "—"}` : "Student"}
-            {" · submitted "}{submitted}
-          </div>
+      <header className="mb-4">
+        <div className="text-[1.05rem] font-medium text-text-primary">
+          {member.firstName} {member.surname}
         </div>
-        {member.linkedinUrl && (
-          <a
-            href={member.linkedinUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[0.75rem] text-text-muted hover:text-gold no-underline transition-colors whitespace-nowrap"
-          >
-            LinkedIn ↗
-          </a>
-        )}
+        <div className="text-[0.75rem] text-text-muted mt-1">
+          {member.role === "alum" ? `Alum · grad ${member.gradYear ?? "—"}` : "Student"}
+          {" · submitted "}{submitted}
+        </div>
       </header>
 
       {member.bio && (
@@ -86,14 +76,19 @@ export default function UserCard({ member }: { member: Member }) {
         </div>
       )}
 
-      {(member.sectors.length > 0 || member.skills.length > 0) && (
-        <div className="flex flex-wrap gap-1.5 mb-4">
-          {member.sectors.map((s) => (
-            <span key={`sec-${s}`} className="px-2 py-0.5 rounded-full text-[0.7rem] bg-gold-muted text-gold-light border border-gold/20">{s}</span>
-          ))}
-          {member.skills.map((s) => (
-            <span key={`skl-${s}`} className="px-2 py-0.5 rounded-full text-[0.7rem] bg-white/[0.03] text-text-secondary border border-border">{s}</span>
-          ))}
+      {(member.sectors.length > 0 || member.skills.length > 0 || member.linkedinUrl || member.githubUrl) && (
+        <div className="mb-4 flex flex-col gap-3">
+          {(member.sectors.length > 0 || member.skills.length > 0) && (
+            <div className="flex flex-wrap gap-1.5">
+              {member.sectors.map((s) => (
+                <span key={`sec-${s}`} className="px-2 py-0.5 rounded-full text-[0.7rem] bg-gold-muted text-gold-light border border-gold/20">{s}</span>
+              ))}
+              {member.skills.map((s) => (
+                <span key={`skl-${s}`} className="px-2 py-0.5 rounded-full text-[0.7rem] bg-white/[0.03] text-text-secondary border border-border">{s}</span>
+              ))}
+            </div>
+          )}
+          <SocialLinks linkedinUrl={member.linkedinUrl} githubUrl={member.githubUrl} />
         </div>
       )}
 

@@ -11,6 +11,7 @@ type Props = {
   firstName: string;
   surname: string;
   linkedinUrl: string;
+  githubUrl: string;
   gradYear: number | null;
   bio: string;
   workingOn: string;
@@ -21,6 +22,7 @@ type Props = {
 };
 
 const LINKEDIN_RE = /^https?:\/\/([a-z0-9-]+\.)*linkedin\.com\//i;
+const GITHUB_RE   = /^https?:\/\/([a-z0-9-]+\.)*github\.com\//i;
 
 const GRAD_YEARS = (() => {
   const now = new Date().getFullYear();
@@ -36,6 +38,7 @@ export default function ProfileForm(props: Props) {
   const [firstName, setFirstName] = useState(props.firstName);
   const [surname, setSurname] = useState(props.surname);
   const [linkedin, setLinkedin] = useState(props.linkedinUrl);
+  const [github, setGithub] = useState(props.githubUrl);
   const [gradYear, setGradYear] = useState<string>(props.gradYear?.toString() ?? "");
   const [bio, setBio] = useState(props.bio);
   const [workingOn, setWorkingOn] = useState(props.workingOn);
@@ -65,6 +68,10 @@ export default function ProfileForm(props: Props) {
       setError("Please enter a valid LinkedIn URL.");
       return;
     }
+    if (github.trim() && !GITHUB_RE.test(github.trim())) {
+      setError("Please enter a valid GitHub URL or leave it blank.");
+      return;
+    }
     let gradYearNum: number | null = null;
     if (props.role === "alum") {
       gradYearNum = parseInt(gradYear, 10);
@@ -87,6 +94,7 @@ export default function ProfileForm(props: Props) {
       p_first_name:   firstName.trim(),
       p_surname:      surname.trim(),
       p_linkedin_url: linkedin.trim(),
+      p_github_url:   github.trim() || null,
       p_grad_year:    gradYearNum,
       p_bio:          bio.trim() || null,
       p_working_on:   workingOn.trim() || null,
@@ -135,6 +143,20 @@ export default function ProfileForm(props: Props) {
       <div>
         <label htmlFor="linkedin" className="block text-[0.75rem] text-text-muted mb-1.5">LinkedIn URL</label>
         <input id="linkedin" type="url" value={linkedin} onChange={(e) => setLinkedin(e.target.value)} className={inputCls} required />
+      </div>
+
+      <div>
+        <label htmlFor="github" className="block text-[0.75rem] text-text-muted mb-1.5">
+          GitHub URL <span className="text-text-muted/70 ml-1">— optional</span>
+        </label>
+        <input
+          id="github"
+          type="url"
+          placeholder="https://github.com/your-handle"
+          value={github}
+          onChange={(e) => setGithub(e.target.value)}
+          className={inputCls}
+        />
       </div>
 
       {props.role === "alum" && (

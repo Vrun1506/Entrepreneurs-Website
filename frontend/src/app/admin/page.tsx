@@ -46,6 +46,16 @@ export default async function AdminPage() {
           <PlaceholderCard title="Pending VCs / grants"  hint="Review queue — coming soon" />
         </div>
 
+        <div className="mt-10">
+          <div className="text-[0.7rem] text-gold tracking-[0.18em] uppercase mb-2">Member view</div>
+          <p className="text-[0.8rem] text-text-muted mb-4 leading-relaxed">
+            Open the approved-member experience. You&apos;re verified, so this loads the live community page.
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            <DiagLink href="/community" label="Community" />
+          </div>
+        </div>
+
         <div className="mt-10 p-5 rounded-xl bg-bg-card border border-border-subtle">
           <p className="text-[0.8rem] text-text-muted leading-relaxed">
             This route is server-side gated via <span className="text-text-secondary">is_admin()</span>{" "}
@@ -69,6 +79,17 @@ function QueueLink({ href, title, count, hint }: { href: string; title: string; 
         <div className="text-[0.85rem] font-medium text-gold">{count}</div>
       </div>
       <div className="text-[0.75rem] text-text-muted">{hint}</div>
+    </Link>
+  );
+}
+
+function DiagLink({ href, label }: { href: string; label: string }) {
+  return (
+    <Link
+      href={href}
+      className="block px-4 py-3 rounded-lg bg-bg-card border border-border-subtle text-center text-[0.8rem] text-text-secondary no-underline transition-colors duration-150 hover:border-gold/40 hover:text-text-primary"
+    >
+      {label}
     </Link>
   );
 }

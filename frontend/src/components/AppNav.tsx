@@ -1,10 +1,21 @@
 import Link from "next/link";
 import SignOutButton from "@/app/admin/SignOutButton";
 
-type Tab = "community" | "profile";
+type Tab = "community" | "settings";
 
-export default function AppNav({ active, isApproved }: { active: Tab; isApproved: boolean }) {
-  const homeHref = isApproved ? "/community" : "/profile";
+export default function AppNav({
+  active,
+  isApproved,
+  isAdmin = false,
+}: {
+  active: Tab;
+  isApproved: boolean;
+  isAdmin?: boolean;
+}) {
+  // Admins always get the full nav so they can navigate the user-facing UI
+  // for diagnostic purposes, regardless of their own profile status.
+  const showFullNav = isApproved || isAdmin;
+  const homeHref = showFullNav ? "/community" : "/settings";
   return (
     <header className="px-8 py-5 border-b border-border-subtle">
       <div className="max-w-[1200px] mx-auto flex items-center justify-between">
@@ -18,12 +29,20 @@ export default function AppNav({ active, isApproved }: { active: Tab; isApproved
         </Link>
 
         <nav className="flex items-center gap-1">
-          {isApproved ? (
+          {showFullNav ? (
             <NavLink href="/community" label="Community" active={active === "community"} />
           ) : (
             <NavLink href="/pending" label="Return to home" active={false} />
           )}
-          <NavLink href="/profile" label="Profile" active={active === "profile"} />
+          <NavLink href="/settings" label="Settings" active={active === "settings"} />
+          {isAdmin && (
+            <Link
+              href="/admin"
+              className="ml-2 px-4 py-1.5 rounded-full text-[0.8rem] text-gold no-underline transition-colors duration-150 border border-gold/30 hover:border-gold/60 hover:text-gold-light"
+            >
+              ← Admin
+            </Link>
+          )}
         </nav>
 
         <SignOutButton />
@@ -39,7 +58,7 @@ function NavLink({ href, label, active }: { href: string; label: string; active:
       className={`px-4 py-1.5 rounded-full text-[0.8rem] no-underline transition-colors duration-150 ${
         active
           ? "text-text-primary bg-white/[0.04]"
-          : "text-text-muted hover:text-text-primary"
+          : "text-text-secondary hover:text-text-primary"
       }`}
     >
       {label}

@@ -9,6 +9,8 @@ export default async function CommunityPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  const { data: isAdmin } = await supabase.rpc("is_admin");
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("status")
@@ -16,9 +18,12 @@ export default async function CommunityPage() {
     .single();
 
   if (!profile) redirect("/login");
-  if (profile.status === "pending_onboarding") redirect("/onboarding");
-  if (profile.status === "pending_review")     redirect("/pending");
-  if (profile.status === "rejected")           redirect("/rejected");
+  // Admins bypass status gates so they can browse the user-facing UI for diagnostics.
+  if (!isAdmin) {
+    if (profile.status === "pending_onboarding") redirect("/onboarding");
+    if (profile.status === "pending_review")     redirect("/pending");
+    if (profile.status === "rejected")           redirect("/rejected");
+  }
 
   const { data: members, error } = await supabase
     .from("profiles")
@@ -31,6 +36,7 @@ export default async function CommunityPage() {
       bio,
       working_on,
       linkedin_url,
+      github_url,
       profile_skills ( skills ( id, name ) ),
       profile_sectors ( sectors ( id, name ) )
     `)
@@ -48,7 +54,7 @@ export default async function CommunityPage() {
 
   return (
     <div className="min-h-screen bg-bg-primary flex flex-col">
-      <AppNav active="community" isApproved={true} />
+      <AppNav active="community" isApproved={true} isAdmin={!!isAdmin} />
       <main className="flex-1 px-8 py-12">
         <div className="max-w-[1200px] mx-auto">
           <div className="mb-8">
@@ -76,6 +82,7 @@ type RawJoinRow = {
   bio: string | null;
   working_on: string | null;
   linkedin_url: string | null;
+  github_url: string | null;
   profile_skills:  { skills:  { id: number; name: string } | null }[];
   profile_sectors: { sectors: { id: number; name: string } | null }[];
 };
@@ -90,6 +97,7 @@ function toMember(r: RawJoinRow) {
     bio: r.bio,
     workingOn: r.working_on,
     linkedinUrl: r.linkedin_url,
+    githubUrl: r.github_url,
     skills:  r.profile_skills.map((s)  => s.skills?.name).filter((n): n is string => !!n),
     sectors: r.profile_sectors.map((s) => s.sectors?.name).filter((n): n is string => !!n),
   };
