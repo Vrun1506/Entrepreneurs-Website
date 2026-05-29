@@ -45,18 +45,6 @@ function Logo() {
   );
 }
 
-/* ── Microsoft icon ───────────────────────────────────────────────── */
-function MicrosoftIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 23 23" aria-hidden>
-      <rect x="1" y="1" width="10" height="10" fill="#f25022" />
-      <rect x="12" y="1" width="10" height="10" fill="#7fba00" />
-      <rect x="1" y="12" width="10" height="10" fill="#00a4ef" />
-      <rect x="12" y="12" width="10" height="10" fill="#ffb900" />
-    </svg>
-  );
-}
-
 /* ── Google icon ──────────────────────────────────────────────────── */
 function GoogleIcon() {
   return (
@@ -89,6 +77,15 @@ export default function LoginPage() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [emailSent, setEmailSent] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  // Tick the resend cooldown to 0 once per second when active.
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const t = setTimeout(() => setResendCooldown((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendCooldown]);
 
   // The /auth/callback route bounces failed OAuth attempts back here with
   // ?error=...; read it on mount (not during render — that would cause
@@ -144,6 +141,8 @@ export default function LoginPage() {
     setPassword("");
     setRepeatPassword("");
     setError("");
+    setEmailSent(false);
+    setResendCooldown(0);
   };
 
   const switchMode = (next: Mode) => {
@@ -157,21 +156,69 @@ export default function LoginPage() {
     resetForm();
   };
 
-  const handleMicrosoft = async () => {
-    setError("");
-    setIsLoading(true);
-    const { error: oauthError } = await supabase.auth.signInWithOAuth({
-      provider: "azure",
+  // Imperial students verify via emailed link. We validate the domain
+  // client-side and the DB trigger re-checks (defence in depth — see
+  // migration 20260529000001).
+  const sendStudentVerificationEmail = async (): Promise<string | null> => {
+    const trimmedEmail = email.trim().toLowerCase();
+    const domain = trimmedEmail.split("@")[1];
+    if (!trimmedEmail || !domain || !["ic.ac.uk", "imperial.ac.uk"].includes(domain)) {
+      return "Please use your Imperial email address (@imperial.ac.uk or @ic.ac.uk).";
+    }
+
+    let signupData: Record<string, string> | undefined;
+    if (mode === "signup") {
+      const trimmedFirst = firstName.trim();
+      const trimmedSurname = surname.trim();
+      if (!trimmedFirst || !trimmedSurname) {
+        return "First name and surname are required.";
+      }
+      if (trimmedFirst.length > 50 || trimmedSurname.length > 50) {
+        return "First name and surname must be 50 characters or fewer.";
+      }
+      signupData = {
+        role: "student",
+        first_name: trimmedFirst,
+        surname: trimmedSurname,
+      };
+    }
+
+    const { error: otpError } = await supabase.auth.signInWithOtp({
+      email: trimmedEmail,
       options: {
-        scopes: "email openid profile",
-        redirectTo: `${window.location.origin}/auth/callback`,
+        shouldCreateUser: mode === "signup",
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        data: signupData,
       },
     });
-    if (oauthError) {
-      setError(oauthError.message);
-      setIsLoading(false);
+    return otpError ? otpError.message : null;
+  };
+
+  const handleStudentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setIsLoading(true);
+    const err = await sendStudentVerificationEmail();
+    setIsLoading(false);
+    if (err) {
+      setError(err);
+      return;
     }
-    // On success, Supabase redirects to Microsoft; no further work here.
+    setEmailSent(true);
+    setResendCooldown(60);
+  };
+
+  const handleStudentResend = async () => {
+    if (resendCooldown > 0 || isLoading) return;
+    setError("");
+    setIsLoading(true);
+    const err = await sendStudentVerificationEmail();
+    setIsLoading(false);
+    if (err) {
+      setError(err);
+      return;
+    }
+    setResendCooldown(60);
   };
 
   const handleGoogle = async () => {
@@ -194,8 +241,14 @@ export default function LoginPage() {
     setError("");
 
     if (mode === "signup") {
-      if (!firstName.trim() || !surname.trim()) {
+      const trimmedFirst = firstName.trim();
+      const trimmedSurname = surname.trim();
+      if (!trimmedFirst || !trimmedSurname) {
         setError("First name and surname are required.");
+        return;
+      }
+      if (trimmedFirst.length > 50 || trimmedSurname.length > 50) {
+        setError("First name and surname must be 50 characters or fewer.");
         return;
       }
       if (password !== repeatPassword) {
@@ -264,7 +317,9 @@ export default function LoginPage() {
         ? "Tell us how you're connected to Imperial."
         : "Tell us how you sign in."
       : role === "student"
-        ? "We verify your Imperial affiliation via Microsoft."
+        ? mode === "signup"
+          ? "We'll send a verification link to your Imperial email."
+          : "Enter your Imperial email and we'll send you a sign-in link."
         : mode === "signup"
           ? "Your profile will be manually reviewed before access is granted."
           : "Sign in with your email and password.";
@@ -312,10 +367,16 @@ export default function LoginPage() {
             )}
 
             {role === "student" && (
-              <StudentFlow
+              <StudentMagicLinkFlow
                 mode={mode}
+                firstName={firstName} setFirstName={setFirstName}
+                surname={surname} setSurname={setSurname}
+                email={email} setEmail={setEmail}
+                emailSent={emailSent}
                 isLoading={isLoading}
-                onSubmit={handleMicrosoft}
+                resendCooldown={resendCooldown}
+                onSubmit={handleStudentSubmit}
+                onResend={handleStudentResend}
                 onBack={backToChooser}
               />
             )}
@@ -411,37 +472,130 @@ function BackLink({ onClick }: { onClick: () => void }) {
   );
 }
 
-/* ── Student flow ─────────────────────────────────────────────────── */
-function StudentFlow({
-  mode, isLoading, onSubmit, onBack,
+/* ── Student verification-link flow ───────────────────────────────── */
+function StudentMagicLinkFlow({
+  mode,
+  firstName, setFirstName,
+  surname, setSurname,
+  email, setEmail,
+  emailSent, isLoading, resendCooldown,
+  onSubmit, onResend, onBack,
 }: {
   mode: Mode;
+  firstName: string; setFirstName: (v: string) => void;
+  surname: string; setSurname: (v: string) => void;
+  email: string; setEmail: (v: string) => void;
+  emailSent: boolean;
   isLoading: boolean;
-  onSubmit: () => void;
+  resendCooldown: number;
+  onSubmit: (e: React.FormEvent) => void;
+  onResend: () => void;
   onBack: () => void;
 }) {
+  const inputCls =
+    "w-full px-4 py-3 bg-white/[0.03] border border-border rounded-lg text-[0.85rem] text-text-primary placeholder:text-text-muted outline-none transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]";
+
+  if (emailSent) {
+    const canResend = resendCooldown <= 0 && !isLoading;
+    return (
+      <div className="space-y-5">
+        <BackLink onClick={onBack} />
+        <div className="py-6 text-center space-y-4">
+          <div className="w-12 h-12 rounded-full bg-gold/15 flex items-center justify-center mx-auto">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="text-gold" aria-hidden>
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+              <polyline points="22,6 12,13 2,6" />
+            </svg>
+          </div>
+          <h2 className="font-display text-[1.15rem] text-text-primary">Check your inbox</h2>
+          <p className="text-[0.8rem] text-text-secondary leading-relaxed">
+            We&apos;ve sent a verification link to <span className="text-text-primary">{email}</span>. Click it to {mode === "signup" ? "verify your Imperial email and finish signing up" : "sign in"}.
+          </p>
+          <p className="text-[0.7rem] text-text-muted leading-relaxed">
+            The link expires in one hour. Check your spam folder if it doesn&apos;t arrive within a minute.
+          </p>
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={onResend}
+              disabled={!canResend}
+              className="text-[0.8rem] text-gold bg-transparent border-0 cursor-pointer transition-colors duration-150 hover:text-gold-light disabled:text-text-muted disabled:cursor-not-allowed"
+            >
+              {isLoading
+                ? "Resending…"
+                : resendCooldown > 0
+                  ? `Resend in ${resendCooldown}s`
+                  : "Didn’t receive it? Resend"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-5">
+    <form onSubmit={onSubmit} className="space-y-4">
       <BackLink onClick={onBack} />
+
+      {mode === "signup" && (
+        <div className="flex gap-3">
+          <div className="flex-1">
+            <label htmlFor="first-name" className="block text-[0.75rem] text-text-muted mb-1.5">First name</label>
+            <input
+              id="first-name"
+              type="text"
+              autoComplete="given-name"
+              placeholder="First name"
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              className={inputCls}
+              maxLength={50}
+            />
+          </div>
+          <div className="flex-1">
+            <label htmlFor="surname" className="block text-[0.75rem] text-text-muted mb-1.5">Surname</label>
+            <input
+              id="surname"
+              type="text"
+              autoComplete="family-name"
+              placeholder="Surname"
+              value={surname}
+              onChange={(e) => setSurname(e.target.value)}
+              className={inputCls}
+              maxLength={50}
+            />
+          </div>
+        </div>
+      )}
+
+      <div>
+        <label htmlFor="email" className="block text-[0.75rem] text-text-muted mb-1.5">Imperial email</label>
+        <input
+          id="email"
+          type="email"
+          autoComplete="email"
+          placeholder="you@imperial.ac.uk"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className={inputCls}
+        />
+        <p className="mt-2 text-[0.7rem] text-text-muted leading-relaxed">
+          Must end in @imperial.ac.uk or @ic.ac.uk.
+        </p>
+      </div>
+
       <button
-        type="button"
-        onClick={onSubmit}
+        type="submit"
         disabled={isLoading}
-        className="w-full flex items-center justify-center gap-3 px-6 py-3.5 rounded-xl bg-white text-[#1a1a1a] text-[0.9rem] font-medium tracking-wide border-0 cursor-pointer transition-all duration-200 hover:bg-white/90 hover:-translate-y-px disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+        className="w-full mt-2 flex items-center justify-center px-6 py-3.5 rounded-xl bg-gold text-bg-primary text-[0.9rem] font-medium tracking-wide border-0 cursor-pointer transition-all duration-200 hover:bg-gold-light hover:-translate-y-px disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
       >
         {isLoading ? (
-          <div className="w-[18px] h-[18px] border-2 border-[#1a1a1a]/30 border-t-[#1a1a1a] rounded-full animate-spin" />
+          <div className="w-[18px] h-[18px] border-2 border-[#0c0c0b]/30 border-t-[#0c0c0b] rounded-full animate-spin" />
         ) : (
-          <>
-            <MicrosoftIcon />
-            {mode === "signup" ? "Continue with Microsoft" : "Sign in with Microsoft"}
-          </>
+          mode === "signup" ? "Send verification link" : "Send sign-in link"
         )}
       </button>
-      <p className="text-[0.775rem] text-text-muted leading-relaxed text-center">
-        You&apos;ll be redirected to Microsoft to sign in with your Imperial account.
-      </p>
-    </div>
+    </form>
   );
 }
 
@@ -501,6 +655,7 @@ function AlumForm({
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
               className={inputCls}
+              maxLength={50}
             />
           </div>
           <div className="flex-1">
@@ -513,6 +668,7 @@ function AlumForm({
               value={surname}
               onChange={(e) => setSurname(e.target.value)}
               className={inputCls}
+              maxLength={50}
             />
           </div>
         </div>

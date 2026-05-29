@@ -60,8 +60,18 @@ export default function ProfileForm(props: Props) {
     setError("");
     setSaved(false);
 
-    if (!firstName.trim() || !surname.trim()) {
+    const trimmedFirst = firstName.trim();
+    const trimmedSurname = surname.trim();
+    if (!trimmedFirst || !trimmedSurname) {
       setError("First name and surname are required.");
+      return;
+    }
+    if (trimmedFirst.length < 2 || trimmedSurname.length < 2) {
+      setError("First name and surname must be at least 2 characters.");
+      return;
+    }
+    if (trimmedFirst.length > 50 || trimmedSurname.length > 50) {
+      setError("First name and surname must be 50 characters or fewer.");
       return;
     }
     if (!LINKEDIN_RE.test(linkedin.trim())) {
@@ -132,11 +142,11 @@ export default function ProfileForm(props: Props) {
       <div className="flex gap-3">
         <div className="flex-1">
           <label htmlFor="first-name" className="block text-[0.75rem] text-text-muted mb-1.5">First name</label>
-          <input id="first-name" type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} className={inputCls} required />
+          <input id="first-name" type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} className={inputCls} maxLength={50} required />
         </div>
         <div className="flex-1">
           <label htmlFor="surname" className="block text-[0.75rem] text-text-muted mb-1.5">Surname</label>
-          <input id="surname" type="text" value={surname} onChange={(e) => setSurname(e.target.value)} className={inputCls} required />
+          <input id="surname" type="text" value={surname} onChange={(e) => setSurname(e.target.value)} className={inputCls} maxLength={50} required />
         </div>
       </div>
 

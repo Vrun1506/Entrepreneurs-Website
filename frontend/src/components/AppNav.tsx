@@ -1,7 +1,7 @@
 import Link from "next/link";
 import SignOutButton from "@/app/admin/SignOutButton";
 
-type Tab = "community" | "settings";
+type Tab = "community" | "opportunities" | "events" | "vcs" | "settings";
 
 export default function AppNav({
   active,
@@ -30,7 +30,12 @@ export default function AppNav({
 
         <nav className="flex items-center gap-1">
           {showFullNav ? (
-            <NavLink href="/community" label="Community" active={active === "community"} />
+            <>
+              <NavLink href="/community"     label="Community"     active={active === "community"} />
+              <NavLink href="/opportunities" label="Opportunities" active={active === "opportunities"} />
+              <NavLink href="/events"        label="Events"        active={active === "events"} />
+              <NavLink href="/vcs"           label="Grants & VCs"  active={active === "vcs"} />
+            </>
           ) : (
             <NavLink href="/pending" label="Return to home" active={false} />
           )}
