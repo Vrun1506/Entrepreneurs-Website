@@ -6,10 +6,17 @@ export default async function AdminPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  const { count: pendingProfiles } = await supabase
-    .from("profiles")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "pending_review");
+  const [
+    { count: pendingProfiles },
+    { count: pendingOpportunities },
+    { count: pendingEvents },
+    { count: pendingVcs },
+  ] = await Promise.all([
+    supabase.from("profiles").select("id",     { count: "exact", head: true }).eq("status", "pending_review"),
+    supabase.from("opportunities").select("id", { count: "exact", head: true }).eq("status", "pending"),
+    supabase.from("events").select("id",        { count: "exact", head: true }).eq("status", "pending"),
+    supabase.from("vcs_grants").select("id",    { count: "exact", head: true }).eq("status", "pending"),
+  ]);
 
   return (
     <div className="min-h-screen bg-bg-primary text-text-primary px-8 py-12">
@@ -35,24 +42,55 @@ export default async function AdminPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <QueueLink
             href="/admin/users"
             title="Pending alumni profiles"
             count={pendingProfiles ?? 0}
             hint="Manual verification"
           />
-          <PlaceholderCard title="Pending opportunities" hint="Review queue — coming soon" />
-          <PlaceholderCard title="Pending VCs / grants"  hint="Review queue — coming soon" />
+          <QueueLink
+            href="/admin/opportunities"
+            title="Pending opportunities"
+            count={pendingOpportunities ?? 0}
+            hint="Review queue"
+          />
+          <QueueLink
+            href="/admin/events"
+            title="Pending events"
+            count={pendingEvents ?? 0}
+            hint="Review queue"
+          />
+          <QueueLink
+            href="/admin/vcs"
+            title="Pending VCs / grants"
+            count={pendingVcs ?? 0}
+            hint="Review queue"
+          />
+        </div>
+
+        <div className="mt-10">
+          <div className="text-[0.7rem] text-gold tracking-[0.18em] uppercase mb-2">Quick create</div>
+          <p className="text-[0.8rem] text-text-muted mb-4 leading-relaxed">
+            Publish directly without going through the approval queue.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <DiagLink href="/admin/opportunities/new" label="+ Opportunity" />
+            <DiagLink href="/admin/events/new"        label="+ Event" />
+            <DiagLink href="/admin/vcs/new"           label="+ VC / grant" />
+          </div>
         </div>
 
         <div className="mt-10">
           <div className="text-[0.7rem] text-gold tracking-[0.18em] uppercase mb-2">Member view</div>
           <p className="text-[0.8rem] text-text-muted mb-4 leading-relaxed">
-            Open the approved-member experience. You&apos;re verified, so this loads the live community page.
+            Open the approved-member experience. You&apos;re verified, so these load the live pages.
           </p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-            <DiagLink href="/community" label="Community" />
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <DiagLink href="/community"     label="Community" />
+            <DiagLink href="/opportunities" label="Opportunities" />
+            <DiagLink href="/events"        label="Events" />
+            <DiagLink href="/vcs"           label="Grants & VCs" />
           </div>
         </div>
 
@@ -91,14 +129,5 @@ function DiagLink({ href, label }: { href: string; label: string }) {
     >
       {label}
     </Link>
-  );
-}
-
-function PlaceholderCard({ title, hint }: { title: string; hint: string }) {
-  return (
-    <div className="p-5 rounded-xl bg-bg-card border border-border-subtle">
-      <div className="text-[0.9rem] font-medium text-text-primary mb-1">{title}</div>
-      <div className="text-[0.75rem] text-text-muted">{hint}</div>
-    </div>
   );
 }
