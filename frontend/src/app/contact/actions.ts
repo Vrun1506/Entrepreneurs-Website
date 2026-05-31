@@ -2,24 +2,29 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { sendContactTicket } from "@/lib/email";
+import { contactSchema } from "@/lib/validation/contact";
+import { validate } from "@/lib/validation/listings";
+import { allow } from "@/lib/ratelimit";
+import { verifyTurnstile } from "@/lib/turnstile";
 
 type Result = { ok: true } | { ok: false; error: string };
 
-export async function submitContactTicket(input: {
-  subject: string;
-  message: string;
-}): Promise<Result> {
-  const subject = input.subject.trim();
-  const message = input.message.trim();
-
-  if (!subject) return { ok: false, error: "Please enter a subject." };
-  if (subject.length > 150) return { ok: false, error: "Subject must be 150 characters or fewer." };
-  if (!message) return { ok: false, error: "Please enter a message." };
-  if (message.length > 4000) return { ok: false, error: "Message must be 4000 characters or fewer." };
+export async function submitContactTicket(input: unknown): Promise<Result> {
+  const parsed = validate(contactSchema, input);
+  if (!parsed.ok) return parsed;
+  const { subject, message } = parsed.data;
+  const token = (input as { turnstileToken?: string } | null)?.turnstileToken;
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user?.email) return { ok: false, error: "You must be signed in to contact the team." };
+
+  if (!(await verifyTurnstile(token))) {
+    return { ok: false, error: "Verification failed. Please complete the challenge and try again." };
+  }
+  if (!(await allow("submit", user.id))) {
+    return { ok: false, error: "You're sending messages too frequently. Please try again later." };
+  }
 
   const { data: profile } = await supabase
     .from("profiles")

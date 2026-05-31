@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { submitContactTicket } from "./actions";
+import { TurnstileWidget, turnstileConfigured } from "@/components/forms/TurnstileWidget";
 
 export default function ContactForm() {
   const [subject, setSubject] = useState("");
@@ -9,6 +10,7 @@ export default function ContactForm() {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState("");
   const [sent, setSent] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState("");
 
   const inputCls =
     "w-full px-4 py-3 bg-white/[0.03] border border-border rounded-lg text-[0.85rem] text-text-primary placeholder:text-text-muted outline-none transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]";
@@ -17,8 +19,12 @@ export default function ContactForm() {
     e.preventDefault();
     setError("");
     setSent(false);
+    if (turnstileConfigured && !turnstileToken) {
+      setError("Please complete the verification challenge below.");
+      return;
+    }
     startTransition(async () => {
-      const res = await submitContactTicket({ subject, message });
+      const res = await submitContactTicket({ subject, message, turnstileToken });
       if (!res.ok) {
         setError(res.error);
         return;
@@ -69,6 +75,8 @@ export default function ContactForm() {
           required
         />
       </div>
+
+      {turnstileConfigured && <TurnstileWidget onToken={setTurnstileToken} />}
 
       <button
         type="submit"

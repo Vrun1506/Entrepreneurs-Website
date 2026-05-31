@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { DM_Serif_Display, DM_Sans } from "next/font/google";
 import "./globals.css";
+import { PostHogProvider } from "@/components/analytics/PostHogProvider";
 
 const dmSerifDisplay = DM_Serif_Display({
   weight: "400",
@@ -26,7 +27,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${dmSerifDisplay.variable} ${dmSans.variable}`} data-scroll-behavior="smooth">
-      <body suppressHydrationWarning>{children}</body>
+      <body suppressHydrationWarning>
+        <PostHogProvider>{children}</PostHogProvider>
+      </body>
     </html>
   );
 }

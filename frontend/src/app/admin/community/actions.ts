@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/auth/actionAuth";
 import { sendAccountRemovalEmail } from "@/lib/email";
 import { describeSupabaseError } from "@/lib/supabaseErrors";
 
@@ -11,7 +11,9 @@ export async function adminDeleteUser(userId: string, reason: string): Promise<R
   const trimmed = reason.trim();
   if (!trimmed) return { ok: false, error: "A reason is required." };
 
-  const supabase = await createClient();
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth;
+  const { supabase } = auth;
   const { data, error } = await supabase.rpc("admin_delete_user", {
     p_user_id: userId,
     p_reason:  trimmed,

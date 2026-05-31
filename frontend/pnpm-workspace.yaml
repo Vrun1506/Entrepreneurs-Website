@@ -1,7 +1,10 @@
-onlyBuiltDependencies:
-  - sharp
-  - unrs-resolver
-
+# Build-script allow-list (pnpm 11). sharp + unrs-resolver need their native
+# builds; the rest are intentionally skipped. @sentry/cli's postinstall only
+# fetches the CLI used for source-map upload, which we don't run; core-js and
+# protobufjs ship usable prebuilt artifacts.
 allowBuilds:
+  '@sentry/cli': false
+  core-js: false
+  protobufjs: false
   sharp: true
   unrs-resolver: true

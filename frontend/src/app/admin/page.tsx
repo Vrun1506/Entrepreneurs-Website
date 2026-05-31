@@ -18,6 +18,9 @@ export default async function AdminPage() {
     supabase.from("vcs_grants").select("id",    { count: "exact", head: true }).eq("status", "pending"),
   ]);
 
+  const totalPending =
+    (pendingProfiles ?? 0) + (pendingOpportunities ?? 0) + (pendingEvents ?? 0) + (pendingVcs ?? 0);
+
   return (
     <div className="min-h-screen bg-bg-primary text-text-primary px-8 py-12">
       <div className="max-w-[1200px] mx-auto">
@@ -27,8 +30,17 @@ export default async function AdminPage() {
             <h1 className="font-display text-[clamp(2rem,4vw,2.75rem)] leading-[1.1] tracking-tight">
               Foundry control panel
             </h1>
-            <p className="text-[0.85rem] text-text-muted mt-2">
-              Signed in as <span className="text-text-secondary">{user?.email}</span>
+            <p className="text-[0.85rem] text-text-muted mt-2 flex items-center gap-2">
+              {totalPending > 0 ? (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-gold text-bg-primary text-[0.75rem] font-semibold">
+                  {totalPending} awaiting review
+                </span>
+              ) : (
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-white/[0.04] text-text-muted text-[0.75rem]">
+                  Queues clear
+                </span>
+              )}
+              <span>· Signed in as <span className="text-text-secondary">{user?.email}</span></span>
             </p>
           </div>
           <div className="flex items-center gap-4">
@@ -125,7 +137,11 @@ function QueueLink({ href, title, count, hint }: { href: string; title: string; 
     >
       <div className="flex items-start justify-between mb-1">
         <div className="text-[0.9rem] font-medium text-text-primary">{title}</div>
-        <div className="text-[0.85rem] font-medium text-gold">{count}</div>
+        {count > 0 ? (
+          <div className="min-w-[1.5rem] text-center px-2 py-0.5 rounded-full bg-gold text-bg-primary text-[0.75rem] font-semibold">{count}</div>
+        ) : (
+          <div className="text-[0.85rem] font-medium text-text-muted">0</div>
+        )}
       </div>
       <div className="text-[0.75rem] text-text-muted">{hint}</div>
     </Link>

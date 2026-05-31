@@ -2,12 +2,12 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { Field } from "@/components/forms/Field";
 import { ChipGroup, type ChipItem } from "@/components/forms/ChipGroup";
 import { ErrorBanner } from "@/components/forms/Banners";
 import { inputCls } from "@/components/forms/styles";
-import { describeSupabaseError } from "@/lib/supabaseErrors";
+import { TurnstileWidget, turnstileConfigured } from "@/components/forms/TurnstileWidget";
+import { submitOpportunity, updateOwnOpportunity } from "@/app/opportunities/actions";
 
 type Lookup = ChipItem;
 type Mode = "user" | "admin";
@@ -53,7 +53,6 @@ const START_YEARS = (() => {
 
 export default function OpportunityForm({ signupEmail, skills, sectors, mode, editingId, initialValues }: Props) {
   const router = useRouter();
-  const supabase = createClient();
 
   const iv = initialValues;
   const initialContactIsCustom = !!iv && iv.contactEmail.toLowerCase() !== signupEmail.toLowerCase();
@@ -77,6 +76,10 @@ export default function OpportunityForm({ signupEmail, skills, sectors, mode, ed
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
+
+  // Turnstile only gates user submissions, not admin direct-publish or edits.
+  const showTurnstile = mode === "user" && !editingId && turnstileConfigured;
 
   const toggle = (set: Set<number>, id: number, setter: (s: Set<number>) => void) => {
     const next = new Set(set);
@@ -123,41 +126,42 @@ export default function OpportunityForm({ signupEmail, skills, sectors, mode, ed
       setError("Contact email is invalid."); return;
     }
 
+    if (showTurnstile && !turnstileToken) {
+      setError("Please complete the verification challenge below."); return;
+    }
+
     setIsLoading(true);
-    const isEdit = !!editingId;
-    const rpc = isEdit
-      ? "update_opportunity"
-      : mode === "admin" ? "admin_create_opportunity" : "submit_opportunity";
 
-    const params: Record<string, unknown> = {
-      p_position_name:         positionName.trim(),
-      p_company:               company.trim(),
-      p_pay:                   pay.trim(),
-      p_location_type:         locationType,
-      p_location_text:         locationText.trim() || null,
-      p_description:           description.trim(),
-      p_start_month:           parseInt(startMonth, 10),
-      p_start_year:            parseInt(startYear,  10),
-      p_application_deadline:  applicationDeadline,
-      p_contact_email:         contactEmail,
-      p_contact_email_visible: contactEmailVisible,
-      p_apply_method:          applyMethod,
-      p_apply_url:             applyMethod === "link" ? applyUrl.trim() : null,
-      p_skill_ids:             Array.from(skillIds),
-      p_sector_ids:            Array.from(sectorIds),
+    const payload = {
+      positionName:        positionName.trim(),
+      company:             company.trim(),
+      pay:                 pay.trim(),
+      locationType,
+      locationText:        locationText.trim() || null,
+      description:         description.trim(),
+      startMonth:          parseInt(startMonth, 10),
+      startYear:           parseInt(startYear,  10),
+      applicationDeadline,
+      contactEmail,
+      contactEmailVisible,
+      applyMethod,
+      applyUrl:            applyMethod === "link" ? applyUrl.trim() : null,
+      skillIds:            Array.from(skillIds),
+      sectorIds:           Array.from(sectorIds),
     };
-    if (isEdit) params.p_id = editingId;
 
-    const { error: rpcError } = await supabase.rpc(rpc, params);
+    const res = editingId
+      ? await updateOwnOpportunity(editingId, payload)
+      : await submitOpportunity({ mode, payload, turnstileToken });
 
-    if (rpcError) {
-      setError(describeSupabaseError(rpcError));
+    if (!res.ok) {
+      setError(res.error);
       setIsLoading(false);
       return;
     }
 
     router.replace(
-      isEdit ? "/my-submissions"
+      editingId ? "/my-submissions"
       : mode === "admin" ? "/admin/opportunities"
       : "/opportunities?submitted=1"
     );
@@ -262,6 +266,8 @@ export default function OpportunityForm({ signupEmail, skills, sectors, mode, ed
 
       <ChipGroup label="Skills" hint="optional" items={skills} selected={skillIds} onToggle={(id) => toggle(skillIds, id, setSkillIds)} />
       <ChipGroup label="Sectors" hint="optional" items={sectors} selected={sectorIds} onToggle={(id) => toggle(sectorIds, id, setSectorIds)} />
+
+      {showTurnstile && <TurnstileWidget onToken={setTurnstileToken} />}
 
       <button
         type="submit"

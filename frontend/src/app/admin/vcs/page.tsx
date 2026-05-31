@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import VcReviewCard from "./VcReviewCard";
+import VcsReview from "./VcsReview";
 
 export default async function AdminVcsPage() {
   const supabase = await createClient();
@@ -59,9 +59,7 @@ export default async function AdminVcsPage() {
             Nothing pending. The queue is clear.
           </div>
         ) : (
-          <div className="space-y-4">
-            {pending.map((v) => <VcReviewCard key={v.id} vc={v} />)}
-          </div>
+          <VcsReview items={pending} />
         )}
       </div>
     </div>

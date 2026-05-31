@@ -2,12 +2,11 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { Field } from "@/components/forms/Field";
 import { ErrorBanner } from "@/components/forms/Banners";
 import { inputCls } from "@/components/forms/styles";
-import { describeSupabaseError } from "@/lib/supabaseErrors";
-import { updateOwnVcGrant } from "@/app/vcs/actions";
+import { TurnstileWidget, turnstileConfigured } from "@/components/forms/TurnstileWidget";
+import { submitVcGrant, updateOwnVcGrant } from "@/app/vcs/actions";
 
 type Mode = "user" | "admin";
 
@@ -29,7 +28,6 @@ export default function VcForm({
   initialValues?: VcInitialValues;
 }) {
   const router = useRouter();
-  const supabase = createClient();
 
   const iv = initialValues;
 
@@ -43,6 +41,9 @@ export default function VcForm({
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
+
+  const showTurnstile = mode === "user" && !editingId && turnstileConfigured;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,6 +57,9 @@ export default function VcForm({
     }
     if (!/^https?:\/\//i.test(link.trim())) {
       setError("Link must be a valid URL."); return;
+    }
+    if (showTurnstile && !turnstileToken) {
+      setError("Please complete the verification challenge below."); return;
     }
 
     setIsLoading(true);
@@ -80,19 +84,22 @@ export default function VcForm({
       return;
     }
 
-    const rpc = mode === "admin" ? "admin_create_vc_grant" : "submit_vc_grant";
-    const { error: rpcError } = await supabase.rpc(rpc, {
-      p_kind:        kind,
-      p_name:        name.trim(),
-      p_description: description.trim(),
-      p_link:        link.trim(),
-      p_amount:      amount.trim() || null,
-      p_deadline:    deadline || null,
-      p_stage:       stage.trim() || null,
+    const res = await submitVcGrant({
+      mode,
+      turnstileToken,
+      payload: {
+        kind,
+        name:        name.trim(),
+        description: description.trim(),
+        link:        link.trim(),
+        amount:      amount.trim() || null,
+        deadline:    deadline || null,
+        stage:       stage.trim() || null,
+      },
     });
 
-    if (rpcError) {
-      setError(describeSupabaseError(rpcError));
+    if (!res.ok) {
+      setError(res.error);
       setIsLoading(false);
       return;
     }
@@ -141,6 +148,8 @@ export default function VcForm({
           <input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} className={inputCls} />
         </Field>
       </div>
+
+      {showTurnstile && <TurnstileWidget onToken={setTurnstileToken} />}
 
       <button
         type="submit"

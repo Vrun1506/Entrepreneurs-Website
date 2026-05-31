@@ -40,8 +40,17 @@ export default function PrivacyPage() {
           <Section title="3. Lawful basis (UK GDPR)">
             <p>Consent. You opt in when you sign up. You can withdraw consent at any time by deleting your account, which removes all of your profile data, posted opportunities, events, and VC/grant submissions from our systems.</p>
           </Section>
-          <Section title="4. Where it&apos;s stored">
-            <p>Data is hosted on Supabase (EU West London) and Vercel (EU region). It does not leave UK/EU jurisdictions during normal operation. Operational emails go via Resend, which may process transit metadata.</p>
+          <Section title="4. Where it&apos;s stored and who processes it">
+            <p>Your data is hosted in UK/EU regions and does not leave UK/EU jurisdictions during normal operation. We use the following sub-processors:</p>
+            <ul className="list-disc pl-5 space-y-1 mt-2">
+              <li><strong>Supabase</strong> (EU, London) — database, authentication, and file storage. Holds your profile and the content you post.</li>
+              <li><strong>Vercel</strong> (EU, Frankfurt) — application hosting and serving.</li>
+              <li><strong>Resend</strong> (EU) — sending transactional email; processes recipient address and message content in transit.</li>
+              <li><strong>Cloudflare</strong> (EU) — DNS, inbound contact-email routing, edge protection, and the Turnstile anti-spam challenge on our forms. Processes request metadata (e.g. IP address) to block abuse.</li>
+              <li><strong>Upstash</strong> (EU) — rate limiting. Stores only short-lived request counters keyed to your user ID or IP; no profile data.</li>
+              <li><strong>Sentry</strong> (EU) — error monitoring. May capture technical diagnostics (e.g. URL, browser, user ID) when an error occurs; we do not send form contents.</li>
+              <li><strong>PostHog</strong> (EU) — privacy-friendly, cookieless product analytics (which pages and features are used).</li>
+            </ul>
           </Section>
           <Section title="5. Who can see it">
             <p>Your profile (name, course, grad year, bio, working_on, sectors, skills, links) is visible to other approved Foundry members in the directory. Your email address is not displayed unless you explicitly tick the &quot;visible&quot; box on a listing&apos;s contact email. Admins can see all profile data including emails for operational and review purposes.</p>
@@ -56,7 +65,7 @@ export default function PrivacyPage() {
             <p>Under UK GDPR you have the right to access, correct, export, or delete your personal data. Use the profile editor at /profile to amend, or the Delete Account flow at /settings to remove. For other rights requests, contact the team via /settings → Contact the team.</p>
           </Section>
           <Section title="9. Cookies">
-            <p>We use one essential cookie for your sign-in session (managed by Supabase). We do not use tracking or marketing cookies. Analytics tools may be added later; we will update this policy and notify members before doing so.</p>
+            <p>We use one essential cookie for your sign-in session (managed by Supabase). Cloudflare Turnstile may set a temporary token to confirm you are not a bot when you submit a form. Our product analytics (PostHog) runs cookieless. We do not use tracking or marketing cookies.</p>
           </Section>
           <Section title="10. Contact">
             <p>Data protection contact: via /settings → Contact the team in the app.</p>

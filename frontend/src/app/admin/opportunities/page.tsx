@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import OpportunityReviewCard from "./OpportunityReviewCard";
+import OpportunitiesReview from "./OpportunitiesReview";
 
 export default async function AdminOpportunitiesPage() {
   const supabase = await createClient();
@@ -58,9 +58,7 @@ export default async function AdminOpportunitiesPage() {
             Nothing pending. The queue is clear.
           </div>
         ) : (
-          <div className="space-y-4">
-            {pending.map((o) => <OpportunityReviewCard key={o.id} opportunity={o} />)}
-          </div>
+          <OpportunitiesReview items={pending} />
         )}
       </div>
     </div>
