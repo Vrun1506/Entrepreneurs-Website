@@ -1,7 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import { useState, useEffect } from "react";
+import { BrandLogo } from "@/components/BrandLogo";
 
 const NAV_LINKS = [
   { label: "Who are we?", href: "#who-we-are" },
@@ -16,21 +16,10 @@ function Logo() {
     <a
       href="#"
       onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: "smooth" }); }}
-      className="flex items-center gap-3 no-underline"
+      className="no-underline inline-block"
       aria-label="Foundry — Imperial Entrepreneurs"
     >
-      <Image
-        src="/entrepreneurs-logo.png"
-        alt=""
-        width={4832}
-        height={2540}
-        priority
-        className="h-9 w-auto"
-        style={{ mixBlendMode: "screen" }}
-      />
-      <span className="font-display text-[1.1rem] text-text-primary tracking-tight border-l border-border/60 pl-3">
-        Foundry
-      </span>
+      <BrandLogo size="md" />
     </a>
   );
 }
@@ -59,7 +48,7 @@ function JoinButton() {
   return (
     <a
       href="/login"
-      className="inline-flex items-center px-5 py-2 rounded-full no-underline bg-gold text-bg-primary text-sm font-medium tracking-wide transition-all duration-200 hover:bg-gold-light hover:-translate-y-px"
+      className="hidden md:inline-flex items-center px-5 py-2 rounded-full no-underline bg-gold text-bg-primary text-sm font-medium tracking-wide transition-all duration-200 hover:bg-gold-light hover:-translate-y-px"
     >
       Join Foundry
     </a>
@@ -145,6 +134,12 @@ export default function Navbar() {
               {link.label}
             </a>
           ))}
+          <a
+            href="/login"
+            className="inline-flex items-center justify-center px-5 py-2.5 rounded-full no-underline bg-gold text-bg-primary text-base font-medium tracking-wide"
+          >
+            Join Foundry
+          </a>
         </div>
       )}
     </header>

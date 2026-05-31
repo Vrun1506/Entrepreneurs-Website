@@ -3,15 +3,40 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { Field } from "@/components/forms/Field";
+import { ChipGroup, type ChipItem } from "@/components/forms/ChipGroup";
+import { ErrorBanner } from "@/components/forms/Banners";
+import { inputCls } from "@/components/forms/styles";
+import { describeSupabaseError } from "@/lib/supabaseErrors";
 
-type Lookup = { id: number; name: string };
+type Lookup = ChipItem;
 type Mode = "user" | "admin";
+
+export type OpportunityInitialValues = {
+  positionName: string;
+  company: string;
+  pay: string;
+  locationType: "remote" | "hybrid" | "onsite";
+  locationText: string;
+  description: string;
+  startMonth: string;
+  startYear: string;
+  applicationDeadline: string;
+  contactEmail: string;
+  contactEmailVisible: boolean;
+  applyMethod: "email" | "link";
+  applyUrl: string;
+  skillIds: number[];
+  sectorIds: number[];
+};
 
 type Props = {
   signupEmail: string;
   skills: Lookup[];
   sectors: Lookup[];
   mode: Mode;
+  editingId?: string;
+  initialValues?: OpportunityInitialValues;
 };
 
 const MONTHS = [
@@ -26,26 +51,29 @@ const START_YEARS = (() => {
   return out;
 })();
 
-export default function OpportunityForm({ signupEmail, skills, sectors, mode }: Props) {
+export default function OpportunityForm({ signupEmail, skills, sectors, mode, editingId, initialValues }: Props) {
   const router = useRouter();
   const supabase = createClient();
 
-  const [positionName, setPositionName] = useState("");
-  const [company, setCompany] = useState("");
-  const [pay, setPay] = useState("");
-  const [locationType, setLocationType] = useState<"remote" | "hybrid" | "onsite">("hybrid");
-  const [locationText, setLocationText] = useState("");
-  const [description, setDescription] = useState("");
-  const [startMonth, setStartMonth] = useState<string>(String(new Date().getMonth() + 1));
-  const [startYear, setStartYear] = useState<string>(String(new Date().getFullYear()));
-  const [applicationDeadline, setApplicationDeadline] = useState<string>("");
-  const [useCustomContact, setUseCustomContact] = useState(false);
-  const [customContactEmail, setCustomContactEmail] = useState("");
-  const [contactEmailVisible, setContactEmailVisible] = useState(false);
-  const [applyMethod, setApplyMethod] = useState<"email" | "link">("email");
-  const [applyUrl, setApplyUrl] = useState("");
-  const [skillIds, setSkillIds] = useState<Set<number>>(new Set());
-  const [sectorIds, setSectorIds] = useState<Set<number>>(new Set());
+  const iv = initialValues;
+  const initialContactIsCustom = !!iv && iv.contactEmail.toLowerCase() !== signupEmail.toLowerCase();
+
+  const [positionName, setPositionName] = useState(iv?.positionName ?? "");
+  const [company, setCompany] = useState(iv?.company ?? "");
+  const [pay, setPay] = useState(iv?.pay ?? "");
+  const [locationType, setLocationType] = useState<"remote" | "hybrid" | "onsite">(iv?.locationType ?? "hybrid");
+  const [locationText, setLocationText] = useState(iv?.locationText ?? "");
+  const [description, setDescription] = useState(iv?.description ?? "");
+  const [startMonth, setStartMonth] = useState<string>(iv?.startMonth ?? String(new Date().getMonth() + 1));
+  const [startYear, setStartYear] = useState<string>(iv?.startYear ?? String(new Date().getFullYear()));
+  const [applicationDeadline, setApplicationDeadline] = useState<string>(iv?.applicationDeadline ?? "");
+  const [useCustomContact, setUseCustomContact] = useState(initialContactIsCustom);
+  const [customContactEmail, setCustomContactEmail] = useState(initialContactIsCustom ? iv!.contactEmail : "");
+  const [contactEmailVisible, setContactEmailVisible] = useState(iv?.contactEmailVisible ?? false);
+  const [applyMethod, setApplyMethod] = useState<"email" | "link">(iv?.applyMethod ?? "email");
+  const [applyUrl, setApplyUrl] = useState(iv?.applyUrl ?? "");
+  const [skillIds, setSkillIds] = useState<Set<number>>(new Set(iv?.skillIds ?? []));
+  const [sectorIds, setSectorIds] = useState<Set<number>>(new Set(iv?.sectorIds ?? []));
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -96,8 +124,12 @@ export default function OpportunityForm({ signupEmail, skills, sectors, mode }: 
     }
 
     setIsLoading(true);
-    const rpc = mode === "admin" ? "admin_create_opportunity" : "submit_opportunity";
-    const { error: rpcError } = await supabase.rpc(rpc, {
+    const isEdit = !!editingId;
+    const rpc = isEdit
+      ? "update_opportunity"
+      : mode === "admin" ? "admin_create_opportunity" : "submit_opportunity";
+
+    const params: Record<string, unknown> = {
       p_position_name:         positionName.trim(),
       p_company:               company.trim(),
       p_pay:                   pay.trim(),
@@ -113,28 +145,28 @@ export default function OpportunityForm({ signupEmail, skills, sectors, mode }: 
       p_apply_url:             applyMethod === "link" ? applyUrl.trim() : null,
       p_skill_ids:             Array.from(skillIds),
       p_sector_ids:            Array.from(sectorIds),
-    });
+    };
+    if (isEdit) params.p_id = editingId;
+
+    const { error: rpcError } = await supabase.rpc(rpc, params);
 
     if (rpcError) {
-      setError(rpcError.message);
+      setError(describeSupabaseError(rpcError));
       setIsLoading(false);
       return;
     }
 
-    router.replace(mode === "admin" ? "/admin/opportunities" : "/opportunities?submitted=1");
+    router.replace(
+      isEdit ? "/my-submissions"
+      : mode === "admin" ? "/admin/opportunities"
+      : "/opportunities?submitted=1"
+    );
     router.refresh();
   };
 
-  const inputCls =
-    "w-full px-4 py-3 bg-white/[0.03] border border-border rounded-lg text-[0.85rem] text-text-primary placeholder:text-text-muted outline-none transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]";
-
   return (
     <form onSubmit={handleSubmit} className="space-y-5 rounded-2xl bg-bg-card border border-border-subtle p-8">
-      {error && (
-        <div className="px-4 py-3 rounded-lg bg-[#ff4d4d]/8 border border-[#ff4d4d]/20 text-[0.8rem] text-[#ff6b6b] leading-relaxed">
-          {error}
-        </div>
-      )}
+      {error && <ErrorBanner>{error}</ErrorBanner>}
 
       <Field label="Role title" required>
         <input type="text" maxLength={200} value={positionName} onChange={(e) => setPositionName(e.target.value)} className={inputCls} required />
@@ -228,8 +260,8 @@ export default function OpportunityForm({ signupEmail, skills, sectors, mode }: 
         )}
       </div>
 
-      <ChipGroup label="Skills" items={skills} selected={skillIds} onToggle={(id) => toggle(skillIds, id, setSkillIds)} />
-      <ChipGroup label="Sectors" items={sectors} selected={sectorIds} onToggle={(id) => toggle(sectorIds, id, setSectorIds)} />
+      <ChipGroup label="Skills" hint="optional" items={skills} selected={skillIds} onToggle={(id) => toggle(skillIds, id, setSkillIds)} />
+      <ChipGroup label="Sectors" hint="optional" items={sectors} selected={sectorIds} onToggle={(id) => toggle(sectorIds, id, setSectorIds)} />
 
       <button
         type="submit"
@@ -238,6 +270,8 @@ export default function OpportunityForm({ signupEmail, skills, sectors, mode }: 
       >
         {isLoading ? (
           <div className="w-[18px] h-[18px] border-2 border-[#0c0c0b]/30 border-t-[#0c0c0b] rounded-full animate-spin" />
+        ) : editingId ? (
+          "Save changes"
         ) : mode === "admin" ? (
           "Publish opportunity"
         ) : (
@@ -248,43 +282,3 @@ export default function OpportunityForm({ signupEmail, skills, sectors, mode }: 
   );
 }
 
-function Field({
-  label, required, hint, children,
-}: { label: string; required?: boolean; hint?: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <label className="block text-[0.75rem] text-text-muted mb-1.5">
-        {label} {required && <span className="text-[#ff6b6b]">*</span>}
-        {hint && <span className="text-text-muted/70 ml-2">{hint}</span>}
-      </label>
-      {children}
-    </div>
-  );
-}
-
-function ChipGroup({
-  label, items, selected, onToggle,
-}: { label: string; items: Lookup[]; selected: Set<number>; onToggle: (id: number) => void }) {
-  return (
-    <div>
-      <div className="block text-[0.75rem] text-text-muted mb-2">
-        {label} <span className="text-text-muted/70">— optional</span>
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {items.map((it) => {
-          const on = selected.has(it.id);
-          return (
-            <button
-              key={it.id}
-              type="button"
-              onClick={() => onToggle(it.id)}
-              className={`px-3 py-1.5 rounded-full text-[0.775rem] border transition-colors duration-150 cursor-pointer ${on ? "bg-gold-muted border-gold/50 text-gold-light" : "bg-white/[0.02] border-border text-text-secondary hover:border-gold/30 hover:text-text-primary"}`}
-            >
-              {it.name}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}

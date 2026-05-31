@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { BrandLogo } from "@/components/BrandLogo";
 
 export default function NotFound() {
   return (
@@ -19,13 +20,8 @@ export default function NotFound() {
       {/* Top bar */}
       <header className="relative z-10 px-8 py-5">
         <div className="max-w-[1200px] mx-auto">
-          <Link href="/" className="flex items-center gap-2 no-underline w-fit">
-            <span className="w-7 h-7 rounded-md bg-gold flex items-center justify-center shrink-0">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <path d="M7 1L13 4.5V9.5L7 13L1 9.5V4.5L7 1Z" stroke="#0c0c0b" strokeWidth="1.5" strokeLinejoin="round" />
-              </svg>
-            </span>
-            <span className="font-display text-[1.1rem] text-text-primary tracking-tight">Foundry</span>
+          <Link href="/" className="no-underline w-fit inline-block">
+            <BrandLogo size="sm" />
           </Link>
         </div>
       </header>

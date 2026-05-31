@@ -1,0 +1,42 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { createClient } from "@/lib/supabase/server";
+import { sendAccountRemovalEmail } from "@/lib/email";
+import { describeSupabaseError } from "@/lib/supabaseErrors";
+
+type Result = { ok: true } | { ok: false; error: string };
+
+export async function adminDeleteUser(userId: string, reason: string): Promise<Result> {
+  const trimmed = reason.trim();
+  if (!trimmed) return { ok: false, error: "A reason is required." };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("admin_delete_user", {
+    p_user_id: userId,
+    p_reason:  trimmed,
+  });
+  if (error) return { ok: false, error: describeSupabaseError(error) };
+
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row?.email) {
+    console.warn("admin_delete_user returned no email for user:", userId);
+    revalidatePath("/admin/community");
+    return { ok: true };
+  }
+
+  try {
+    await sendAccountRemovalEmail({
+      to:        row.email,
+      firstName: row.first_name ?? null,
+      reason:    trimmed,
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    revalidatePath("/admin/community");
+    return { ok: false, error: `User deleted, but email failed to send: ${msg}` };
+  }
+
+  revalidatePath("/admin/community");
+  return { ok: true };
+}

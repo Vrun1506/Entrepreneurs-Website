@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { approveEvent, rejectEvent } from "./actions";
+import { formatDate, formatDateTime } from "@/lib/dates";
 
 type Ev = {
   id: string;
@@ -29,13 +30,8 @@ export default function EventReviewCard({ ev }: { ev: Ev }) {
   const [showReject, setShowReject] = useState(false);
   const [reason, setReason] = useState("");
 
-  const submittedOn = new Date(ev.createdAt).toLocaleDateString("en-GB", {
-    year: "numeric", month: "short", day: "numeric",
-  });
-  const when = new Date(ev.eventAt).toLocaleString("en-GB", {
-    weekday: "short", year: "numeric", month: "short", day: "numeric",
-    hour: "2-digit", minute: "2-digit",
-  });
+  const submittedOn = formatDate(ev.createdAt);
+  const when = formatDateTime(ev.eventAt);
 
   const handleApprove = () => {
     setError("");

@@ -1,59 +1,41 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import AppNav from "@/components/AppNav";
+import SubmittedBanner from "@/components/SubmittedBanner";
+import { requireApprovedUser } from "@/lib/auth/guard";
 import OpportunitiesClient from "./OpportunitiesClient";
 
-export default async function OpportunitiesPage() {
-  const supabase = await createClient();
+export default async function OpportunitiesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ submitted?: string }>;
+}) {
+  const { supabase, user, isAdmin } = await requireApprovedUser();
+  const justSubmitted = (await searchParams)?.submitted === "1";
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  // Go through the SECURITY DEFINER RPC so contact_email is masked in
+  // the database, not at the app layer. Migration 20260530000002.
+  const [oppsRes, bookmarksRes, actionsRes] = await Promise.all([
+    supabase.rpc("list_approved_opportunities"),
+    supabase.from("opportunity_bookmarks").select("opportunity_id").eq("user_id", user.id),
+    supabase.rpc("get_my_listing_actions"),
+  ]);
 
-  const { data: isAdmin } = await supabase.rpc("is_admin");
+  if (oppsRes.error) console.error("Failed to load opportunities:", oppsRes.error);
+  if (bookmarksRes.error) console.error("Failed to load bookmarks:", bookmarksRes.error);
+  if (actionsRes.error) console.error("Failed to load listing actions:", actionsRes.error);
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("status")
-    .eq("id", user.id)
-    .single();
-
-  if (!profile) redirect("/login");
-  if (!isAdmin) {
-    if (profile.status === "pending_onboarding") redirect("/onboarding");
-    if (profile.status === "pending_review")     redirect("/pending");
-    if (profile.status === "rejected")           redirect("/rejected");
-  }
-
-  const today = new Date().toISOString().slice(0, 10);
-  const { data: rows, error } = await supabase
-    .from("opportunities")
-    .select(`
-      id, position_name, company, pay,
-      location_type, location_text,
-      description, start_month, start_year,
-      application_deadline,
-      contact_email, contact_email_visible,
-      apply_method, apply_url,
-      posted_by,
-      created_at,
-      profiles:posted_by ( first_name, surname, linkedin_url ),
-      opportunity_skills  ( skills  ( id, name ) ),
-      opportunity_sectors ( sectors ( id, name ) )
-    `)
-    .eq("status", "approved")
-    .gte("application_deadline", today)
-    .order("created_at", { ascending: false });
-
-  if (error) console.error("Failed to load opportunities:", error);
-
-  const items = ((rows ?? []) as unknown as RawRow[]).map(toOpportunity);
+  const items = ((oppsRes.data ?? []) as RpcRow[]).map(toOpportunity);
+  const bookmarkedIds = (bookmarksRes.data ?? []).map((r) => r.opportunity_id as string);
+  const appliedIds = ((actionsRes.data ?? []) as ActionRow[])
+    .filter((a) => a.listing_kind === "opportunity" && a.action_type === "applied")
+    .map((a) => a.listing_id);
 
   return (
     <div className="min-h-screen bg-bg-primary flex flex-col">
-      <AppNav active="opportunities" isApproved={true} isAdmin={!!isAdmin} />
-      <main className="flex-1 px-8 py-12">
+      <AppNav active="opportunities" isApproved={true} isAdmin={isAdmin} />
+      <main className="flex-1 px-4 sm:px-8 py-10 sm:py-12">
         <div className="max-w-[1200px] mx-auto">
+          {justSubmitted && <SubmittedBanner kind="opportunity" />}
           <div className="mb-8 flex items-start justify-between gap-4 flex-wrap">
             <div>
               <div className="text-[0.7rem] text-gold tracking-[0.18em] uppercase mb-2">Opportunities</div>
@@ -64,21 +46,39 @@ export default async function OpportunitiesPage() {
                 {items.length} open role{items.length === 1 ? "" : "s"}.
               </p>
             </div>
-            <Link
-              href="/opportunities/new"
-              className="px-4 py-2 rounded-full bg-gold text-bg-primary text-[0.825rem] font-medium no-underline transition-colors duration-150 hover:bg-gold-light"
-            >
-              Post an opportunity →
-            </Link>
+            <div className="flex items-center gap-3">
+              <Link
+                href="/my-bookmarks"
+                className="text-[0.8rem] text-text-secondary no-underline transition-colors duration-150 hover:text-gold-light flex items-center gap-1.5"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+                </svg>
+                Your bookmarks{bookmarkedIds.length > 0 ? ` (${bookmarkedIds.length})` : ""}
+              </Link>
+              <Link
+                href="/opportunities/new"
+                className="px-4 py-2 rounded-full bg-gold text-bg-primary text-[0.825rem] font-medium no-underline transition-colors duration-150 hover:bg-gold-light"
+              >
+                Post an opportunity →
+              </Link>
+            </div>
           </div>
-          <OpportunitiesClient items={items} />
+          <OpportunitiesClient items={items} bookmarkedIds={bookmarkedIds} appliedIds={appliedIds} />
         </div>
       </main>
     </div>
   );
 }
 
-type RawRow = {
+type ActionRow = {
+  listing_kind: "opportunity" | "event" | "vc_grant";
+  listing_id:   string;
+  action_type:  "applied" | "going";
+  created_at:   string;
+};
+
+type RpcRow = {
   id: string;
   position_name: string;
   company: string;
@@ -89,18 +89,20 @@ type RawRow = {
   start_month: number;
   start_year: number;
   application_deadline: string;
-  contact_email: string;
+  contact_email: string | null;
   contact_email_visible: boolean;
   apply_method: "email" | "link";
   apply_url: string | null;
   posted_by: string;
   created_at: string;
-  profiles: { first_name: string; surname: string; linkedin_url: string | null } | null;
-  opportunity_skills:  { skills:  { id: number; name: string } | null }[];
-  opportunity_sectors: { sectors: { id: number; name: string } | null }[];
+  poster_first_name: string | null;
+  poster_surname: string | null;
+  poster_linkedin_url: string | null;
+  skill_names: string[];
+  sector_names: string[];
 };
 
-function toOpportunity(r: RawRow) {
+function toOpportunity(r: RpcRow) {
   return {
     id: r.id,
     positionName: r.position_name,
@@ -112,17 +114,17 @@ function toOpportunity(r: RawRow) {
     startMonth: r.start_month,
     startYear: r.start_year,
     applicationDeadline: r.application_deadline,
-    // Defense in depth: never ship the contact email to the client unless
-    // the poster opted in to visibility. The DB row carries both fields.
-    contactEmail: r.contact_email_visible ? r.contact_email : null,
+    // contact_email is already masked by the RPC when visibility is off
+    // and the caller isn't the poster / admin.
+    contactEmail: r.contact_email,
     applyMethod: r.apply_method,
     applyUrl: r.apply_url,
     postedBy: {
-      firstName: r.profiles?.first_name ?? "",
-      surname:   r.profiles?.surname    ?? "",
-      linkedinUrl: r.profiles?.linkedin_url ?? null,
+      firstName:   r.poster_first_name ?? "",
+      surname:     r.poster_surname    ?? "",
+      linkedinUrl: r.poster_linkedin_url,
     },
-    skills:  r.opportunity_skills.map((s)  => s.skills?.name).filter((n): n is string => !!n),
-    sectors: r.opportunity_sectors.map((s) => s.sectors?.name).filter((n): n is string => !!n),
+    skills:  r.skill_names  ?? [],
+    sectors: r.sector_names ?? [],
   };
 }

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import SignOutButton from "@/app/admin/SignOutButton";
+import { BrandLogo } from "@/components/BrandLogo";
 
 export default async function PendingPage() {
   const supabase = await createClient();
@@ -27,15 +28,10 @@ export default async function PendingPage() {
 
   return (
     <div className="relative min-h-screen bg-bg-primary flex flex-col">
-      <header className="px-8 py-5">
+      <header className="sticky top-0 z-40 px-8 py-5 bg-bg-primary/90 backdrop-blur-md border-b border-border-subtle">
         <div className="max-w-[1200px] mx-auto flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 no-underline">
-            <span className="w-7 h-7 rounded-md bg-gold flex items-center justify-center shrink-0">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <path d="M7 1L13 4.5V9.5L7 13L1 9.5V4.5L7 1Z" stroke="#0c0c0b" strokeWidth="1.5" strokeLinejoin="round" />
-              </svg>
-            </span>
-            <span className="font-display text-[1.1rem] text-text-primary tracking-tight">Foundry</span>
+          <Link href="/" className="no-underline">
+            <BrandLogo size="sm" />
           </Link>
           <SignOutButton />
         </div>

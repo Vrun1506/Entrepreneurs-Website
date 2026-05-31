@@ -1,29 +1,9 @@
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import AppNav from "@/components/AppNav";
+import { requireApprovedUser } from "@/lib/auth/guard";
 import CommunityClient from "./CommunityClient";
 
 export default async function CommunityPage() {
-  const supabase = await createClient();
-
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: isAdmin } = await supabase.rpc("is_admin");
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("status")
-    .eq("id", user.id)
-    .single();
-
-  if (!profile) redirect("/login");
-  // Admins bypass status gates so they can browse the user-facing UI for diagnostics.
-  if (!isAdmin) {
-    if (profile.status === "pending_onboarding") redirect("/onboarding");
-    if (profile.status === "pending_review")     redirect("/pending");
-    if (profile.status === "rejected")           redirect("/rejected");
-  }
+  const { supabase, isAdmin } = await requireApprovedUser();
 
   const { data: members, error } = await supabase
     .from("profiles")
@@ -32,16 +12,19 @@ export default async function CommunityPage() {
       first_name,
       surname,
       role,
+      course,
       grad_year,
       bio,
       working_on,
       linkedin_url,
       github_url,
+      portfolio_url,
+      created_at,
       profile_skills ( skills ( id, name ) ),
       profile_sectors ( sectors ( id, name ) )
     `)
     .eq("status", "approved")
-    .order("first_name", { ascending: true });
+    .order("created_at", { ascending: false });
 
   if (error) {
     console.error("Failed to load community:", error);
@@ -51,11 +34,18 @@ export default async function CommunityPage() {
   // joins, but supabase-js's untyped client infers it as an array. Cast at the
   // boundary; runtime shape is { skills: { id, name } } per row.
   const memberRows = (members ?? []) as unknown as RawJoinRow[];
+  const mapped = memberRows.map(toMember);
+  // Newest = first N by created_at desc (the server already returns this order).
+  // Directory list = alphabetical for predictable browsing.
+  const newest = mapped.slice(0, 5);
+  const directory = [...mapped].sort((a, b) =>
+    `${a.firstName} ${a.surname}`.localeCompare(`${b.firstName} ${b.surname}`)
+  );
 
   return (
     <div className="min-h-screen bg-bg-primary flex flex-col">
-      <AppNav active="community" isApproved={true} isAdmin={!!isAdmin} />
-      <main className="flex-1 px-8 py-12">
+      <AppNav active="community" isApproved={true} isAdmin={isAdmin} />
+      <main className="flex-1 px-4 sm:px-8 py-10 sm:py-12">
         <div className="max-w-[1200px] mx-auto">
           <div className="mb-8">
             <div className="text-[0.7rem] text-gold tracking-[0.18em] uppercase mb-2">Community</div>
@@ -66,7 +56,7 @@ export default async function CommunityPage() {
               {members?.length ?? 0} member{(members?.length ?? 0) === 1 ? "" : "s"}.
             </p>
           </div>
-          <CommunityClient members={memberRows.map(toMember)} />
+          <CommunityClient members={directory} newest={newest} />
         </div>
       </main>
     </div>
@@ -78,11 +68,14 @@ type RawJoinRow = {
   first_name: string;
   surname: string;
   role: "alum" | "student";
+  course: string | null;
   grad_year: number | null;
   bio: string | null;
   working_on: string | null;
   linkedin_url: string | null;
   github_url: string | null;
+  portfolio_url: string | null;
+  created_at: string;
   profile_skills:  { skills:  { id: number; name: string } | null }[];
   profile_sectors: { sectors: { id: number; name: string } | null }[];
 };
@@ -93,11 +86,13 @@ function toMember(r: RawJoinRow) {
     firstName: r.first_name,
     surname: r.surname,
     role: r.role,
+    course: r.course,
     gradYear: r.grad_year,
     bio: r.bio,
     workingOn: r.working_on,
     linkedinUrl: r.linkedin_url,
     githubUrl: r.github_url,
+    portfolioUrl: r.portfolio_url,
     skills:  r.profile_skills.map((s)  => s.skills?.name).filter((n): n is string => !!n),
     sectors: r.profile_sectors.map((s) => s.sectors?.name).filter((n): n is string => !!n),
   };

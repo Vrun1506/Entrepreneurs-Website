@@ -24,7 +24,7 @@ export default async function ContactPage() {
   return (
     <div className="min-h-screen bg-bg-primary flex flex-col">
       <AppNav active="settings" isApproved={profile.status === "approved"} isAdmin={isAdmin} />
-      <main className="flex-1 px-8 py-12">
+      <main className="flex-1 px-4 sm:px-8 py-10 sm:py-12">
         <div className="max-w-[640px] mx-auto">
           <Link
             href="/settings"

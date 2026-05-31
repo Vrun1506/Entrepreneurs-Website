@@ -1,53 +1,45 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import AppNav from "@/components/AppNav";
+import SubmittedBanner from "@/components/SubmittedBanner";
+import { requireApprovedUser } from "@/lib/auth/guard";
 import EventsClient from "./EventsClient";
 
-export default async function EventsPage() {
-  const supabase = await createClient();
+type ActionRow = {
+  listing_kind: "opportunity" | "event" | "vc_grant";
+  listing_id:   string;
+  action_type:  "applied" | "going";
+  created_at:   string;
+};
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+export default async function EventsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ submitted?: string }>;
+}) {
+  const { supabase, isAdmin } = await requireApprovedUser();
+  const justSubmitted = (await searchParams)?.submitted === "1";
 
-  const { data: isAdmin } = await supabase.rpc("is_admin");
+  // SECURITY DEFINER RPC masks contact_email at the DB layer rather
+  // than the application mapper (migration 20260530000002).
+  const [evRes, actionsRes] = await Promise.all([
+    supabase.rpc("list_approved_events"),
+    supabase.rpc("get_my_listing_actions"),
+  ]);
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("status")
-    .eq("id", user.id)
-    .single();
+  if (evRes.error) console.error("Failed to load events:", evRes.error);
+  if (actionsRes.error) console.error("Failed to load listing actions:", actionsRes.error);
 
-  if (!profile) redirect("/login");
-  if (!isAdmin) {
-    if (profile.status === "pending_onboarding") redirect("/onboarding");
-    if (profile.status === "pending_review")     redirect("/pending");
-    if (profile.status === "rejected")           redirect("/rejected");
-  }
-
-  const nowIso = new Date().toISOString();
-  const { data: rows, error } = await supabase
-    .from("events")
-    .select(`
-      id, title, description, luma_link,
-      event_at, location, organiser_name,
-      contact_email, contact_email_visible,
-      posted_by, created_at,
-      profiles:posted_by ( first_name, surname, linkedin_url )
-    `)
-    .eq("status", "approved")
-    .gte("event_at", nowIso)
-    .order("event_at", { ascending: true });
-
-  if (error) console.error("Failed to load events:", error);
-
-  const items = ((rows ?? []) as unknown as RawRow[]).map(toEvent);
+  const items = ((evRes.data ?? []) as RpcRow[]).map(toEvent);
+  const goingIds = ((actionsRes.data ?? []) as ActionRow[])
+    .filter((a) => a.listing_kind === "event" && a.action_type === "going")
+    .map((a) => a.listing_id);
 
   return (
     <div className="min-h-screen bg-bg-primary flex flex-col">
-      <AppNav active="events" isApproved={true} isAdmin={!!isAdmin} />
-      <main className="flex-1 px-8 py-12">
+      <AppNav active="events" isApproved={true} isAdmin={isAdmin} />
+      <main className="flex-1 px-4 sm:px-8 py-10 sm:py-12">
         <div className="max-w-[1200px] mx-auto">
+          {justSubmitted && <SubmittedBanner kind="event" />}
           <div className="mb-8 flex items-start justify-between gap-4 flex-wrap">
             <div>
               <div className="text-[0.7rem] text-gold tracking-[0.18em] uppercase mb-2">Events</div>
@@ -65,14 +57,14 @@ export default async function EventsPage() {
               Post an event →
             </Link>
           </div>
-          <EventsClient items={items} />
+          <EventsClient items={items} goingIds={goingIds} />
         </div>
       </main>
     </div>
   );
 }
 
-type RawRow = {
+type RpcRow = {
   id: string;
   title: string;
   description: string;
@@ -80,14 +72,16 @@ type RawRow = {
   event_at: string;
   location: string;
   organiser_name: string;
-  contact_email: string;
+  contact_email: string | null;
   contact_email_visible: boolean;
   posted_by: string;
   created_at: string;
-  profiles: { first_name: string; surname: string; linkedin_url: string | null } | null;
+  poster_first_name: string | null;
+  poster_surname: string | null;
+  poster_linkedin_url: string | null;
 };
 
-function toEvent(r: RawRow) {
+function toEvent(r: RpcRow) {
   return {
     id: r.id,
     title: r.title,
@@ -96,11 +90,11 @@ function toEvent(r: RawRow) {
     eventAt: r.event_at,
     location: r.location,
     organiserName: r.organiser_name,
-    contactEmail: r.contact_email_visible ? r.contact_email : null,
+    contactEmail: r.contact_email,
     postedBy: {
-      firstName: r.profiles?.first_name ?? "",
-      surname:   r.profiles?.surname    ?? "",
-      linkedinUrl: r.profiles?.linkedin_url ?? null,
+      firstName:   r.poster_first_name ?? "",
+      surname:     r.poster_surname    ?? "",
+      linkedinUrl: r.poster_linkedin_url,
     },
   };
 }

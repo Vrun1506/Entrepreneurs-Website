@@ -3,16 +3,23 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { ChipGroup, type ChipItem } from "@/components/forms/ChipGroup";
+import { ErrorBanner, SuccessBanner } from "@/components/forms/Banners";
+import { inputCls } from "@/components/forms/styles";
+import { cleanName, cleanText } from "@/lib/text";
+import { describeSupabaseError } from "@/lib/supabaseErrors";
 
-type Lookup = { id: number; name: string };
+type Lookup = ChipItem;
 
 type Props = {
   role: "alum" | "student";
   firstName: string;
   surname: string;
+  course: string;
+  gradYear: number | null;
   linkedinUrl: string;
   githubUrl: string;
-  gradYear: number | null;
+  portfolioUrl: string;
   bio: string;
   workingOn: string;
   skills: Lookup[];
@@ -23,11 +30,12 @@ type Props = {
 
 const LINKEDIN_RE = /^https?:\/\/([a-z0-9-]+\.)*linkedin\.com\//i;
 const GITHUB_RE   = /^https?:\/\/([a-z0-9-]+\.)*github\.com\//i;
+const URL_RE      = /^https?:\/\/.+/i;
 
 const GRAD_YEARS = (() => {
   const now = new Date().getFullYear();
   const out: number[] = [];
-  for (let y = now + 5; y >= 1960; y--) out.push(y);
+  for (let y = now + 6; y >= 1960; y--) out.push(y);
   return out;
 })();
 
@@ -37,9 +45,11 @@ export default function ProfileForm(props: Props) {
 
   const [firstName, setFirstName] = useState(props.firstName);
   const [surname, setSurname] = useState(props.surname);
+  const [course, setCourse] = useState(props.course);
+  const [gradYear, setGradYear] = useState<string>(props.gradYear?.toString() ?? "");
   const [linkedin, setLinkedin] = useState(props.linkedinUrl);
   const [github, setGithub] = useState(props.githubUrl);
-  const [gradYear, setGradYear] = useState<string>(props.gradYear?.toString() ?? "");
+  const [portfolio, setPortfolio] = useState(props.portfolioUrl);
   const [bio, setBio] = useState(props.bio);
   const [workingOn, setWorkingOn] = useState(props.workingOn);
   const [skillIds, setSkillIds] = useState<Set<number>>(new Set(props.selectedSkills));
@@ -60,21 +70,35 @@ export default function ProfileForm(props: Props) {
     setError("");
     setSaved(false);
 
-    const trimmedFirst = firstName.trim();
-    const trimmedSurname = surname.trim();
+    const trimmedFirst = cleanName(firstName);
+    const trimmedSurname = cleanName(surname);
+    const cleanedCourse = cleanText(course);
     if (!trimmedFirst || !trimmedSurname) {
       setError("First name and surname are required.");
-      return;
-    }
-    if (trimmedFirst.length < 2 || trimmedSurname.length < 2) {
-      setError("First name and surname must be at least 2 characters.");
       return;
     }
     if (trimmedFirst.length > 50 || trimmedSurname.length > 50) {
       setError("First name and surname must be 50 characters or fewer.");
       return;
     }
-    if (!LINKEDIN_RE.test(linkedin.trim())) {
+    if (!cleanedCourse) {
+      setError("Course is required.");
+      return;
+    }
+    if (cleanedCourse.length > 200) {
+      setError("Course must be 200 characters or fewer.");
+      return;
+    }
+    const gradYearNum = parseInt(gradYear, 10);
+    if (!gradYearNum || gradYearNum < 1950 || gradYearNum > 2099) {
+      setError("Please pick a valid graduation year.");
+      return;
+    }
+    if (props.role === "alum" && !linkedin.trim()) {
+      setError("LinkedIn URL is required for alumni.");
+      return;
+    }
+    if (linkedin.trim() && !LINKEDIN_RE.test(linkedin.trim())) {
       setError("Please enter a valid LinkedIn URL.");
       return;
     }
@@ -82,13 +106,9 @@ export default function ProfileForm(props: Props) {
       setError("Please enter a valid GitHub URL or leave it blank.");
       return;
     }
-    let gradYearNum: number | null = null;
-    if (props.role === "alum") {
-      gradYearNum = parseInt(gradYear, 10);
-      if (!gradYearNum || gradYearNum < 1950 || gradYearNum > 2099) {
-        setError("Please pick a valid graduation year.");
-        return;
-      }
+    if (portfolio.trim() && !URL_RE.test(portfolio.trim())) {
+      setError("Portfolio URL must start with http:// or https://.");
+      return;
     }
     if (bio.length > 1000) {
       setError("Bio must be 1000 characters or fewer.");
@@ -101,19 +121,21 @@ export default function ProfileForm(props: Props) {
 
     setIsLoading(true);
     const { error: rpcError } = await supabase.rpc("update_profile", {
-      p_first_name:   firstName.trim(),
-      p_surname:      surname.trim(),
-      p_linkedin_url: linkedin.trim(),
-      p_github_url:   github.trim() || null,
-      p_grad_year:    gradYearNum,
-      p_bio:          bio.trim() || null,
-      p_working_on:   workingOn.trim() || null,
-      p_skill_ids:    Array.from(skillIds),
-      p_sector_ids:   Array.from(sectorIds),
+      p_first_name:    trimmedFirst,
+      p_surname:       trimmedSurname,
+      p_course:        cleanedCourse,
+      p_grad_year:     gradYearNum,
+      p_linkedin_url:  cleanText(linkedin) || null,
+      p_github_url:    cleanText(github) || null,
+      p_portfolio_url: cleanText(portfolio) || null,
+      p_bio:           cleanText(bio) || null,
+      p_working_on:    cleanText(workingOn) || null,
+      p_skill_ids:     Array.from(skillIds),
+      p_sector_ids:    Array.from(sectorIds),
     });
 
     if (rpcError) {
-      setError(rpcError.message);
+      setError(describeSupabaseError(rpcError));
       setIsLoading(false);
       return;
     }
@@ -123,21 +145,10 @@ export default function ProfileForm(props: Props) {
     router.refresh();
   };
 
-  const inputCls =
-    "w-full px-4 py-3 bg-white/[0.03] border border-border rounded-lg text-[0.85rem] text-text-primary placeholder:text-text-muted outline-none transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]";
-
   return (
     <form onSubmit={handleSubmit} className="space-y-5 rounded-2xl bg-bg-card border border-border-subtle p-8">
-      {error && (
-        <div className="px-4 py-3 rounded-lg bg-[#ff4d4d]/8 border border-[#ff4d4d]/20 text-[0.8rem] text-[#ff6b6b] leading-relaxed">
-          {error}
-        </div>
-      )}
-      {saved && !error && (
-        <div className="px-4 py-3 rounded-lg bg-gold-muted border border-gold/30 text-[0.8rem] text-gold-light leading-relaxed">
-          Saved.
-        </div>
-      )}
+      {error && <ErrorBanner>{error}</ErrorBanner>}
+      {saved && !error && <SuccessBanner>Saved.</SuccessBanner>}
 
       <div className="flex gap-3">
         <div className="flex-1">
@@ -151,8 +162,46 @@ export default function ProfileForm(props: Props) {
       </div>
 
       <div>
-        <label htmlFor="linkedin" className="block text-[0.75rem] text-text-muted mb-1.5">LinkedIn URL</label>
-        <input id="linkedin" type="url" value={linkedin} onChange={(e) => setLinkedin(e.target.value)} className={inputCls} required />
+        <label htmlFor="course" className="block text-[0.75rem] text-text-muted mb-1.5">
+          {props.role === "alum" ? "Course studied" : "Course you're studying"}
+        </label>
+        <input
+          id="course"
+          type="text"
+          value={course}
+          onChange={(e) => setCourse(e.target.value)}
+          className={inputCls}
+          maxLength={200}
+          placeholder={props.role === "alum" ? "e.g. MEng Computing" : "e.g. BSc Mathematics"}
+          required
+        />
+      </div>
+
+      <div>
+        <label htmlFor="grad-year" className="block text-[0.75rem] text-text-muted mb-1.5">
+          {props.role === "alum" ? "Graduation year" : "Expected graduation year"}
+        </label>
+        <select id="grad-year" value={gradYear} onChange={(e) => setGradYear(e.target.value)} className={inputCls} required>
+          <option value="">Select a year</option>
+          {GRAD_YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+        </select>
+      </div>
+
+      <div>
+        <label htmlFor="linkedin" className="block text-[0.75rem] text-text-muted mb-1.5">
+          LinkedIn URL{" "}
+          {props.role === "student" && (
+            <span className="text-text-muted/70 ml-1">— optional</span>
+          )}
+        </label>
+        <input
+          id="linkedin"
+          type="url"
+          value={linkedin}
+          onChange={(e) => setLinkedin(e.target.value)}
+          className={inputCls}
+          required={props.role === "alum"}
+        />
       </div>
 
       <div>
@@ -169,15 +218,19 @@ export default function ProfileForm(props: Props) {
         />
       </div>
 
-      {props.role === "alum" && (
-        <div>
-          <label htmlFor="grad-year" className="block text-[0.75rem] text-text-muted mb-1.5">Graduation year</label>
-          <select id="grad-year" value={gradYear} onChange={(e) => setGradYear(e.target.value)} className={inputCls} required>
-            <option value="">Select a year</option>
-            {GRAD_YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
-          </select>
-        </div>
-      )}
+      <div>
+        <label htmlFor="portfolio" className="block text-[0.75rem] text-text-muted mb-1.5">
+          Portfolio URL <span className="text-text-muted/70 ml-1">— optional</span>
+        </label>
+        <input
+          id="portfolio"
+          type="url"
+          placeholder="https://yourportfolio.com"
+          value={portfolio}
+          onChange={(e) => setPortfolio(e.target.value)}
+          className={inputCls}
+        />
+      </div>
 
       <div>
         <label htmlFor="bio" className="block text-[0.75rem] text-text-muted mb-1.5">
@@ -193,8 +246,8 @@ export default function ProfileForm(props: Props) {
         <textarea id="working-on" rows={2} value={workingOn} onChange={(e) => setWorkingOn(e.target.value)} className={`${inputCls} resize-none`} maxLength={500} />
       </div>
 
-      <ChipGroup label="Skills"  items={props.skills}  selected={skillIds}  onToggle={(id) => toggle(skillIds, id, setSkillIds)} />
       <ChipGroup label="Sectors" items={props.sectors} selected={sectorIds} onToggle={(id) => toggle(sectorIds, id, setSectorIds)} />
+      <ChipGroup label="Skills"  items={props.skills}  selected={skillIds}  onToggle={(id) => toggle(skillIds, id, setSkillIds)} />
 
       <button
         type="submit"
@@ -211,35 +264,3 @@ export default function ProfileForm(props: Props) {
   );
 }
 
-function ChipGroup({
-  label, items, selected, onToggle,
-}: {
-  label: string; items: Lookup[]; selected: Set<number>; onToggle: (id: number) => void;
-}) {
-  return (
-    <div>
-      <div className="block text-[0.75rem] text-text-muted mb-2">
-        {label} <span className="text-text-muted/70">— optional, pick any that fit</span>
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {items.map((it) => {
-          const on = selected.has(it.id);
-          return (
-            <button
-              key={it.id}
-              type="button"
-              onClick={() => onToggle(it.id)}
-              className={`px-3 py-1.5 rounded-full text-[0.775rem] border transition-colors duration-150 cursor-pointer ${
-                on
-                  ? "bg-gold-muted border-gold/50 text-gold-light"
-                  : "bg-white/[0.02] border-border text-text-secondary hover:border-gold/30 hover:text-text-primary"
-              }`}
-            >
-              {it.name}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
