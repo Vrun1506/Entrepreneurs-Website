@@ -11,7 +11,7 @@ export default async function ProfilePage() {
   if (!user) redirect("/login");
 
   const [profileRes, skillsRes, sectorsRes, profSkillsRes, profSectorsRes, isAdminRes] = await Promise.all([
-    supabase.from("profiles").select("role, status, first_name, surname, linkedin_url, github_url, grad_year, bio, working_on").eq("id", user.id).single(),
+    supabase.from("profiles").select("role, status, first_name, surname, course, grad_year, linkedin_url, github_url, portfolio_url, bio, working_on").eq("id", user.id).single(),
     supabase.from("skills").select("id, name").order("name"),
     supabase.from("sectors").select("id, name").order("name"),
     supabase.from("profile_skills").select("skill_id").eq("profile_id", user.id),
@@ -28,7 +28,7 @@ export default async function ProfilePage() {
   return (
     <div className="min-h-screen bg-bg-primary flex flex-col">
       <AppNav active="settings" isApproved={profile.status === "approved"} isAdmin={isAdmin} />
-      <main className="flex-1 px-8 py-12">
+      <main className="flex-1 px-4 sm:px-8 py-10 sm:py-12">
         <div className="max-w-[640px] mx-auto">
           <Link
             href="/settings"
@@ -50,9 +50,11 @@ export default async function ProfilePage() {
             role={profile.role}
             firstName={profile.first_name}
             surname={profile.surname}
+            course={profile.course ?? ""}
+            gradYear={profile.grad_year}
             linkedinUrl={profile.linkedin_url ?? ""}
             githubUrl={profile.github_url ?? ""}
-            gradYear={profile.grad_year}
+            portfolioUrl={profile.portfolio_url ?? ""}
             bio={profile.bio ?? ""}
             workingOn={profile.working_on ?? ""}
             skills={skillsRes.data ?? []}

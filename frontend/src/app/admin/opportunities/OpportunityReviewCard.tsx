@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { approveOpportunity, rejectOpportunity } from "./actions";
+import { formatDate } from "@/lib/dates";
 
 type Opportunity = {
   id: string;
@@ -38,13 +39,9 @@ export default function OpportunityReviewCard({ opportunity: o }: { opportunity:
   const [showReject, setShowReject] = useState(false);
   const [reason, setReason] = useState("");
 
-  const submittedOn = new Date(o.createdAt).toLocaleDateString("en-GB", {
-    year: "numeric", month: "short", day: "numeric",
-  });
+  const submittedOn = formatDate(o.createdAt);
   const start = `${MONTHS[o.startMonth - 1]} ${o.startYear}`;
-  const deadline = new Date(o.applicationDeadline).toLocaleDateString("en-GB", {
-    year: "numeric", month: "short", day: "numeric",
-  });
+  const deadline = formatDate(o.applicationDeadline);
   const location =
     o.locationType === "remote" ? "Remote"
     : o.locationType === "hybrid" ? `Hybrid${o.locationText ? ` · ${o.locationText}` : ""}`

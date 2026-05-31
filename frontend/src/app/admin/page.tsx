@@ -82,6 +82,17 @@ export default async function AdminPage() {
         </div>
 
         <div className="mt-10">
+          <div className="text-[0.7rem] text-gold tracking-[0.18em] uppercase mb-2">Community management</div>
+          <p className="text-[0.8rem] text-text-muted mb-4 leading-relaxed">
+            Search the full membership and remove accounts. Use the graduate cleanup once a year to roll out current students whose graduation year has passed.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <DiagLink href="/admin/community" label="All members · search + delete" />
+            <DiagLink href="/admin/graduates" label="Graduate cleanup" />
+          </div>
+        </div>
+
+        <div className="mt-10">
           <div className="text-[0.7rem] text-gold tracking-[0.18em] uppercase mb-2">Member view</div>
           <p className="text-[0.8rem] text-text-muted mb-4 leading-relaxed">
             Open the approved-member experience. You&apos;re verified, so these load the live pages.

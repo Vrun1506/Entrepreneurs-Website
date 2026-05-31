@@ -15,11 +15,13 @@ export default async function AdminUsersPage() {
       first_name,
       surname,
       role,
+      course,
       grad_year,
       bio,
       working_on,
       linkedin_url,
       github_url,
+      portfolio_url,
       created_at,
       profile_skills ( skills ( id, name ) ),
       profile_sectors ( sectors ( id, name ) )
@@ -75,11 +77,13 @@ type RawRow = {
   first_name: string;
   surname: string;
   role: "alum" | "student";
+  course: string | null;
   grad_year: number | null;
   bio: string | null;
   working_on: string | null;
   linkedin_url: string | null;
   github_url: string | null;
+  portfolio_url: string | null;
   created_at: string;
   profile_skills:  { skills:  { id: number; name: string } | null }[];
   profile_sectors: { sectors: { id: number; name: string } | null }[];
@@ -91,11 +95,13 @@ function toMember(r: RawRow) {
     firstName: r.first_name,
     surname: r.surname,
     role: r.role,
+    course: r.course,
     gradYear: r.grad_year,
     bio: r.bio,
     workingOn: r.working_on,
     linkedinUrl: r.linkedin_url,
     githubUrl: r.github_url,
+    portfolioUrl: r.portfolio_url,
     createdAt: r.created_at,
     skills:  r.profile_skills.map((s)  => s.skills?.name).filter((n): n is string => !!n),
     sectors: r.profile_sectors.map((s) => s.sectors?.name).filter((n): n is string => !!n),

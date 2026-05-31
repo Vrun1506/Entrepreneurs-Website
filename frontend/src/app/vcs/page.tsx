@@ -1,50 +1,52 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import AppNav from "@/components/AppNav";
+import SubmittedBanner from "@/components/SubmittedBanner";
+import { requireApprovedUser } from "@/lib/auth/guard";
 import VcsClient from "./VcsClient";
 
-export default async function VcsPage() {
-  const supabase = await createClient();
+type ActionRow = {
+  listing_kind: "opportunity" | "event" | "vc_grant";
+  listing_id:   string;
+  action_type:  "applied" | "going";
+  created_at:   string;
+};
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+export default async function VcsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ submitted?: string }>;
+}) {
+  const { supabase, isAdmin } = await requireApprovedUser();
+  const justSubmitted = (await searchParams)?.submitted === "1";
 
-  const { data: isAdmin } = await supabase.rpc("is_admin");
+  const [vcsRes, actionsRes] = await Promise.all([
+    supabase
+      .from("vcs_grants")
+      .select(`
+        id, kind, name, description, link,
+        amount, deadline, stage,
+        posted_by, created_at,
+        profiles:posted_by ( first_name, surname )
+      `)
+      .eq("status", "approved")
+      .order("created_at", { ascending: false }),
+    supabase.rpc("get_my_listing_actions"),
+  ]);
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("status")
-    .eq("id", user.id)
-    .single();
+  if (vcsRes.error) console.error("Failed to load vcs_grants:", vcsRes.error);
+  if (actionsRes.error) console.error("Failed to load listing actions:", actionsRes.error);
 
-  if (!profile) redirect("/login");
-  if (!isAdmin) {
-    if (profile.status === "pending_onboarding") redirect("/onboarding");
-    if (profile.status === "pending_review")     redirect("/pending");
-    if (profile.status === "rejected")           redirect("/rejected");
-  }
-
-  const { data: rows, error } = await supabase
-    .from("vcs_grants")
-    .select(`
-      id, kind, name, description, link,
-      amount, deadline, stage,
-      posted_by, created_at,
-      profiles:posted_by ( first_name, surname )
-    `)
-    .eq("status", "approved")
-    .order("created_at", { ascending: false });
-
-  if (error) console.error("Failed to load vcs_grants:", error);
-
-  const items = ((rows ?? []) as unknown as RawRow[]).map(toVc);
+  const items = ((vcsRes.data ?? []) as unknown as RawRow[]).map(toVc);
+  const appliedIds = ((actionsRes.data ?? []) as ActionRow[])
+    .filter((a) => a.listing_kind === "vc_grant" && a.action_type === "applied")
+    .map((a) => a.listing_id);
 
   return (
     <div className="min-h-screen bg-bg-primary flex flex-col">
-      <AppNav active="vcs" isApproved={true} isAdmin={!!isAdmin} />
-      <main className="flex-1 px-8 py-12">
+      <AppNav active="vcs" isApproved={true} isAdmin={isAdmin} />
+      <main className="flex-1 px-4 sm:px-8 py-10 sm:py-12">
         <div className="max-w-[1200px] mx-auto">
+          {justSubmitted && <SubmittedBanner kind="VC/grant" />}
           <div className="mb-8 flex items-start justify-between gap-4 flex-wrap">
             <div>
               <div className="text-[0.7rem] text-gold tracking-[0.18em] uppercase mb-2">Grants & VCs</div>
@@ -62,7 +64,7 @@ export default async function VcsPage() {
               Suggest a VC or grant →
             </Link>
           </div>
-          <VcsClient items={items} />
+          <VcsClient items={items} appliedIds={appliedIds} />
         </div>
       </main>
     </div>

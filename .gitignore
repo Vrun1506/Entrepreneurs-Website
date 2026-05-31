@@ -3,6 +3,9 @@
 tasks/
 venv/
 
+# Playwright MCP debug artifacts (console logs + page snapshots)
+.playwright-mcp/
+
 # Supabase: track migrations + tests (the security model), ignore
 # CLI-local and secret artifacts only.
 supabase/.branches/

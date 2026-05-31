@@ -49,6 +49,12 @@ export default function PasswordChangeForm({ hasPassword }: { hasPassword: boole
       return;
     }
 
+    // After a password change, revoke every OTHER active session so a
+    // previously-stolen refresh token can't outlive the credential it
+    // was issued against. The current session stays alive — the user
+    // doesn't need to re-sign-in on this device.
+    await supabase.auth.signOut({ scope: "others" });
+
     setSaved(true);
     setPassword("");
     setConfirm("");
@@ -60,7 +66,7 @@ export default function PasswordChangeForm({ hasPassword }: { hasPassword: boole
       <div>
         <div className="text-[0.95rem] font-medium text-text-primary mb-1">Change password</div>
         <p className="text-[0.8rem] text-text-muted leading-relaxed">
-          You&apos;ll stay signed in on this device after updating.
+          You&apos;ll stay signed in on this device. Every other device you&apos;re signed in on will be signed out automatically.
         </p>
       </div>
 

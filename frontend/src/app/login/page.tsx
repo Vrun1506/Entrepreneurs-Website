@@ -4,6 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { cleanName } from "@/lib/text";
+import { SignupDisclosures } from "@/components/forms/SignupDisclosures";
+import { BrandLogo } from "@/components/BrandLogo";
 
 /* ── Decorative background ────────────────────────────────────────── */
 function BackgroundEffects() {
@@ -34,13 +37,8 @@ function BackgroundEffects() {
 /* ── Logo ─────────────────────────────────────────────────────────── */
 function Logo() {
   return (
-    <Link href="/" className="flex items-center gap-2 no-underline">
-      <span className="w-7 h-7 rounded-md bg-gold flex items-center justify-center shrink-0">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-          <path d="M7 1L13 4.5V9.5L7 13L1 9.5V4.5L7 1Z" stroke="#0c0c0b" strokeWidth="1.5" strokeLinejoin="round" />
-        </svg>
-      </span>
-      <span className="font-display text-[1.1rem] text-text-primary tracking-tight">Foundry</span>
+    <Link href="/" className="no-underline inline-block">
+      <BrandLogo size="sm" />
     </Link>
   );
 }
@@ -79,6 +77,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [emailSent, setEmailSent] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [tcAgreed, setTcAgreed] = useState(false);
 
   // Tick the resend cooldown to 0 once per second when active.
   useEffect(() => {
@@ -143,6 +142,7 @@ export default function LoginPage() {
     setError("");
     setEmailSent(false);
     setResendCooldown(0);
+    setTcAgreed(false);
   };
 
   const switchMode = (next: Mode) => {
@@ -168,13 +168,16 @@ export default function LoginPage() {
 
     let signupData: Record<string, string> | undefined;
     if (mode === "signup") {
-      const trimmedFirst = firstName.trim();
-      const trimmedSurname = surname.trim();
+      const trimmedFirst = cleanName(firstName);
+      const trimmedSurname = cleanName(surname);
       if (!trimmedFirst || !trimmedSurname) {
         return "First name and surname are required.";
       }
       if (trimmedFirst.length > 50 || trimmedSurname.length > 50) {
         return "First name and surname must be 50 characters or fewer.";
+      }
+      if (!tcAgreed) {
+        return "Please agree to the Terms & Conditions and Privacy Policy to continue.";
       }
       signupData = {
         role: "student",
@@ -241,8 +244,8 @@ export default function LoginPage() {
     setError("");
 
     if (mode === "signup") {
-      const trimmedFirst = firstName.trim();
-      const trimmedSurname = surname.trim();
+      const trimmedFirst = cleanName(firstName);
+      const trimmedSurname = cleanName(surname);
       if (!trimmedFirst || !trimmedSurname) {
         setError("First name and surname are required.");
         return;
@@ -253,6 +256,10 @@ export default function LoginPage() {
       }
       if (password !== repeatPassword) {
         setError("Passwords do not match.");
+        return;
+      }
+      if (!tcAgreed) {
+        setError("Please agree to the Terms & Conditions and Privacy Policy to continue.");
         return;
       }
     }
@@ -278,8 +285,8 @@ export default function LoginPage() {
           // grad_year is collected later during onboarding.
           data: {
             role: "alum",
-            first_name: firstName.trim(),
-            surname: surname.trim(),
+            first_name: cleanName(firstName),
+            surname: cleanName(surname),
           },
         },
       });
@@ -375,6 +382,7 @@ export default function LoginPage() {
                 emailSent={emailSent}
                 isLoading={isLoading}
                 resendCooldown={resendCooldown}
+                tcAgreed={tcAgreed} setTcAgreed={setTcAgreed}
                 onSubmit={handleStudentSubmit}
                 onResend={handleStudentResend}
                 onBack={backToChooser}
@@ -390,6 +398,7 @@ export default function LoginPage() {
                 password={password} setPassword={setPassword}
                 repeatPassword={repeatPassword} setRepeatPassword={setRepeatPassword}
                 isLoading={isLoading}
+                tcAgreed={tcAgreed} setTcAgreed={setTcAgreed}
                 onSubmit={handleAlumSubmit}
                 onGoogle={handleGoogle}
                 onBack={backToChooser}
@@ -417,11 +426,15 @@ export default function LoginPage() {
       {/* Footer */}
       <footer className="relative z-10 px-8 py-5">
         <div className="max-w-[1200px] mx-auto flex justify-center gap-8">
-          {["Privacy", "Terms", "Contact"].map((link) => (
-            <a key={link} href="#" className="text-[0.75rem] text-text-secondary no-underline transition-colors duration-150 hover:text-text-primary">
-              {link}
-            </a>
-          ))}
+          <Link href="/privacy" className="text-[0.75rem] text-text-secondary no-underline transition-colors duration-150 hover:text-text-primary">
+            Privacy
+          </Link>
+          <Link href="/terms" className="text-[0.75rem] text-text-secondary no-underline transition-colors duration-150 hover:text-text-primary">
+            Terms
+          </Link>
+          <Link href="/contact" className="text-[0.75rem] text-text-secondary no-underline transition-colors duration-150 hover:text-text-primary">
+            Contact
+          </Link>
         </div>
       </footer>
     </div>
@@ -479,6 +492,7 @@ function StudentMagicLinkFlow({
   surname, setSurname,
   email, setEmail,
   emailSent, isLoading, resendCooldown,
+  tcAgreed, setTcAgreed,
   onSubmit, onResend, onBack,
 }: {
   mode: Mode;
@@ -488,6 +502,7 @@ function StudentMagicLinkFlow({
   emailSent: boolean;
   isLoading: boolean;
   resendCooldown: number;
+  tcAgreed: boolean; setTcAgreed: (v: boolean) => void;
   onSubmit: (e: React.FormEvent) => void;
   onResend: () => void;
   onBack: () => void;
@@ -584,9 +599,13 @@ function StudentMagicLinkFlow({
         </p>
       </div>
 
+      {mode === "signup" && (
+        <SignupDisclosures agreed={tcAgreed} onChange={setTcAgreed} />
+      )}
+
       <button
         type="submit"
-        disabled={isLoading}
+        disabled={isLoading || (mode === "signup" && !tcAgreed)}
         className="w-full mt-2 flex items-center justify-center px-6 py-3.5 rounded-xl bg-gold text-bg-primary text-[0.9rem] font-medium tracking-wide border-0 cursor-pointer transition-all duration-200 hover:bg-gold-light hover:-translate-y-px disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
       >
         {isLoading ? (
@@ -607,7 +626,9 @@ function AlumForm({
   email, setEmail,
   password, setPassword,
   repeatPassword, setRepeatPassword,
-  isLoading, onSubmit, onGoogle, onBack,
+  isLoading,
+  tcAgreed, setTcAgreed,
+  onSubmit, onGoogle, onBack,
 }: {
   mode: Mode;
   firstName: string; setFirstName: (v: string) => void;
@@ -616,6 +637,7 @@ function AlumForm({
   password: string; setPassword: (v: string) => void;
   repeatPassword: string; setRepeatPassword: (v: string) => void;
   isLoading: boolean;
+  tcAgreed: boolean; setTcAgreed: (v: boolean) => void;
   onSubmit: (e: React.FormEvent) => void;
   onGoogle: () => void;
   onBack: () => void;
@@ -715,9 +737,13 @@ function AlumForm({
         </div>
       )}
 
+      {mode === "signup" && (
+        <SignupDisclosures agreed={tcAgreed} onChange={setTcAgreed} />
+      )}
+
       <button
         type="submit"
-        disabled={isLoading}
+        disabled={isLoading || (mode === "signup" && !tcAgreed)}
         className="w-full mt-2 flex items-center justify-center px-6 py-3.5 rounded-xl bg-gold text-bg-primary text-[0.9rem] font-medium tracking-wide border-0 cursor-pointer transition-all duration-200 hover:bg-gold-light hover:-translate-y-px disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
       >
         {isLoading ? (

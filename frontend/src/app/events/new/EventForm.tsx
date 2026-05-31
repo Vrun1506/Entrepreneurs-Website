@@ -3,28 +3,49 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { Field } from "@/components/forms/Field";
+import { ErrorBanner } from "@/components/forms/Banners";
+import { inputCls } from "@/components/forms/styles";
+import { describeSupabaseError } from "@/lib/supabaseErrors";
+import { updateOwnEvent } from "@/app/events/actions";
 
 type Mode = "user" | "admin";
+
+export type EventInitialValues = {
+  title: string;
+  description: string;
+  lumaLink: string;
+  eventAt: string;
+  location: string;
+  organiserName: string;
+  contactEmail: string;
+  contactEmailVisible: boolean;
+};
 
 type Props = {
   signupEmail: string;
   defaultOrganiser: string;
   mode: Mode;
+  editingId?: string;
+  initialValues?: EventInitialValues;
 };
 
-export default function EventForm({ signupEmail, defaultOrganiser, mode }: Props) {
+export default function EventForm({ signupEmail, defaultOrganiser, mode, editingId, initialValues }: Props) {
   const router = useRouter();
   const supabase = createClient();
 
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [lumaLink, setLumaLink] = useState("");
-  const [eventAt, setEventAt] = useState("");
-  const [location, setLocation] = useState("");
-  const [organiserName, setOrganiserName] = useState(defaultOrganiser);
-  const [useCustomContact, setUseCustomContact] = useState(false);
-  const [customContactEmail, setCustomContactEmail] = useState("");
-  const [contactEmailVisible, setContactEmailVisible] = useState(false);
+  const iv = initialValues;
+  const initialContactIsCustom = !!iv && iv.contactEmail.toLowerCase() !== signupEmail.toLowerCase();
+
+  const [title, setTitle] = useState(iv?.title ?? "");
+  const [description, setDescription] = useState(iv?.description ?? "");
+  const [lumaLink, setLumaLink] = useState(iv?.lumaLink ?? "");
+  const [eventAt, setEventAt] = useState(iv?.eventAt ?? "");
+  const [location, setLocation] = useState(iv?.location ?? "");
+  const [organiserName, setOrganiserName] = useState(iv?.organiserName ?? defaultOrganiser);
+  const [useCustomContact, setUseCustomContact] = useState(initialContactIsCustom);
+  const [customContactEmail, setCustomContactEmail] = useState(initialContactIsCustom ? iv!.contactEmail : "");
+  const [contactEmailVisible, setContactEmailVisible] = useState(iv?.contactEmailVisible ?? false);
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -61,6 +82,28 @@ export default function EventForm({ signupEmail, defaultOrganiser, mode }: Props
     }
 
     setIsLoading(true);
+
+    if (editingId) {
+      const res = await updateOwnEvent(editingId, {
+        title:                 title.trim(),
+        description:           description.trim(),
+        lumaLink:              lumaLink.trim(),
+        eventAtIso:            new Date(eventAt).toISOString(),
+        location:              location.trim(),
+        organiserName:         organiserName.trim(),
+        contactEmail,
+        contactEmailVisible,
+      });
+      if (!res.ok) {
+        setError(res.error);
+        setIsLoading(false);
+        return;
+      }
+      router.replace("/my-submissions");
+      router.refresh();
+      return;
+    }
+
     const rpc = mode === "admin" ? "admin_create_event" : "submit_event";
     const { error: rpcError } = await supabase.rpc(rpc, {
       p_title:                 title.trim(),
@@ -74,7 +117,7 @@ export default function EventForm({ signupEmail, defaultOrganiser, mode }: Props
     });
 
     if (rpcError) {
-      setError(rpcError.message);
+      setError(describeSupabaseError(rpcError));
       setIsLoading(false);
       return;
     }
@@ -83,16 +126,9 @@ export default function EventForm({ signupEmail, defaultOrganiser, mode }: Props
     router.refresh();
   };
 
-  const inputCls =
-    "w-full px-4 py-3 bg-white/[0.03] border border-border rounded-lg text-[0.85rem] text-text-primary placeholder:text-text-muted outline-none transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]";
-
   return (
     <form onSubmit={handleSubmit} className="space-y-5 rounded-2xl bg-bg-card border border-border-subtle p-8">
-      {error && (
-        <div className="px-4 py-3 rounded-lg bg-[#ff4d4d]/8 border border-[#ff4d4d]/20 text-[0.8rem] text-[#ff6b6b] leading-relaxed">
-          {error}
-        </div>
-      )}
+      {error && <ErrorBanner>{error}</ErrorBanner>}
 
       <Field label="Title" required>
         <input type="text" maxLength={200} value={title} onChange={(e) => setTitle(e.target.value)} className={inputCls} required />
@@ -151,6 +187,8 @@ export default function EventForm({ signupEmail, defaultOrganiser, mode }: Props
       >
         {isLoading ? (
           <div className="w-[18px] h-[18px] border-2 border-[#0c0c0b]/30 border-t-[#0c0c0b] rounded-full animate-spin" />
+        ) : editingId ? (
+          "Save changes"
         ) : mode === "admin" ? (
           "Publish event"
         ) : (
@@ -161,16 +199,3 @@ export default function EventForm({ signupEmail, defaultOrganiser, mode }: Props
   );
 }
 
-function Field({
-  label, required, hint, children,
-}: { label: string; required?: boolean; hint?: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <label className="block text-[0.75rem] text-text-muted mb-1.5">
-        {label} {required && <span className="text-[#ff6b6b]">*</span>}
-        {hint && <span className="text-text-muted/70 ml-2">{hint}</span>}
-      </label>
-      {children}
-    </div>
-  );
-}

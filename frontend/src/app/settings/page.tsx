@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import AppNav from "@/components/AppNav";
 import PasswordChangeForm from "./PasswordChangeForm";
 import DeleteAccountSection from "./DeleteAccountSection";
+import SessionsSection from "./SessionsSection";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -28,7 +29,7 @@ export default async function SettingsPage() {
   return (
     <div className="min-h-screen bg-bg-primary flex flex-col">
       <AppNav active="settings" isApproved={profile.status === "approved"} isAdmin={isAdmin} />
-      <main className="flex-1 px-8 py-12">
+      <main className="flex-1 px-4 sm:px-8 py-10 sm:py-12">
         <div className="max-w-[640px] mx-auto">
           <div className="mb-10">
             <div className="text-[0.7rem] text-gold tracking-[0.18em] uppercase mb-2">Settings</div>
@@ -57,6 +58,51 @@ export default async function SettingsPage() {
             </Link>
 
             <Link
+              href="/my-submissions"
+              className="block rounded-2xl bg-bg-card border border-border-subtle p-6 no-underline transition-colors duration-150 hover:border-gold/40 hover:bg-bg-card-hover"
+            >
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <div className="text-[0.95rem] font-medium text-text-primary mb-1">Your submissions</div>
+                  <div className="text-[0.8rem] text-text-muted leading-relaxed">
+                    Opportunities, events, and VC/grants you&apos;ve posted that are pending review or were rejected.
+                  </div>
+                </div>
+                <span className="text-text-muted text-[1.1rem]">→</span>
+              </div>
+            </Link>
+
+            <Link
+              href="/my-bookmarks"
+              className="block rounded-2xl bg-bg-card border border-border-subtle p-6 no-underline transition-colors duration-150 hover:border-gold/40 hover:bg-bg-card-hover"
+            >
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <div className="text-[0.95rem] font-medium text-text-primary mb-1">Saved opportunities</div>
+                  <div className="text-[0.8rem] text-text-muted leading-relaxed">
+                    Roles you&apos;ve bookmarked from the directory while they&apos;re still open.
+                  </div>
+                </div>
+                <span className="text-text-muted text-[1.1rem]">→</span>
+              </div>
+            </Link>
+
+            <Link
+              href="/my-activity"
+              className="block rounded-2xl bg-bg-card border border-border-subtle p-6 no-underline transition-colors duration-150 hover:border-gold/40 hover:bg-bg-card-hover"
+            >
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <div className="text-[0.95rem] font-medium text-text-primary mb-1">Your activity</div>
+                  <div className="text-[0.8rem] text-text-muted leading-relaxed">
+                    Things you&apos;ve marked as applied or going. Shown on the <span className="text-gold-light">/calendar</span> page too.
+                  </div>
+                </div>
+                <span className="text-text-muted text-[1.1rem]">→</span>
+              </div>
+            </Link>
+
+            <Link
               href="/contact"
               className="block rounded-2xl bg-bg-card border border-border-subtle p-6 no-underline transition-colors duration-150 hover:border-gold/40 hover:bg-bg-card-hover"
             >
@@ -72,6 +118,11 @@ export default async function SettingsPage() {
             </Link>
 
             <PasswordChangeForm hasPassword={hasPassword} />
+
+            <SessionsSection
+              signedInAs={user.email ?? ""}
+              lastSignInAt={user.last_sign_in_at ?? null}
+            />
 
             <DeleteAccountSection email={user.email ?? ""} />
           </div>

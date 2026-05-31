@@ -3,17 +3,20 @@
 import { useState, useTransition } from "react";
 import { approveUser, rejectUser } from "./actions";
 import SocialLinks from "@/components/SocialLinks";
+import { formatDate } from "@/lib/dates";
 
 type Member = {
   id: string;
   firstName: string;
   surname: string;
   role: "alum" | "student";
+  course: string | null;
   gradYear: number | null;
   bio: string | null;
   workingOn: string | null;
   linkedinUrl: string | null;
   githubUrl: string | null;
+  portfolioUrl: string | null;
   createdAt: string;
   skills: string[];
   sectors: string[];
@@ -46,9 +49,7 @@ export default function UserCard({ member }: { member: Member }) {
     });
   };
 
-  const submitted = new Date(member.createdAt).toLocaleDateString("en-GB", {
-    year: "numeric", month: "short", day: "numeric",
-  });
+  const submitted = formatDate(member.createdAt);
 
   return (
     <article className="rounded-2xl bg-bg-card border border-border-subtle p-6">
@@ -57,9 +58,12 @@ export default function UserCard({ member }: { member: Member }) {
           {member.firstName} {member.surname}
         </div>
         <div className="text-[0.75rem] text-text-muted mt-1">
-          {member.role === "alum" ? `Alum · grad ${member.gradYear ?? "—"}` : "Student"}
+          {member.role === "alum" ? `Alum · grad ${member.gradYear ?? "—"}` : `Student · class of ${member.gradYear ?? "—"}`}
           {" · submitted "}{submitted}
         </div>
+        {member.course && (
+          <div className="text-[0.75rem] text-text-secondary mt-1">{member.course}</div>
+        )}
       </header>
 
       {member.bio && (
@@ -76,7 +80,7 @@ export default function UserCard({ member }: { member: Member }) {
         </div>
       )}
 
-      {(member.sectors.length > 0 || member.skills.length > 0 || member.linkedinUrl || member.githubUrl) && (
+      {(member.sectors.length > 0 || member.skills.length > 0 || member.linkedinUrl || member.githubUrl || member.portfolioUrl) && (
         <div className="mb-4 flex flex-col gap-3">
           {(member.sectors.length > 0 || member.skills.length > 0) && (
             <div className="flex flex-wrap gap-1.5">
@@ -88,7 +92,7 @@ export default function UserCard({ member }: { member: Member }) {
               ))}
             </div>
           )}
-          <SocialLinks linkedinUrl={member.linkedinUrl} githubUrl={member.githubUrl} />
+          <SocialLinks linkedinUrl={member.linkedinUrl} githubUrl={member.githubUrl} portfolioUrl={member.portfolioUrl} />
         </div>
       )}
 

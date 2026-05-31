@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { approveVcGrant, rejectVcGrant } from "./actions";
+import { formatDate } from "@/lib/dates";
 
 type Vc = {
   id: string;
@@ -28,12 +29,8 @@ export default function VcReviewCard({ vc: v }: { vc: Vc }) {
   const [showReject, setShowReject] = useState(false);
   const [reason, setReason] = useState("");
 
-  const submittedOn = new Date(v.createdAt).toLocaleDateString("en-GB", {
-    year: "numeric", month: "short", day: "numeric",
-  });
-  const deadline = v.deadline
-    ? new Date(v.deadline).toLocaleDateString("en-GB", { year: "numeric", month: "short", day: "numeric" })
-    : null;
+  const submittedOn = formatDate(v.createdAt);
+  const deadline = v.deadline ? formatDate(v.deadline) : null;
 
   const handleApprove = () => {
     setError("");

@@ -5,21 +5,14 @@ import EventReviewCard from "./EventReviewCard";
 export default async function AdminEventsPage() {
   const supabase = await createClient();
 
+  // Admin-only RPC raises if caller isn't admin; column-level grant on
+  // contact_email is revoked from authenticated (migration 20260530000002).
   const { data: rows, error } = await supabase
-    .from("events")
-    .select(`
-      id, title, description, luma_link,
-      event_at, location, organiser_name,
-      contact_email, contact_email_visible,
-      posted_by, created_at,
-      profiles:posted_by ( first_name, surname, linkedin_url )
-    `)
-    .eq("status", "pending")
-    .order("created_at", { ascending: true });
+    .rpc("list_pending_events_admin");
 
   if (error) console.error("Failed to load pending events:", error);
 
-  const rawRows = (rows ?? []) as unknown as RawRow[];
+  const rawRows = (rows ?? []) as RawRow[];
 
   const posterIds = Array.from(new Set(rawRows.map((r) => r.posted_by)));
   const signupEmailById = new Map<string, string>();
@@ -81,7 +74,9 @@ type RawRow = {
   contact_email_visible: boolean;
   posted_by: string;
   created_at: string;
-  profiles: { first_name: string; surname: string; linkedin_url: string | null } | null;
+  poster_first_name: string | null;
+  poster_surname: string | null;
+  poster_linkedin_url: string | null;
 };
 
 function toReviewItem(r: RawRow, signupEmail: string | null) {
@@ -96,9 +91,9 @@ function toReviewItem(r: RawRow, signupEmail: string | null) {
     contactEmail: r.contact_email,
     contactEmailVisible: r.contact_email_visible,
     postedBy: {
-      firstName: r.profiles?.first_name ?? "",
-      surname:   r.profiles?.surname    ?? "",
-      linkedinUrl: r.profiles?.linkedin_url ?? null,
+      firstName:   r.poster_first_name ?? "",
+      surname:     r.poster_surname    ?? "",
+      linkedinUrl: r.poster_linkedin_url,
       signupEmail,
     },
     createdAt: r.created_at,

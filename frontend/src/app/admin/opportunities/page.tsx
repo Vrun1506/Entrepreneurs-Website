@@ -5,26 +5,15 @@ import OpportunityReviewCard from "./OpportunityReviewCard";
 export default async function AdminOpportunitiesPage() {
   const supabase = await createClient();
 
+  // Admin-only RPC raises if caller isn't admin; column-level grant on
+  // contact_email is revoked from authenticated so this is the only way
+  // for admins to read the field (migration 20260530000002).
   const { data: rows, error } = await supabase
-    .from("opportunities")
-    .select(`
-      id, position_name, company, pay,
-      location_type, location_text,
-      description, start_month, start_year,
-      application_deadline,
-      contact_email, contact_email_visible,
-      apply_method, apply_url,
-      posted_by, created_at,
-      profiles:posted_by ( first_name, surname, linkedin_url ),
-      opportunity_skills  ( skills  ( id, name ) ),
-      opportunity_sectors ( sectors ( id, name ) )
-    `)
-    .eq("status", "pending")
-    .order("created_at", { ascending: true });
+    .rpc("list_pending_opportunities_admin");
 
   if (error) console.error("Failed to load pending opportunities:", error);
 
-  const rawRows = (rows ?? []) as unknown as RawRow[];
+  const rawRows = (rows ?? []) as RawRow[];
 
   // auth.users isn't exposed via PostgREST; fetch signup emails via the
   // admin_get_signup_emails RPC (SECURITY DEFINER, gated to is_admin()).
@@ -95,9 +84,11 @@ type RawRow = {
   apply_url: string | null;
   posted_by: string;
   created_at: string;
-  profiles: { first_name: string; surname: string; linkedin_url: string | null } | null;
-  opportunity_skills:  { skills:  { id: number; name: string } | null }[];
-  opportunity_sectors: { sectors: { id: number; name: string } | null }[];
+  poster_first_name: string | null;
+  poster_surname: string | null;
+  poster_linkedin_url: string | null;
+  skill_names: string[];
+  sector_names: string[];
 };
 
 function toReviewItem(r: RawRow, signupEmail: string | null) {
@@ -117,13 +108,13 @@ function toReviewItem(r: RawRow, signupEmail: string | null) {
     applyMethod: r.apply_method,
     applyUrl: r.apply_url,
     postedBy: {
-      firstName: r.profiles?.first_name ?? "",
-      surname:   r.profiles?.surname    ?? "",
-      linkedinUrl: r.profiles?.linkedin_url ?? null,
+      firstName:   r.poster_first_name ?? "",
+      surname:     r.poster_surname    ?? "",
+      linkedinUrl: r.poster_linkedin_url,
       signupEmail,
     },
-    skills:  r.opportunity_skills.map((s)  => s.skills?.name).filter((n): n is string => !!n),
-    sectors: r.opportunity_sectors.map((s) => s.sectors?.name).filter((n): n is string => !!n),
+    skills:  r.skill_names  ?? [],
+    sectors: r.sector_names ?? [],
     createdAt: r.created_at,
   };
 }

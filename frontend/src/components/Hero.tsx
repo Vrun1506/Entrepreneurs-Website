@@ -24,7 +24,7 @@ export default function Hero() {
   return (
     <section
       id="hero"
-      className="relative min-h-screen flex flex-col justify-center px-8 pt-32 pb-24 max-w-[1200px] mx-auto"
+      className="relative min-h-screen flex flex-col justify-center px-8 pt-32 pb-24 max-w-[1200px] mx-auto overflow-x-hidden"
     >
       {/* Ambient glow — decorative only */}
       <div
