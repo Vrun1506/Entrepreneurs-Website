@@ -2,12 +2,11 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { Field } from "@/components/forms/Field";
 import { ErrorBanner } from "@/components/forms/Banners";
 import { inputCls } from "@/components/forms/styles";
-import { describeSupabaseError } from "@/lib/supabaseErrors";
-import { updateOwnEvent } from "@/app/events/actions";
+import { TurnstileWidget, turnstileConfigured } from "@/components/forms/TurnstileWidget";
+import { submitEvent, updateOwnEvent } from "@/app/events/actions";
 
 type Mode = "user" | "admin";
 
@@ -32,7 +31,6 @@ type Props = {
 
 export default function EventForm({ signupEmail, defaultOrganiser, mode, editingId, initialValues }: Props) {
   const router = useRouter();
-  const supabase = createClient();
 
   const iv = initialValues;
   const initialContactIsCustom = !!iv && iv.contactEmail.toLowerCase() !== signupEmail.toLowerCase();
@@ -49,6 +47,9 @@ export default function EventForm({ signupEmail, defaultOrganiser, mode, editing
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
+
+  const showTurnstile = mode === "user" && !editingId && turnstileConfigured;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,6 +81,9 @@ export default function EventForm({ signupEmail, defaultOrganiser, mode, editing
     if (!/^[^@]+@[^@]+\.[^@]+$/.test(contactEmail)) {
       setError("Contact email is invalid."); return;
     }
+    if (showTurnstile && !turnstileToken) {
+      setError("Please complete the verification challenge below."); return;
+    }
 
     setIsLoading(true);
 
@@ -104,20 +108,23 @@ export default function EventForm({ signupEmail, defaultOrganiser, mode, editing
       return;
     }
 
-    const rpc = mode === "admin" ? "admin_create_event" : "submit_event";
-    const { error: rpcError } = await supabase.rpc(rpc, {
-      p_title:                 title.trim(),
-      p_description:           description.trim(),
-      p_luma_link:             lumaLink.trim(),
-      p_event_at:              new Date(eventAt).toISOString(),
-      p_location:              location.trim(),
-      p_organiser_name:        organiserName.trim(),
-      p_contact_email:         contactEmail,
-      p_contact_email_visible: contactEmailVisible,
+    const res = await submitEvent({
+      mode,
+      turnstileToken,
+      payload: {
+        title:                 title.trim(),
+        description:           description.trim(),
+        lumaLink:              lumaLink.trim(),
+        eventAtIso:            new Date(eventAt).toISOString(),
+        location:              location.trim(),
+        organiserName:         organiserName.trim(),
+        contactEmail,
+        contactEmailVisible,
+      },
     });
 
-    if (rpcError) {
-      setError(describeSupabaseError(rpcError));
+    if (!res.ok) {
+      setError(res.error);
       setIsLoading(false);
       return;
     }
@@ -179,6 +186,8 @@ export default function EventForm({ signupEmail, defaultOrganiser, mode, editing
           </span>
         </label>
       </div>
+
+      {showTurnstile && <TurnstileWidget onToken={setTurnstileToken} />}
 
       <button
         type="submit"

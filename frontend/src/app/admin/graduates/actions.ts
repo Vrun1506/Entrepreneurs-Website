@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/auth/actionAuth";
 import { enqueueEmailsBulk, renderGraduationEmail } from "@/lib/email";
 import { describeSupabaseError } from "@/lib/supabaseErrors";
 
@@ -15,7 +15,9 @@ export async function previewGraduates(cutoffYear: number): Promise<PreviewResul
     return { ok: false, error: "Cutoff year must be between 1950 and 2099." };
   }
 
-  const supabase = await createClient();
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth;
+  const { supabase } = auth;
   // Admin RLS lets us read every profile. No mutation here — this is
   // just a count + sample for the confirm modal.
   const { data, error, count } = await supabase
@@ -49,7 +51,9 @@ export async function deleteGraduates(cutoffYear: number): Promise<DeleteResult>
     return { ok: false, error: "Cutoff year must be between 1950 and 2099." };
   }
 
-  const supabase = await createClient();
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth;
+  const { supabase } = auth;
   const { data, error } = await supabase.rpc("admin_delete_graduates", {
     p_cutoff_year: cutoffYear,
   });

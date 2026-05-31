@@ -1,10 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
 import { describeSupabaseError } from "@/lib/supabaseErrors";
 import type { Result } from "@/lib/result";
 import { ok, err } from "@/lib/result";
+import { getActionAuth } from "@/lib/auth/actionAuth";
+import { allow } from "@/lib/ratelimit";
+import { verifyTurnstile } from "@/lib/turnstile";
+import { eventSchema, validate } from "@/lib/validation/listings";
 
 // User-facing actions for events. Admin actions live in
 // /admin/events/actions.ts.
@@ -15,19 +18,55 @@ import { ok, err } from "@/lib/result";
 // PostgREST UPDATEs are migration-hostile because they're tied to
 // Supabase's SDK + RLS shape rather than a plain HTTP contract.
 
-export type EventEditPayload = {
-  title: string;
-  description: string;
-  lumaLink: string;
-  eventAtIso: string;
-  location: string;
-  organiserName: string;
-  contactEmail: string;
-  contactEmailVisible: boolean;
-};
+type Mode = "user" | "admin";
 
-export async function updateOwnEvent(id: string, payload: EventEditPayload): Promise<Result> {
-  const supabase = await createClient();
+// Create an event. mode="user" enqueues for review; mode="admin"
+// publishes immediately. Auth → Zod → SECURITY DEFINER RPC.
+export async function submitEvent(args: { mode: Mode; payload: unknown; turnstileToken?: string }): Promise<Result> {
+  const { user, isAdmin, status, supabase } = await getActionAuth();
+  if (!user) return err("You must be signed in to post an event.");
+  if (args.mode === "admin" && !isAdmin) return err("Admin access required.");
+  if (args.mode === "user" && !isAdmin && status !== "approved") {
+    return err("Your membership must be approved before you can post.");
+  }
+  if (args.mode === "user") {
+    if (!(await verifyTurnstile(args.turnstileToken))) {
+      return err("Verification failed. Please complete the challenge and try again.");
+    }
+    if (!(await allow("submit", user.id))) {
+      return err("You're posting too frequently. Please try again later.");
+    }
+  }
+
+  const parsed = validate(eventSchema, args.payload);
+  if (!parsed.ok) return parsed;
+  const p = parsed.data;
+
+  const rpc = args.mode === "admin" ? "admin_create_event" : "submit_event";
+  const { error } = await supabase.rpc(rpc, {
+    p_title:                 p.title,
+    p_description:           p.description,
+    p_luma_link:             p.lumaLink,
+    p_event_at:              p.eventAtIso,
+    p_location:              p.location,
+    p_organiser_name:        p.organiserName,
+    p_contact_email:         p.contactEmail,
+    p_contact_email_visible: p.contactEmailVisible,
+  });
+  if (error) return err(describeSupabaseError(error));
+
+  revalidatePath("/events");
+  if (args.mode === "admin") revalidatePath("/admin/events");
+  return ok();
+}
+
+export async function updateOwnEvent(id: string, payload: unknown): Promise<Result> {
+  const { user, supabase } = await getActionAuth();
+  if (!user) return err("You must be signed in.");
+
+  const parsed = validate(eventSchema, payload);
+  if (!parsed.ok) return parsed;
+  const p = parsed.data;
 
   // RLS gates the update to posted_by=auth.uid() AND status='pending'.
   // We still surface a 0-row response as "not found / no longer
@@ -35,14 +74,14 @@ export async function updateOwnEvent(id: string, payload: EventEditPayload): Pro
   const { error, count } = await supabase
     .from("events")
     .update({
-      title:                 payload.title,
-      description:           payload.description,
-      luma_link:             payload.lumaLink,
-      event_at:              payload.eventAtIso,
-      location:              payload.location,
-      organiser_name:        payload.organiserName,
-      contact_email:         payload.contactEmail,
-      contact_email_visible: payload.contactEmailVisible,
+      title:                 p.title,
+      description:           p.description,
+      luma_link:             p.lumaLink,
+      event_at:              p.eventAtIso,
+      location:              p.location,
+      organiser_name:        p.organiserName,
+      contact_email:         p.contactEmail,
+      contact_email_visible: p.contactEmailVisible,
     }, { count: "exact" })
     .eq("id", id);
 

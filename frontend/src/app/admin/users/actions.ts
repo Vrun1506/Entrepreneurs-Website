@@ -2,16 +2,30 @@
 
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/auth/actionAuth";
 import { sendAcceptanceEmail, sendRejectionEmail } from "@/lib/email";
 import { describeSupabaseError } from "@/lib/supabaseErrors";
+import type { BulkResult } from "@/app/admin/bulkTypes";
 
 type Result = { ok: true } | { ok: false; error: string };
 
-export async function approveUser(userId: string): Promise<Result> {
-  const supabase = await createClient();
+async function runBulk(ids: string[], one: (id: string) => Promise<Result>): Promise<BulkResult> {
+  let succeeded = 0;
+  const errors: string[] = [];
+  for (const id of ids) {
+    const r = await one(id);
+    if (r.ok) succeeded++;
+    else errors.push(r.error);
+  }
+  return { ok: true, succeeded, failed: errors.length, firstError: errors[0] };
+}
 
-  // is_admin() is verified inside the RPC; no need to re-check here.
+export async function approveUser(userId: string): Promise<Result> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth;
+  const { supabase } = auth;
+
+  // is_admin() is verified again inside the RPC; this is defence in depth.
   // Updated approve_user RPC (migration 20260530000004) returns the
   // user's email + first_name so we can send the welcome email in
   // the same round trip.
@@ -55,7 +69,9 @@ export async function rejectUser(userId: string, reason: string): Promise<Result
   const trimmed = reason.trim();
   if (!trimmed) return { ok: false, error: "Rejection reason is required." };
 
-  const supabase = await createClient();
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth;
+  const { supabase } = auth;
 
   // The updated reject_user RPC (migration 6) returns the user's email +
   // first_name so we can email them without a second round-trip.
@@ -84,4 +100,17 @@ export async function rejectUser(userId: string, reason: string): Promise<Result
 
   revalidatePath("/admin/users");
   return { ok: true };
+}
+
+export async function bulkApproveUsers(ids: string[]): Promise<BulkResult> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { ok: false, error: auth.error };
+  return runBulk(ids, approveUser);
+}
+
+export async function bulkRejectUsers(ids: string[], reason: string): Promise<BulkResult> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { ok: false, error: auth.error };
+  if (!reason.trim()) return { ok: false, error: "Rejection reason is required." };
+  return runBulk(ids, (id) => rejectUser(id, reason));
 }

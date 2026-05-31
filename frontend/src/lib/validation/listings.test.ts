@@ -1,0 +1,117 @@
+import { describe, it, expect } from "vitest";
+import { opportunitySchema, eventSchema, vcGrantSchema, validate } from "./listings";
+import { contactSchema } from "./contact";
+
+// A future-dated ISO day, so the "deadline must be today or later" refine passes.
+const futureDate = new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10);
+const futureDateTime = new Date(Date.now() + 30 * 86_400_000).toISOString();
+
+const validOpportunity = {
+  positionName: "Founding Engineer",
+  company: "Acme",
+  pay: "£80k",
+  locationType: "onsite" as const,
+  locationText: "London",
+  description: "A".repeat(25),
+  startMonth: 6,
+  startYear: 2026,
+  applicationDeadline: futureDate,
+  contactEmail: "a@b.com",
+  contactEmailVisible: false,
+  applyMethod: "link" as const,
+  applyUrl: "https://acme.com/apply",
+  skillIds: [1, 2],
+  sectorIds: [3],
+};
+
+describe("opportunitySchema", () => {
+  it("accepts a well-formed opportunity", () => {
+    const r = validate(opportunitySchema, validOpportunity);
+    expect(r.ok).toBe(true);
+  });
+
+  it("rejects a short description", () => {
+    const r = validate(opportunitySchema, { ...validOpportunity, description: "too short" });
+    expect(r.ok).toBe(false);
+  });
+
+  it("requires a location for onsite roles", () => {
+    const r = validate(opportunitySchema, { ...validOpportunity, locationText: null });
+    expect(r.ok).toBe(false);
+  });
+
+  it("allows a missing location for remote roles", () => {
+    const r = validate(opportunitySchema, { ...validOpportunity, locationType: "remote", locationText: null });
+    expect(r.ok).toBe(true);
+  });
+
+  it("rejects a past application deadline", () => {
+    const r = validate(opportunitySchema, { ...validOpportunity, applicationDeadline: "2000-01-01" });
+    expect(r.ok).toBe(false);
+  });
+
+  it("requires applyUrl when applyMethod is link", () => {
+    const r = validate(opportunitySchema, { ...validOpportunity, applyUrl: null });
+    expect(r.ok).toBe(false);
+  });
+
+  it("rejects a non-http apply url", () => {
+    const r = validate(opportunitySchema, { ...validOpportunity, applyUrl: "ftp://acme.com" });
+    expect(r.ok).toBe(false);
+  });
+});
+
+describe("eventSchema", () => {
+  const validEvent = {
+    title: "Demo Night",
+    description: "B".repeat(25),
+    lumaLink: "https://lu.ma/x",
+    eventAtIso: futureDateTime,
+    location: "Imperial",
+    organiserName: "Foundry",
+    contactEmail: "a@b.com",
+    contactEmailVisible: true,
+  };
+
+  it("accepts a well-formed event", () => {
+    expect(validate(eventSchema, validEvent).ok).toBe(true);
+  });
+
+  it("rejects a non-url luma link", () => {
+    expect(validate(eventSchema, { ...validEvent, lumaLink: "lu.ma/x" }).ok).toBe(false);
+  });
+});
+
+describe("vcGrantSchema", () => {
+  const validVc = {
+    kind: "vc" as const,
+    name: "Seedcamp",
+    description: "C".repeat(25),
+    link: "https://seedcamp.com",
+    amount: null,
+    deadline: null,
+    stage: null,
+  };
+
+  it("accepts a well-formed VC", () => {
+    expect(validate(vcGrantSchema, validVc).ok).toBe(true);
+  });
+
+  it("rejects an invalid kind", () => {
+    expect(validate(vcGrantSchema, { ...validVc, kind: "angel" }).ok).toBe(false);
+  });
+});
+
+describe("contactSchema", () => {
+  it("accepts a valid ticket", () => {
+    expect(validate(contactSchema, { subject: "Hi", message: "Hello there" }).ok).toBe(true);
+  });
+
+  it("rejects an over-length subject", () => {
+    expect(validate(contactSchema, { subject: "x".repeat(200), message: "ok" }).ok).toBe(false);
+  });
+
+  it("rejects an empty message", () => {
+    expect(validate(contactSchema, { subject: "Hi", message: "   " }).ok).toBe(false);
+  });
+});

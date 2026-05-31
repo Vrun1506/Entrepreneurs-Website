@@ -1,8 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
 import { describeSupabaseError } from "@/lib/supabaseErrors";
+import { getActionAuth } from "@/lib/auth/actionAuth";
 
 export type ListingType = "opportunity" | "event" | "vc_grant";
 
@@ -25,7 +25,10 @@ const REVALIDATE: Record<ListingType, string[]> = {
 // or an approved one returns 0 affected rows and we report that as not
 // found.
 export async function deleteOwnListing(type: ListingType, id: string): Promise<Result> {
-  const supabase = await createClient();
+  if (!TABLE[type]) return { ok: false, error: "Unknown listing type." };
+
+  const { user, supabase } = await getActionAuth();
+  if (!user) return { ok: false, error: "You must be signed in." };
 
   const { error, count } = await supabase
     .from(TABLE[type])
