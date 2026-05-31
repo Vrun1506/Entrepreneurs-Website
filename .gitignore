@@ -1,5 +1,10 @@
 .claude/
 /node_modules/
-supabase/
 tasks/
 venv/
+
+# Supabase: track migrations + tests (the security model), ignore
+# CLI-local and secret artifacts only.
+supabase/.branches/
+supabase/.temp/
+supabase/.env
