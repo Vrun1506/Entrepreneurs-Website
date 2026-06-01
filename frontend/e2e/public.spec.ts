@@ -38,6 +38,30 @@ test("public contact form submits anonymously and confirms success", async ({ pa
   await expect(page.getByText(/we[’']ve received your message/i)).toBeVisible();
 });
 
+// ─── CSP: the header is present with a nonce, and the app hydrates clean ───
+// This is the pre-deploy gate for enforce-mode CSP: if a directive were too
+// strict, Next's inline hydration scripts would be refused and we'd see a
+// "Content Security Policy" console violation here before it ever ships.
+test("home page carries a nonce-based CSP and hydrates with zero violations", async ({ page }) => {
+  const violations: string[] = [];
+  const isCspViolation = (text: string) =>
+    /content security policy|refused to (execute|load|connect|apply|create)/i.test(text);
+  page.on("console", (msg) => {
+    if (msg.type() === "error" && isCspViolation(msg.text())) violations.push(msg.text());
+  });
+  page.on("pageerror", (err) => {
+    if (isCspViolation(err.message)) violations.push(err.message);
+  });
+
+  const res = await page.goto("/", { waitUntil: "networkidle" });
+  const csp = res?.headers()["content-security-policy"];
+  expect(csp, "CSP header present").toBeTruthy();
+  expect(csp!, "CSP carries a per-request nonce").toMatch(/'nonce-[A-Za-z0-9+/=]+'/);
+  expect(csp!).toContain("'strict-dynamic'");
+
+  expect(violations, `CSP violations on /: ${violations.join(" | ")}`).toEqual([]);
+});
+
 // ─── Access control: gated routes bounce logged-out visitors to /login ─────
 const GATED_ROUTES = [
   "/community",
