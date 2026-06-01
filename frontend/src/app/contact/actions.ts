@@ -1,42 +1,43 @@
 "use server";
 
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { sendContactTicket } from "@/lib/email";
 import { contactSchema } from "@/lib/validation/contact";
 import { validate } from "@/lib/validation/listings";
-import { allow } from "@/lib/ratelimit";
+import { allow, clientIp } from "@/lib/ratelimit";
 import { verifyTurnstile } from "@/lib/turnstile";
 
 type Result = { ok: true } | { ok: false; error: string };
 
+// Public contact form: anyone (member or not) can reach the society here.
+// Spam is held off by Turnstile + the Upstash `submit` bucket, not an auth
+// wall — that's what those layers are for. See tasks/WIRING_CHECKLIST.md §5b.
 export async function submitContactTicket(input: unknown): Promise<Result> {
   const parsed = validate(contactSchema, input);
   if (!parsed.ok) return parsed;
-  const { subject, message } = parsed.data;
+  const { name, email, subject, message } = parsed.data;
   const token = (input as { turnstileToken?: string } | null)?.turnstileToken;
-
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user?.email) return { ok: false, error: "You must be signed in to contact the team." };
 
   if (!(await verifyTurnstile(token))) {
     return { ok: false, error: "Verification failed. Please complete the challenge and try again." };
   }
-  if (!(await allow("submit", user.id))) {
+
+  // Rate-limit identity: per-user when signed in (NAT-safe), else per-IP.
+  // Anonymous campus visitors share one public IP, but contact volume is
+  // low and the 60/min/IP middleware bucket is the coarse backstop.
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const rlKey = user?.id ?? clientIp(await headers());
+  if (!(await allow("submit", rlKey))) {
     return { ok: false, error: "You're sending messages too frequently. Please try again later." };
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("first_name, surname")
-    .eq("id", user.id)
-    .single();
-
   try {
     await sendContactTicket({
-      fromEmail: user.email,
-      firstName: profile?.first_name ?? null,
-      surname: profile?.surname ?? null,
+      fromEmail: email,
+      firstName: name?.trim() || null,
+      surname: null,
       subject,
       message,
     });
