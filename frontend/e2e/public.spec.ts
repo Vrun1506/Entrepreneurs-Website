@@ -35,7 +35,6 @@ const GATED_ROUTES = [
   "/my-submissions",
   "/my-bookmarks",
   "/settings",
-  "/admin",
 ];
 
 for (const path of GATED_ROUTES) {
@@ -44,3 +43,12 @@ for (const path of GATED_ROUTES) {
     await expect(page).toHaveURL(/\/login/);
   });
 }
+
+// /admin is deliberately different: the admin layout calls notFound() for
+// non-admins, so its very existence is hidden behind a 404 rather than a
+// login redirect. Assert that, and that no admin content leaks.
+test("/admin is hidden behind a 404 when logged out (no content leak)", async ({ page }) => {
+  const res = await page.goto("/admin");
+  expect(res?.status()).toBe(404);
+  await expect(page.getByText("Foundry control panel")).toHaveCount(0);
+});
