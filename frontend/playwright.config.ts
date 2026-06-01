@@ -51,6 +51,15 @@ export default defineConfig({
       testMatch: /admin\.spec\.ts/,
       use: { ...devices["Desktop Chrome"], storageState: storageStatePath("admin") },
     },
+    // Live rate-limit enforcement. Deliberately NOT run by the main e2e job
+    // (which scopes to public/member/admin) — it only runs in the isolated
+    // `e2e-ratelimit` CI job that wires Upstash via an SRH sidecar, so the
+    // process-wide limiter can't make the rest of the suite flaky.
+    {
+      name: "ratelimit",
+      testMatch: /ratelimit\.spec\.ts/,
+      use: { ...devices["Desktop Chrome"] },
+    },
   ],
   webServer: {
     command: "pnpm start",
