@@ -190,11 +190,19 @@ jobs:
           echo "SUPABASE_SERVICE_ROLE_KEY=$SRK" >> "$GITHUB_ENV"
 
       - name: Wait for SRH
+        # SRH implements only the Upstash REST "body" method (POST / with a
+        # JSON command array) — there is no GET /ping route. Probe with the
+        # exact transport @upstash/ratelimit uses: POST ["PING"], expect PONG.
         run: |
           for i in $(seq 1 30); do
-            if curl -fsS -H "Authorization: Bearer e2e-rl-token" http://localhost:8079/ping >/dev/null 2>&1; then
-              echo "SRH ready"; exit 0
-            fi
+            resp=$(curl -fsS -X POST \
+              -H "Authorization: Bearer e2e-rl-token" \
+              -H "Content-Type: application/json" \
+              -d '["PING"]' http://localhost:8079/ 2>/dev/null) || { sleep 2; continue; }
+            echo "SRH responded: $resp"
+            case "$resp" in
+              *PONG*) echo "SRH ready"; exit 0 ;;
+            esac
             sleep 2
           done
           echo "SRH did not become ready"; exit 1
