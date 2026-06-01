@@ -27,6 +27,14 @@ declare
   v_opp_a  uuid := gen_random_uuid();
   v_opp_b  uuid := gen_random_uuid();
 begin
+  -- Seed as service_role. The *_protect_status triggers fire BEFORE UPDATE
+  -- and reject any status change that isn't service_role / is_admin() / the
+  -- onboarding GUC. The auth.users inserts below trip the auto-create-profile
+  -- trigger, so the profiles upsert lands on its DO UPDATE branch (a status
+  -- change) and is otherwise rejected. Faking the service_role JWT claim is
+  -- the bypass this file always intended (see header note).
+  perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+
   -- Pretend auth.users rows exist for these UUIDs. The real GoTrue
   -- service inserts them; in tests we bypass.
   insert into auth.users (id, email, raw_user_meta_data, raw_app_meta_data)
@@ -224,6 +232,9 @@ declare
   v_status user_status;
 begin
   set local role postgres;
+  -- Re-assert the service_role seed bypass: prior tests overwrote the JWT
+  -- claim via _set_caller, so the upsert below would otherwise be rejected.
+  perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
   insert into auth.users (id, email, raw_user_meta_data, raw_app_meta_data)
   values (v_new, 'onboard@imperial.ac.uk',
           '{"first_name":"On","surname":"Board","role":"student"}'::jsonb,
