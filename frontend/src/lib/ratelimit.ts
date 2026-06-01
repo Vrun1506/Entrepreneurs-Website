@@ -64,7 +64,14 @@ export async function allow(bucket: RateBucket, identifier: string): Promise<boo
 }
 
 // Best-effort client IP from proxy headers (Vercel/Cloudflare set these).
+// Prefer cf-connecting-ip: behind Cloudflare it's the true client IP, set
+// (and overwritten) by Cloudflare on every request, so — unlike the leftmost
+// x-forwarded-for hop, which the client controls — it can't be spoofed to
+// evade the per-IP bucket. XFF/x-real-ip remain as fallbacks for paths that
+// don't pass through Cloudflare (CI, direct origin hits).
 export function clientIp(headers: Headers): string {
+  const cf = headers.get("cf-connecting-ip");
+  if (cf) return cf.trim();
   const xff = headers.get("x-forwarded-for");
   if (xff) return xff.split(",")[0]!.trim();
   return headers.get("x-real-ip") ?? "unknown";

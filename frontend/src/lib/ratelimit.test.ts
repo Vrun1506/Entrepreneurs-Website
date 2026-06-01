@@ -2,6 +2,11 @@ import { describe, it, expect } from "vitest";
 import { allow, clientIp } from "./ratelimit";
 
 describe("clientIp", () => {
+  it("prefers cf-connecting-ip over x-forwarded-for (spoof-resistant behind Cloudflare)", () => {
+    const h = new Headers({ "cf-connecting-ip": "4.4.4.4", "x-forwarded-for": "1.2.3.4, 5.6.7.8" });
+    expect(clientIp(h)).toBe("4.4.4.4");
+  });
+
   it("takes the first hop from x-forwarded-for", () => {
     const h = new Headers({ "x-forwarded-for": "1.2.3.4, 5.6.7.8" });
     expect(clientIp(h)).toBe("1.2.3.4");
