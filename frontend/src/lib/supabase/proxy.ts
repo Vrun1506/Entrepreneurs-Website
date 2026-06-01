@@ -1,9 +1,20 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { allow, clientIp } from "@/lib/ratelimit";
+import { buildCsp, generateNonce } from "@/lib/csp";
 
 export async function updateSession(request: NextRequest) {
-  let response = NextResponse.next({ request });
+  // Per-request CSP nonce. Carried on the *request* headers so Next.js stamps
+  // it onto its own inline scripts, and echoed on the *response* so the
+  // browser enforces the policy. Built before createServerClient so nothing
+  // runs between that and getUser() (the @supabase/ssr auth race rule).
+  const nonce = generateNonce();
+  const csp = buildCsp(nonce);
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set("content-security-policy", csp);
+
+  let response = NextResponse.next({ request: { headers: requestHeaders } });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -15,7 +26,7 @@ export async function updateSession(request: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-          response = NextResponse.next({ request });
+          response = NextResponse.next({ request: { headers: requestHeaders } });
           cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options),
           );
@@ -39,5 +50,6 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
+  response.headers.set("content-security-policy", csp);
   return response;
 }
