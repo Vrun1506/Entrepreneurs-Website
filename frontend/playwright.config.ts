@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import { storageStatePath } from "./e2e/fixtures";
 
 // ════════════════════════════════════════════════════════════════════
 // Foundry · E2E (Playwright)
@@ -28,13 +29,28 @@ export default defineConfig({
   timeout: 30_000,
   expect: { timeout: 10_000 },
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
+  // Seeds the ephemeral DB + writes per-role storageState before any spec.
+  globalSetup: "./e2e/global-setup.ts",
   use: {
     baseURL: BASE_URL,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
   },
   projects: [
-    { name: "public", use: { ...devices["Desktop Chrome"] } },
+    // Logged-out surface + access control.
+    { name: "public", testMatch: /public\.spec\.ts/, use: { ...devices["Desktop Chrome"] } },
+    // Approved student session (from global-setup).
+    {
+      name: "member",
+      testMatch: /member\.spec\.ts|workflow\.spec\.ts/,
+      use: { ...devices["Desktop Chrome"], storageState: storageStatePath("student") },
+    },
+    // Admin session.
+    {
+      name: "admin",
+      testMatch: /admin\.spec\.ts/,
+      use: { ...devices["Desktop Chrome"], storageState: storageStatePath("admin") },
+    },
   ],
   webServer: {
     command: "pnpm start",
