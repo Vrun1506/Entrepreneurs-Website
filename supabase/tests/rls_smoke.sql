@@ -83,6 +83,10 @@ begin
   insert into _test_ctx (k, v) values
     ('user_a', v_user_a), ('user_b', v_user_b), ('admin', v_admin),
     ('opp_a', v_opp_a), ('opp_b', v_opp_b);
+  -- Test bodies switch to the authenticated role so RLS applies, and that
+  -- role leaks into later do-blocks (set_config is transaction-local). Grant
+  -- _test_ctx so fixture lookups in those blocks' DECLARE sections still work.
+  grant select on _test_ctx to authenticated;
 end;
 $$;
 
@@ -121,7 +125,9 @@ declare
   v_new uuid := gen_random_uuid();
   v_seen int;
 begin
-  set local role postgres;
+  -- 'none' resets to the login superuser; the leaked authenticated role
+  -- can't SET ROLE postgres (it isn't a member of it).
+  set local role none;
   insert into public.opportunities (
     id, posted_by, status, position_name, company, pay, location_type,
     description, start_month, start_year, application_deadline,
@@ -230,7 +236,7 @@ declare
   v_new uuid := gen_random_uuid();
   v_status user_status;
 begin
-  set local role postgres;
+  set local role none;  -- reset to the login superuser (see test 2)
   -- Re-assert the service_role seed bypass: prior tests overwrote the JWT
   -- claim via _set_caller, so the upsert below would otherwise be rejected.
   perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
@@ -256,7 +262,7 @@ begin
     p_sector_ids    => null
   );
 
-  set local role postgres;
+  set local role none;  -- reset to the login superuser to read back status
   select status into v_status from public.profiles where id = v_new;
   if v_status <> 'approved' then
     raise exception 'FAIL: student onboarding did not approve (status=%)', v_status;
