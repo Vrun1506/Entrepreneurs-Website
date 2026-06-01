@@ -4,7 +4,19 @@ import { useState, useTransition } from "react";
 import { submitContactTicket } from "./actions";
 import { TurnstileWidget, turnstileConfigured } from "@/components/forms/TurnstileWidget";
 
-export default function ContactForm() {
+export default function ContactForm({
+  defaultName = "",
+  defaultEmail = "",
+  lockEmail = false,
+}: {
+  defaultName?: string;
+  /** Prefilled reply-to address; for a signed-in member this is their verified email. */
+  defaultEmail?: string;
+  /** When true (signed-in member), name/email come from the session — hide the inputs. */
+  lockEmail?: boolean;
+}) {
+  const [name, setName] = useState(defaultName);
+  const [email, setEmail] = useState(defaultEmail);
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [pending, startTransition] = useTransition();
@@ -24,7 +36,7 @@ export default function ContactForm() {
       return;
     }
     startTransition(async () => {
-      const res = await submitContactTicket({ subject, message, turnstileToken });
+      const res = await submitContactTicket({ name, email, subject, message, turnstileToken });
       if (!res.ok) {
         setError(res.error);
         return;
@@ -46,6 +58,40 @@ export default function ContactForm() {
         <div className="px-4 py-3 rounded-lg bg-gold-muted border border-gold/30 text-[0.8rem] text-gold-light leading-relaxed">
           Thanks — we&apos;ve received your message and will be in touch.
         </div>
+      )}
+
+      {!lockEmail && (
+        <>
+          <div>
+            <label htmlFor="name" className="block text-[0.75rem] text-text-muted mb-1.5">
+              Name <span className="text-text-muted/70 ml-2">optional</span>
+            </label>
+            <input
+              id="name"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className={inputCls}
+              maxLength={120}
+              autoComplete="name"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="email" className="block text-[0.75rem] text-text-muted mb-1.5">Email</label>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className={inputCls}
+              maxLength={254}
+              autoComplete="email"
+              placeholder="you@example.com"
+              required
+            />
+          </div>
+        </>
       )}
 
       <div>

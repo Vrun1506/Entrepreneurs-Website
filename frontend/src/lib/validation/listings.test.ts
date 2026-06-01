@@ -103,15 +103,33 @@ describe("vcGrantSchema", () => {
 });
 
 describe("contactSchema", () => {
-  it("accepts a valid ticket", () => {
-    expect(validate(contactSchema, { subject: "Hi", message: "Hello there" }).ok).toBe(true);
+  const base = { email: "ada@example.com", subject: "Hi", message: "Hello there" };
+
+  it("accepts a valid ticket with a name", () => {
+    expect(validate(contactSchema, { ...base, name: "Ada Lovelace" }).ok).toBe(true);
+  });
+
+  it("accepts a valid ticket without a name (optional)", () => {
+    expect(validate(contactSchema, base).ok).toBe(true);
+  });
+
+  it("rejects a missing email", () => {
+    expect(validate(contactSchema, { subject: "Hi", message: "ok" }).ok).toBe(false);
+  });
+
+  it("rejects a malformed email", () => {
+    expect(validate(contactSchema, { ...base, email: "not-an-email" }).ok).toBe(false);
+  });
+
+  it("rejects an over-length name", () => {
+    expect(validate(contactSchema, { ...base, name: "x".repeat(121) }).ok).toBe(false);
   });
 
   it("rejects an over-length subject", () => {
-    expect(validate(contactSchema, { subject: "x".repeat(200), message: "ok" }).ok).toBe(false);
+    expect(validate(contactSchema, { ...base, subject: "x".repeat(200) }).ok).toBe(false);
   });
 
   it("rejects an empty message", () => {
-    expect(validate(contactSchema, { subject: "Hi", message: "   " }).ok).toBe(false);
+    expect(validate(contactSchema, { ...base, message: "   " }).ok).toBe(false);
   });
 });

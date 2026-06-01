@@ -1,49 +1,85 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import AppNav from "@/components/AppNav";
+import { BrandLogo } from "@/components/BrandLogo";
 import ContactForm from "./ContactForm";
 
+// Public front door: reachable by anyone (prospective members, alumni,
+// sponsors, press), not just signed-in users. Spam is held off by Turnstile
+// + the Upstash submit bucket, not an auth wall. Signed-in members still get
+// the member nav + their verified email prefilled.
 export default async function ContactPage() {
   const supabase = await createClient();
-
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
 
-  const [profileRes, isAdminRes] = await Promise.all([
-    supabase.from("profiles").select("status").eq("id", user.id).single(),
-    supabase.rpc("is_admin"),
-  ]);
-
-  const profile = profileRes.data;
-  const isAdmin = !!isAdminRes.data;
-  if (!profile) redirect("/login");
-  // Admins bypass the onboarding gate so they can browse the user-facing UI for diagnostics.
-  if (!isAdmin && profile.status === "pending_onboarding") redirect("/onboarding");
+  let member: { isApproved: boolean; isAdmin: boolean; name: string | null } | null = null;
+  if (user) {
+    const [profileRes, isAdminRes] = await Promise.all([
+      supabase.from("profiles").select("status, first_name, surname").eq("id", user.id).single(),
+      supabase.rpc("is_admin"),
+    ]);
+    const profile = profileRes.data;
+    if (profile) {
+      const name = [profile.first_name, profile.surname].filter(Boolean).join(" ").trim() || null;
+      member = { isApproved: profile.status === "approved", isAdmin: !!isAdminRes.data, name };
+    }
+  }
 
   return (
     <div className="min-h-screen bg-bg-primary flex flex-col">
-      <AppNav active="settings" isApproved={profile.status === "approved"} isAdmin={isAdmin} />
+      {member ? (
+        <AppNav active="settings" isApproved={member.isApproved} isAdmin={member.isAdmin} />
+      ) : (
+        <header className="px-4 sm:px-8 py-4 sm:py-5 border-b border-border-subtle">
+          <div className="max-w-[1200px] mx-auto flex items-center justify-between gap-3">
+            <Link href="/" className="no-underline shrink-0">
+              <BrandLogo size="sm" />
+            </Link>
+            <Link
+              href="/"
+              className="text-[0.8rem] text-text-muted no-underline hover:text-text-secondary transition-colors"
+            >
+              ← Back to home
+            </Link>
+          </div>
+        </header>
+      )}
+
       <main className="flex-1 px-4 sm:px-8 py-10 sm:py-12">
         <div className="max-w-[640px] mx-auto">
-          <Link
-            href="/settings"
-            className="inline-flex items-center text-[0.8rem] text-text-muted no-underline transition-colors duration-150 hover:text-text-secondary mb-6"
-          >
-            ← Settings
-          </Link>
+          {member && (
+            <Link
+              href="/settings"
+              className="inline-flex items-center text-[0.8rem] text-text-muted no-underline transition-colors duration-150 hover:text-text-secondary mb-6"
+            >
+              ← Settings
+            </Link>
+          )}
           <div className="mb-10">
             <div className="text-[0.7rem] text-gold tracking-[0.18em] uppercase mb-2">Contact</div>
             <h1 className="font-display text-text-primary leading-[1.1] tracking-tight text-[clamp(1.75rem,3.5vw,2.5rem)]">
               Get in touch
             </h1>
             <p className="text-[0.875rem] text-text-muted mt-3 leading-relaxed">
-              Report a bug, ask a question, or flag something off. We&apos;ll reply to{" "}
-              <span className="text-text-secondary">{user.email}</span>.
+              {user ? (
+                <>
+                  Report a bug, ask a question, or flag something off. We&apos;ll reply to{" "}
+                  <span className="text-text-secondary">{user.email}</span>.
+                </>
+              ) : (
+                <>
+                  Questions about Imperial Entrepreneurs, partnerships, or membership? Send us a
+                  message and we&apos;ll get back to you.
+                </>
+              )}
             </p>
           </div>
 
-          <ContactForm />
+          <ContactForm
+            defaultName={member?.name ?? undefined}
+            defaultEmail={user?.email ?? undefined}
+            lockEmail={!!user?.email}
+          />
         </div>
       </main>
     </div>
