@@ -211,6 +211,51 @@ begin
 end;
 $$;
 
+-- 8. A pending_onboarding user CAN complete onboarding via the RPC.
+--    Regression test for the 20260531000003 signature mismatch, where
+--    the status-protect trigger required a GUC that the live 9-arg
+--    submit_onboarding never set -> every submission failed with 42501
+--    ("You don't have permission to do that") for students and alumni
+--    alike. Asserts the student path flips pending_onboarding ->
+--    approved through the RPC without error.
+do $$
+declare
+  v_new uuid := gen_random_uuid();
+  v_status user_status;
+begin
+  set local role postgres;
+  insert into auth.users (id, email, raw_user_meta_data, raw_app_meta_data)
+  values (v_new, 'onboard@imperial.ac.uk',
+          '{"first_name":"On","surname":"Board","role":"student"}'::jsonb,
+          '{"provider":"email"}'::jsonb)
+  on conflict do nothing;
+  insert into public.profiles (id, role, status, first_name, surname)
+  values (v_new, 'student', 'pending_onboarding', 'On', 'Board')
+  on conflict (id) do update set status = excluded.status;
+
+  perform _set_caller(v_new);
+  perform public.submit_onboarding(
+    p_course        => 'MEng Computing',
+    p_grad_year     => 2028,
+    p_linkedin_url  => null,
+    p_github_url    => null,
+    p_portfolio_url => null,
+    p_bio           => null,
+    p_working_on    => null,
+    p_skill_ids     => null,
+    p_sector_ids    => null
+  );
+
+  set local role postgres;
+  select status into v_status from public.profiles where id = v_new;
+  if v_status <> 'approved' then
+    raise exception 'FAIL: student onboarding did not approve (status=%)', v_status;
+  end if;
+  -- Don't leak the trusted-call GUC into later tests.
+  perform set_config('foundry.onboarding_submission', '', true);
+end;
+$$;
+
 -- ─── Cleanup ────────────────────────────────────────────────────────
 drop function _set_caller(uuid);
 rollback;
