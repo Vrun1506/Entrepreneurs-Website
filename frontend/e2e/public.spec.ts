@@ -26,6 +26,18 @@ test("contact form renders its inputs when logged out", async ({ page }) => {
   await expect(page.locator("#message")).toBeVisible();
 });
 
+test("public contact form submits anonymously and confirms success", async ({ page }) => {
+  // Turnstile is unconfigured in CI, so the anonymous path submits straight
+  // through to the server action, which enqueues to outbound_email via the
+  // service client — a real write, all on the ephemeral stack.
+  await page.goto("/contact");
+  await page.locator("#email").fill("e2e-visitor@example.com");
+  await page.locator("#subject").fill("E2E hello");
+  await page.locator("#message").fill("Automated contact submission from the E2E suite.");
+  await page.getByRole("button", { name: "Send message" }).click();
+  await expect(page.getByText(/we[’']ve received your message/i)).toBeVisible();
+});
+
 // ─── Access control: gated routes bounce logged-out visitors to /login ─────
 const GATED_ROUTES = [
   "/community",

@@ -1,0 +1,41 @@
+name: Prod smoke
+
+# Read-only health check against the live site. Run it after a production
+# deploy to confirm prod-specific config/outage the ephemeral CI can't see.
+#
+# Triggers:
+#   - manually (Actions tab -> Prod smoke -> Run workflow)
+#   - on demand from another workflow via `workflow_call`
+#
+# For continuous uptime monitoring, uncomment the `schedule` block (GitHub
+# cron, min 5-min granularity) OR — better — point an external monitor
+# (UptimeRobot / Better Stack) at the same routes.
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Base URL to smoke-test"
+        required: false
+        default: "https://imperialentrepreneurs.com"
+  workflow_call:
+    inputs:
+      base_url:
+        required: false
+        type: string
+        default: "https://imperialentrepreneurs.com"
+  # schedule:
+  #   - cron: "*/30 * * * *"
+
+jobs:
+  smoke:
+    name: Production read-only smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run prod smoke
+        run: node scripts/prod-smoke.mjs
+        env:
+          PROD_BASE_URL: ${{ inputs.base_url || 'https://imperialentrepreneurs.com' }}
