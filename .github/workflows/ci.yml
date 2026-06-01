@@ -129,7 +129,9 @@ jobs:
 
       - name: Run E2E
         working-directory: frontend
-        run: pnpm e2e
+        # Scope to the app projects; the rate-limit project runs in its own
+        # isolated job (Upstash enabled there only).
+        run: pnpm exec playwright test --project=public --project=member --project=admin
 
       - if: always()
         run: supabase stop || true
@@ -138,5 +140,92 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
+          path: frontend/playwright-report
+          retention-days: 7
+
+  e2e-ratelimit:
+    name: E2E rate-limit enforcement (SRH)
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'push' ||
+      contains(github.event.pull_request.labels.*.name, 'e2e')
+    # Real Upstash REST surface: SRH speaks the Upstash REST API in front of
+    # a Redis, so @upstash/ratelimit actually enforces.
+    services:
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      srh:
+        image: hiett/serverless-redis-http:latest
+        env:
+          SRH_MODE: env
+          SRH_TOKEN: e2e-rl-token
+          SRH_CONNECTION_STRING: "redis://redis:6379"
+        ports:
+          - 8079:80
+    env:
+      UPSTASH_REDIS_REST_URL: http://localhost:8079
+      UPSTASH_REDIS_REST_TOKEN: e2e-rl-token
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - run: supabase init || true
+      - run: supabase start
+
+      - name: Export Supabase env
+        run: |
+          supabase status -o env > /tmp/sb.env
+          API_URL=$(grep '^API_URL=' /tmp/sb.env | cut -d= -f2- | tr -d '"')
+          ANON=$(grep '^ANON_KEY=' /tmp/sb.env | cut -d= -f2- | tr -d '"')
+          SRK=$(grep '^SERVICE_ROLE_KEY=' /tmp/sb.env | cut -d= -f2- | tr -d '"')
+          echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL" >> "$GITHUB_ENV"
+          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON" >> "$GITHUB_ENV"
+          echo "SUPABASE_SERVICE_ROLE_KEY=$SRK" >> "$GITHUB_ENV"
+
+      - name: Wait for SRH
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS -H "Authorization: Bearer e2e-rl-token" http://localhost:8079/ping >/dev/null 2>&1; then
+              echo "SRH ready"; exit 0
+            fi
+            sleep 2
+          done
+          echo "SRH did not become ready"; exit 1
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install deps
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+      - name: Install Playwright browser
+        working-directory: frontend
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Build
+        working-directory: frontend
+        run: pnpm build
+      - name: Run rate-limit E2E
+        working-directory: frontend
+        run: pnpm exec playwright test --project=ratelimit
+
+      - if: always()
+        run: supabase stop || true
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-ratelimit
           path: frontend/playwright-report
           retention-days: 7
