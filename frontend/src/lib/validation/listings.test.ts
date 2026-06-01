@@ -59,6 +59,16 @@ describe("opportunitySchema", () => {
     const r = validate(opportunitySchema, { ...validOpportunity, applyUrl: "ftp://acme.com" });
     expect(r.ok).toBe(false);
   });
+
+  it("allows the email apply method without an apply url", () => {
+    const r = validate(opportunitySchema, { ...validOpportunity, applyMethod: "email", applyUrl: null });
+    expect(r.ok).toBe(true);
+  });
+
+  it("requires a location for hybrid roles", () => {
+    const r = validate(opportunitySchema, { ...validOpportunity, locationType: "hybrid", locationText: null });
+    expect(r.ok).toBe(false);
+  });
 });
 
 describe("eventSchema", () => {
@@ -79,6 +89,10 @@ describe("eventSchema", () => {
 
   it("rejects a non-url luma link", () => {
     expect(validate(eventSchema, { ...validEvent, lumaLink: "lu.ma/x" }).ok).toBe(false);
+  });
+
+  it("rejects an unparseable event date/time", () => {
+    expect(validate(eventSchema, { ...validEvent, eventAtIso: "not-a-date" }).ok).toBe(false);
   });
 });
 
