@@ -59,25 +59,24 @@ begin
   insert into public.admins (user_id) values (v_admin) on conflict do nothing;
 
   -- A pending opportunity owned by A, an approved one owned by B.
+  -- approved_at / approved_by must be set inline: the opportunities_approval_metadata
+  -- CHECK rejects an 'approved' row with null approval metadata, so we can't insert
+  -- approved-then-backfill -- the per-row CHECK fires at insert time.
   insert into public.opportunities (
     id, posted_by, status, position_name, company, pay, location_type,
     description, start_month, start_year, application_deadline,
-    contact_email, apply_method
+    contact_email, apply_method, approved_at, approved_by
   ) values
     (v_opp_a, v_user_a, 'pending',
      'A''s role', 'Co', '£50k', 'remote',
      'Description that is at least twenty chars long.',
      1, 2027, current_date + 30,
-     'a@imperial.ac.uk', 'email'),
+     'a@imperial.ac.uk', 'email', null, null),
     (v_opp_b, v_user_b, 'approved',
      'B''s approved role', 'Co', '£50k', 'remote',
      'Description that is at least twenty chars long.',
      1, 2027, current_date + 30,
-     'b@imperial.ac.uk', 'email');
-
-  update public.opportunities
-     set approved_at = now(), approved_by = v_admin
-   where id = v_opp_b;
+     'b@imperial.ac.uk', 'email', now(), v_admin);
 
   -- Stash UUIDs so the test blocks below can find them.
   create temporary table _test_ctx (k text, v uuid);
