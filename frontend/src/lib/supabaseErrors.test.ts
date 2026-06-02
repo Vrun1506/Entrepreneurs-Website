@@ -42,6 +42,21 @@ describe("describeSupabaseError", () => {
     ).toMatch(/rejected by a validation rule/i);
   });
 
+  it("maps the URL-length check constraints to 512-character messages", () => {
+    expect(
+      describeSupabaseError({ code: "23514", message: 'violates check constraint "profiles_linkedin_url_len"' }),
+    ).toBe("LinkedIn URL must be 512 characters or fewer.");
+    expect(
+      describeSupabaseError({ code: "23514", message: 'violates check constraint "opportunities_apply_url_len"' }),
+    ).toBe("Application portal URL must be 512 characters or fewer.");
+    expect(
+      describeSupabaseError({ code: "23514", message: 'violates check constraint "events_luma_link_len"' }),
+    ).toBe("Luma link must be 512 characters or fewer.");
+    expect(
+      describeSupabaseError({ code: "23514", message: 'violates check constraint "vcs_grants_link_len"' }),
+    ).toBe("Link must be 512 characters or fewer.");
+  });
+
   it("maps FK violation (23503) and not-found (PGRST116)", () => {
     expect(describeSupabaseError({ code: "23503" })).toBe("That item no longer exists.");
     expect(describeSupabaseError({ code: "PGRST116" })).toBe("Not found.");

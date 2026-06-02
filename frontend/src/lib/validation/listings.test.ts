@@ -69,6 +69,19 @@ describe("opportunitySchema", () => {
     const r = validate(opportunitySchema, { ...validOpportunity, locationType: "hybrid", locationText: null });
     expect(r.ok).toBe(false);
   });
+
+  it("rejects an apply url longer than 512 characters", () => {
+    const longUrl = "https://acme.com/" + "a".repeat(512);
+    const r = validate(opportunitySchema, { ...validOpportunity, applyUrl: longUrl });
+    expect(r.ok).toBe(false);
+  });
+
+  it("accepts an apply url at the 512-character boundary", () => {
+    const boundaryUrl = "https://acme.com/" + "a".repeat(512 - "https://acme.com/".length);
+    expect(boundaryUrl.length).toBe(512);
+    const r = validate(opportunitySchema, { ...validOpportunity, applyUrl: boundaryUrl });
+    expect(r.ok).toBe(true);
+  });
 });
 
 describe("eventSchema", () => {
@@ -94,6 +107,11 @@ describe("eventSchema", () => {
   it("rejects an unparseable event date/time", () => {
     expect(validate(eventSchema, { ...validEvent, eventAtIso: "not-a-date" }).ok).toBe(false);
   });
+
+  it("rejects a luma link longer than 512 characters", () => {
+    const longUrl = "https://lu.ma/" + "a".repeat(512);
+    expect(validate(eventSchema, { ...validEvent, lumaLink: longUrl }).ok).toBe(false);
+  });
 });
 
 describe("vcGrantSchema", () => {
@@ -113,6 +131,11 @@ describe("vcGrantSchema", () => {
 
   it("rejects an invalid kind", () => {
     expect(validate(vcGrantSchema, { ...validVc, kind: "angel" }).ok).toBe(false);
+  });
+
+  it("rejects a link longer than 512 characters", () => {
+    const longUrl = "https://seedcamp.com/" + "a".repeat(512);
+    expect(validate(vcGrantSchema, { ...validVc, link: longUrl }).ok).toBe(false);
   });
 });
 
