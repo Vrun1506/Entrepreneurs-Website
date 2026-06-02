@@ -309,5 +309,8 @@ end;
 $$;
 
 -- ─── Cleanup ────────────────────────────────────────────────────────
+-- The test blocks leak the transaction-local 'authenticated' role (see note
+-- above), so reset to the owner role before dropping the helper function.
+set local role postgres;
 drop function _set_caller(uuid);
 rollback;
