@@ -2,24 +2,6 @@
 
 import Image from "next/image";
 
-const STATS = [
-  { value: "2,400+", label: "Members" },
-  { value: "180+",   label: "Alumni founders" },
-  { value: "£12M+",  label: "Raised collectively" },
-  { value: "34",     label: "Active startups" },
-];
-
-function StatItem({ value, label }: { value: string; label: string }) {
-  return (
-    <div>
-      <div className="font-display text-[2.25rem] text-text-primary leading-none mb-1.5">
-        {value}
-      </div>
-      <div className="text-xs text-text-muted tracking-wide">{label}</div>
-    </div>
-  );
-}
-
 export default function Hero() {
   return (
     <section
@@ -86,13 +68,6 @@ export default function Hero() {
             style={{ mixBlendMode: "screen" }}
           />
         </div>
-      </div>
-
-      {/* Stats row */}
-      <div className="anim-fade-up delay-500 flex flex-wrap gap-12 mt-20 pt-12 border-t border-border-subtle">
-        {STATS.map((stat) => (
-          <StatItem key={stat.label} {...stat} />
-        ))}
       </div>
     </section>
   );

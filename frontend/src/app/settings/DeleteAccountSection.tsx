@@ -35,7 +35,7 @@ export default function DeleteAccountSection({ email }: { email: string }) {
     <div className="rounded-2xl bg-bg-card border border-[#ff4d4d]/20 p-8">
       <div className="text-[0.95rem] font-medium text-text-primary mb-1">Delete account</div>
       <p className="text-[0.8rem] text-text-muted leading-relaxed mb-5">
-        Permanently removes your profile, interests, expertise, and any opportunities, events, or VCs/grants you&apos;ve posted. This cannot be undone.
+        This cannot be undone.
       </p>
 
       {!open ? (

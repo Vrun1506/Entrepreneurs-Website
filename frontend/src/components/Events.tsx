@@ -111,8 +111,8 @@ export default function Events() {
           </h2>
 
           <p className="text-[0.875rem] text-text-secondary font-light leading-[1.65] max-w-[360px]">
-            No death-by-panel. Every Foundry event is designed around one thing:
-            useful interactions that wouldn&apos;t happen otherwise.
+            Networking, demos, hackathons and office hours — designed to put you in
+            the same room as the people worth meeting.
           </p>
         </div>
 

@@ -47,12 +47,7 @@ export default async function SettingsPage() {
               className="block rounded-2xl bg-bg-card border border-border-subtle p-6 no-underline transition-colors duration-150 hover:border-gold/40 hover:bg-bg-card-hover"
             >
               <div className="flex items-center justify-between gap-4">
-                <div>
-                  <div className="text-[0.95rem] font-medium text-text-primary mb-1">Edit your profile</div>
-                  <div className="text-[0.8rem] text-text-muted leading-relaxed">
-                    Name, bio, what you&apos;re working on, skills, sectors, links.
-                  </div>
-                </div>
+                <div className="text-[0.95rem] font-medium text-text-primary">Edit your profile</div>
                 <span className="text-text-muted text-[1.1rem]">→</span>
               </div>
             </Link>
@@ -62,12 +57,7 @@ export default async function SettingsPage() {
               className="block rounded-2xl bg-bg-card border border-border-subtle p-6 no-underline transition-colors duration-150 hover:border-gold/40 hover:bg-bg-card-hover"
             >
               <div className="flex items-center justify-between gap-4">
-                <div>
-                  <div className="text-[0.95rem] font-medium text-text-primary mb-1">Your submissions</div>
-                  <div className="text-[0.8rem] text-text-muted leading-relaxed">
-                    Opportunities, events, and VC/grants you&apos;ve posted that are pending review or were rejected.
-                  </div>
-                </div>
+                <div className="text-[0.95rem] font-medium text-text-primary">Your submissions</div>
                 <span className="text-text-muted text-[1.1rem]">→</span>
               </div>
             </Link>
@@ -77,27 +67,7 @@ export default async function SettingsPage() {
               className="block rounded-2xl bg-bg-card border border-border-subtle p-6 no-underline transition-colors duration-150 hover:border-gold/40 hover:bg-bg-card-hover"
             >
               <div className="flex items-center justify-between gap-4">
-                <div>
-                  <div className="text-[0.95rem] font-medium text-text-primary mb-1">Saved opportunities</div>
-                  <div className="text-[0.8rem] text-text-muted leading-relaxed">
-                    Roles you&apos;ve bookmarked from the directory while they&apos;re still open.
-                  </div>
-                </div>
-                <span className="text-text-muted text-[1.1rem]">→</span>
-              </div>
-            </Link>
-
-            <Link
-              href="/my-activity"
-              className="block rounded-2xl bg-bg-card border border-border-subtle p-6 no-underline transition-colors duration-150 hover:border-gold/40 hover:bg-bg-card-hover"
-            >
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <div className="text-[0.95rem] font-medium text-text-primary mb-1">Your activity</div>
-                  <div className="text-[0.8rem] text-text-muted leading-relaxed">
-                    Things you&apos;ve marked as applied or going. Shown on the <span className="text-gold-light">/calendar</span> page too.
-                  </div>
-                </div>
+                <div className="text-[0.95rem] font-medium text-text-primary">Saved opportunities</div>
                 <span className="text-text-muted text-[1.1rem]">→</span>
               </div>
             </Link>
@@ -107,22 +77,14 @@ export default async function SettingsPage() {
               className="block rounded-2xl bg-bg-card border border-border-subtle p-6 no-underline transition-colors duration-150 hover:border-gold/40 hover:bg-bg-card-hover"
             >
               <div className="flex items-center justify-between gap-4">
-                <div>
-                  <div className="text-[0.95rem] font-medium text-text-primary mb-1">Contact the team</div>
-                  <div className="text-[0.8rem] text-text-muted leading-relaxed">
-                    Report a bug, ask a question, or flag an issue.
-                  </div>
-                </div>
+                <div className="text-[0.95rem] font-medium text-text-primary">Contact the team</div>
                 <span className="text-text-muted text-[1.1rem]">→</span>
               </div>
             </Link>
 
             <PasswordChangeForm hasPassword={hasPassword} />
 
-            <SessionsSection
-              signedInAs={user.email ?? ""}
-              lastSignInAt={user.last_sign_in_at ?? null}
-            />
+            <SessionsSection />
 
             <DeleteAccountSection email={user.email ?? ""} />
           </div>
