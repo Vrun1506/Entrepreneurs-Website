@@ -146,7 +146,7 @@ export default function EventForm({ signupEmail, defaultOrganiser, mode, editing
       </Field>
 
       <Field label="Luma link" required>
-        <input type="url" placeholder="https://lu.ma/your-event" value={lumaLink} onChange={(e) => setLumaLink(e.target.value)} className={inputCls} required />
+        <input type="url" maxLength={512} placeholder="https://lu.ma/your-event" value={lumaLink} onChange={(e) => setLumaLink(e.target.value)} className={inputCls} required />
       </Field>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
