@@ -374,6 +374,40 @@ export async function sendContactTicket(opts: {
   });
 }
 
+// ─── Contact form — sender acknowledgement ──────────────────────────
+// Auto-reply to the person who submitted the contact form so they know
+// it went through. Sent best-effort by the action after the team ticket;
+// Reply-To points at the contact inbox so a reply continues to the team.
+export async function sendContactConfirmation(opts: {
+  to: string;
+  firstName: string | null;
+  subject: string;
+}): Promise<void> {
+  const greeting = opts.firstName ? `Hi ${escapeName(opts.firstName)},` : "Hi,";
+  const subject = "We've got your message — Foundry";
+  const ref = opts.subject.trim();
+  const text = [
+    greeting,
+    "",
+    `Thanks for getting in touch with Foundry. We've received your message${ref ? ` about "${ref}"` : ""} and someone will get back to you as soon as we can.`,
+    "",
+    "If you need to add anything, just reply to this email.",
+    "",
+    "— The Foundry team",
+  ].join("\n");
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; line-height: 1.6;">
+      <p>${escapeHtml(greeting)}</p>
+      <p>Thanks for getting in touch with <strong>Foundry</strong>. We've received your message${ref ? ` about <strong>"${escapeHtml(ref)}"</strong>` : ""} and someone will get back to you as soon as we can.</p>
+      <p>If you need to add anything, just reply to this email.</p>
+      <p style="color: #5a5855; margin-top: 32px;">— The Foundry team</p>
+    </div>
+  `;
+
+  await enqueueEmail({ to: opts.to, subject, text, html, replyTo: contactInbox() });
+}
+
 // ─── Name sanitiser ─────────────────────────────────────────────────
 // Used in email greetings to defang anything weird in user-supplied
 // names. Strips zero-width, normalises Unicode, collapses internal
