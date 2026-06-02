@@ -150,7 +150,7 @@ export async function sendAcceptanceEmail(opts: {
     </div>
   `;
 
-  await enqueueEmail({ to: opts.to, subject, text, html });
+  await enqueueEmail({ to: opts.to, subject, text, html, replyTo: contactInbox() });
 }
 
 // ─── Profile rejection ──────────────────────────────────────────────
@@ -274,7 +274,7 @@ export async function sendGraduationEmail(opts: {
     firstName:     opts.firstName,
     alumSignupUrl: opts.alumSignupUrl,
   });
-  await enqueueEmail({ to: opts.to, subject, text, html });
+  await enqueueEmail({ to: opts.to, subject, text, html, replyTo: contactInbox() });
 }
 
 // ─── Listing rejection ──────────────────────────────────────────────
