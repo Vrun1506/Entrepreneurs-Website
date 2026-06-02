@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { cleanName } from "@/lib/text";
+import { cleanName, isValidName } from "@/lib/text";
 import { SignupDisclosures } from "@/components/forms/SignupDisclosures";
 import { BrandLogo } from "@/components/BrandLogo";
 
@@ -176,6 +176,9 @@ export default function LoginPage() {
       if (trimmedFirst.length > 50 || trimmedSurname.length > 50) {
         return "First name and surname must be 50 characters or fewer.";
       }
+      if (!isValidName(trimmedFirst) || !isValidName(trimmedSurname)) {
+        return "Names can only contain letters, spaces, hyphens, apostrophes and periods.";
+      }
       if (!tcAgreed) {
         return "Please agree to the Terms & Conditions and Privacy Policy to continue.";
       }
@@ -252,6 +255,10 @@ export default function LoginPage() {
       }
       if (trimmedFirst.length > 50 || trimmedSurname.length > 50) {
         setError("First name and surname must be 50 characters or fewer.");
+        return;
+      }
+      if (!isValidName(trimmedFirst) || !isValidName(trimmedSurname)) {
+        setError("Names can only contain letters, spaces, hyphens, apostrophes and periods.");
         return;
       }
       if (password !== repeatPassword) {
