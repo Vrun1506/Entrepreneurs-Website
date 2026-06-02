@@ -42,8 +42,11 @@ export async function submitContactTicket(input: unknown): Promise<Result> {
       message,
     });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return { ok: false, error: msg };
+    // Public endpoint: never surface the underlying error text (it can carry
+    // DB/network internals). Log server-side for diagnosis; return a generic
+    // message the form shows verbatim.
+    console.error("submitContactTicket: enqueue failed", e);
+    return { ok: false, error: "Something went wrong sending your message. Please try again shortly." };
   }
 
   return { ok: true };
