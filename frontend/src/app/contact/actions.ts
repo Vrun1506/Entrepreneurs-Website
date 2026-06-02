@@ -2,7 +2,7 @@
 
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
-import { sendContactTicket } from "@/lib/email";
+import { sendContactConfirmation, sendContactTicket } from "@/lib/email";
 import { contactSchema } from "@/lib/validation/contact";
 import { validate } from "@/lib/validation/listings";
 import { allow, clientIp } from "@/lib/ratelimit";
@@ -47,6 +47,18 @@ export async function submitContactTicket(input: unknown): Promise<Result> {
     // message the form shows verbatim.
     console.error("submitContactTicket: enqueue failed", e);
     return { ok: false, error: "Something went wrong sending your message. Please try again shortly." };
+  }
+
+  // Best-effort acknowledgement to the sender. The ticket already reached the
+  // team above, so a hiccup here must not fail the request or prompt a retry.
+  try {
+    await sendContactConfirmation({
+      to: email,
+      firstName: name?.trim() || null,
+      subject,
+    });
+  } catch (e) {
+    console.error("submitContactTicket: confirmation enqueue failed", e);
   }
 
   return { ok: true };
