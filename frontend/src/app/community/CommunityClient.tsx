@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import SocialLinks from "@/components/SocialLinks";
 import SearchableMultiSelect from "@/components/forms/SearchableMultiSelect";
 
@@ -18,8 +19,11 @@ type Member = {
   portfolioUrl: string | null;
   skills: string[];
   sectors: string[];
-  lookingFor: string[];
+  lookingFor: { id: string; role: string }[];
 };
+
+// At most this many "Looking for" buttons render on a profile (card + dialog).
+const MAX_LOOKING_FOR = 3;
 
 export default function CommunityClient({
   members, newest,
@@ -313,10 +317,17 @@ function NewestCard({ member: m, onClick }: { member: Member; onClick: () => voi
 }
 
 function MemberCard({ member: m, onClick }: { member: Member; onClick: () => void }) {
+  // role="button" (not a real <button>) so the clickable "Looking for" links
+  // below can be nested without invalid interactive-in-button HTML. Mirrors
+  // the OpportunityCard pattern.
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); }
+      }}
       className="text-left w-full p-5 rounded-2xl bg-bg-card border border-border-subtle hover:border-gold/40 hover:bg-bg-card/80 transition-colors duration-150 cursor-pointer group"
     >
       <header className="mb-2">
@@ -351,14 +362,19 @@ function MemberCard({ member: m, onClick }: { member: Member; onClick: () => voi
       {m.lookingFor.length > 0 && (
         <div className="flex items-center flex-wrap gap-1.5 mt-3 text-[0.7rem] text-text-muted">
           <span>Looking for</span>
-          {m.lookingFor.map((role) => (
-            <span key={role} className="px-2 py-0.5 rounded-full border border-gold/30 text-gold text-[0.7rem]">
-              {role}
-            </span>
+          {m.lookingFor.slice(0, MAX_LOOKING_FOR).map((lf) => (
+            <Link
+              key={lf.id}
+              href={`/opportunities#o-${lf.id}`}
+              onClick={(e) => e.stopPropagation()}
+              className="px-2 py-0.5 rounded-full border border-gold/30 text-gold text-[0.7rem] no-underline hover:bg-gold/10 transition-colors"
+            >
+              {lf.role}
+            </Link>
           ))}
         </div>
       )}
-    </button>
+    </div>
   );
 }
 
@@ -428,10 +444,14 @@ function MemberDialog({ member: m, onClose }: { member: Member; onClose: () => v
             <section>
               <div className="text-[0.7rem] text-text-muted uppercase tracking-wider mb-2">Looking for</div>
               <div className="flex flex-wrap gap-1.5">
-                {m.lookingFor.map((role) => (
-                  <span key={`lf-${role}`} className="px-2.5 py-1 rounded-full text-[0.725rem] border border-gold/30 text-gold">
-                    {role}
-                  </span>
+                {m.lookingFor.slice(0, MAX_LOOKING_FOR).map((lf) => (
+                  <Link
+                    key={lf.id}
+                    href={`/opportunities#o-${lf.id}`}
+                    className="px-2.5 py-1 rounded-full text-[0.725rem] border border-gold/30 text-gold no-underline hover:bg-gold/10 transition-colors"
+                  >
+                    {lf.role}
+                  </Link>
                 ))}
               </div>
             </section>

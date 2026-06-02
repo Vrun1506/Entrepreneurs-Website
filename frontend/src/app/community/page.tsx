@@ -31,7 +31,7 @@ export default async function CommunityPage() {
       .order("created_at", { ascending: false }),
     supabase
       .from("opportunities")
-      .select("posted_by, position_name")
+      .select("id, posted_by, position_name")
       .eq("status", "approved"),
   ]);
 
@@ -42,11 +42,12 @@ export default async function CommunityPage() {
     console.error("Failed to load open roles:", rolesError);
   }
 
-  // posted_by → list of role names they're looking for.
-  const lookingForByUser = new Map<string, string[]>();
-  for (const r of (openRoles ?? []) as { posted_by: string; position_name: string }[]) {
+  // posted_by → the roles they're looking for, each carrying the listing id
+  // so the profile card can deep-link to that opportunity.
+  const lookingForByUser = new Map<string, { id: string; role: string }[]>();
+  for (const r of (openRoles ?? []) as { id: string; posted_by: string; position_name: string }[]) {
     const list = lookingForByUser.get(r.posted_by) ?? [];
-    list.push(r.position_name);
+    list.push({ id: r.id, role: r.position_name });
     lookingForByUser.set(r.posted_by, list);
   }
 
@@ -100,7 +101,7 @@ type RawJoinRow = {
   profile_sectors: { sectors: { id: number; name: string } | null }[];
 };
 
-function toMember(r: RawJoinRow, lookingFor: string[]) {
+function toMember(r: RawJoinRow, lookingFor: { id: string; role: string }[]) {
   return {
     id: r.id,
     firstName: r.first_name,
