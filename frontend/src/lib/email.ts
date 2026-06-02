@@ -36,7 +36,7 @@ type EnqueueArgs = {
 };
 
 function contactInbox(): string {
-  return process.env.CONTACT_INBOX_EMAIL ?? "imperial.founders@gmail.com";
+  return process.env.CONTACT_INBOX_EMAIL ?? "contact@imperialentrepreneurs.com";
 }
 
 // Reply-to address for messages a recipient might want to appeal:
@@ -44,7 +44,7 @@ function contactInbox(): string {
 // Falls back to the contact inbox so appeals always land somewhere
 // monitored, even before APPEALS_EMAIL is configured.
 function appealsInbox(): string {
-  return process.env.APPEALS_EMAIL ?? contactInbox();
+  return process.env.APPEALS_EMAIL ?? "appeals@imperialentrepreneurs.com";
 }
 
 // ─── Enqueue helpers ────────────────────────────────────────────────

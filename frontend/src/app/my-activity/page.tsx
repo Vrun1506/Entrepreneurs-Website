@@ -12,7 +12,7 @@ export default async function MyActivityPage() {
 
   return (
     <div className="min-h-screen bg-bg-primary flex flex-col">
-      <AppNav active="settings" isApproved={true} isAdmin={isAdmin} />
+      <AppNav active="activity" isApproved={true} isAdmin={isAdmin} />
       <main className="flex-1 px-6 sm:px-8 py-12">
         <div className="max-w-[820px] mx-auto">
           <div className="mb-8">
