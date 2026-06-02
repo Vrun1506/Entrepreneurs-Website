@@ -1,12 +1,12 @@
 "use client";
 
 const ROLES = [
-  { icon: "🎓", label: "Current students",  desc: "Undergrad, postgrad, and PhD students building while they study." },
-  { icon: "⚡", label: "Recent grads",       desc: "Within 3 years of graduating — figuring it out and moving fast." },
-  { icon: "🚀", label: "Alumni founders",    desc: "Imperial alumni who've been through it and want to give back." },
-  { icon: "🧭", label: "Mentors",            desc: "Operators and experts who make themselves available to the community." },
-  { icon: "💡", label: "Angel investors",    desc: "Angels actively looking at early-stage Imperial-connected startups." },
-  { icon: "🔬", label: "Staff & faculty",    desc: "Researchers and professors bridging academia and the startup world." },
+  { label: "Current students", desc: "Undergrad, postgrad, and PhD students building while they study." },
+  { label: "Recent grads",     desc: "Within 3 years of graduating — figuring it out and moving fast." },
+  { label: "Alumni founders",  desc: "Imperial alumni who've been through it and want to give back." },
+  { label: "Mentors",          desc: "Operators and experts who make themselves available to the community." },
+  { label: "Angel investors",  desc: "Angels actively looking at early-stage Imperial-connected startups." },
+  { label: "Staff & faculty",  desc: "Researchers and professors bridging academia and the startup world." },
 ];
 
 function SectionLabel({ text }: { text: string }) {
@@ -59,7 +59,7 @@ export default function WhoWeAre() {
           <ul className="space-y-4">
             {ROLES.map((role) => (
               <li key={role.label} className="flex items-start gap-3">
-                <span className="text-lg leading-none mt-0.5 shrink-0">{role.icon}</span>
+                <div className="w-1.5 h-1.5 rounded-full bg-gold mt-[7px] shrink-0" />
                 <div>
                   <span className="text-[0.9rem] font-medium text-text-primary">{role.label}</span>
                   <span className="text-[0.85rem] text-text-muted leading-relaxed"> — {role.desc}</span>
