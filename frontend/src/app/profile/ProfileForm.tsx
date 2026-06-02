@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { ChipGroup, type ChipItem } from "@/components/forms/ChipGroup";
 import { ErrorBanner, SuccessBanner } from "@/components/forms/Banners";
 import { inputCls } from "@/components/forms/styles";
-import { cleanName, cleanText } from "@/lib/text";
+import { cleanName, cleanText, isValidName } from "@/lib/text";
 import { describeSupabaseError } from "@/lib/supabaseErrors";
 
 type Lookup = ChipItem;
@@ -79,6 +79,10 @@ export default function ProfileForm(props: Props) {
     }
     if (trimmedFirst.length > 50 || trimmedSurname.length > 50) {
       setError("First name and surname must be 50 characters or fewer.");
+      return;
+    }
+    if (!isValidName(trimmedFirst) || !isValidName(trimmedSurname)) {
+      setError("Names can only contain letters, spaces, hyphens, apostrophes and periods.");
       return;
     }
     if (!cleanedCourse) {
