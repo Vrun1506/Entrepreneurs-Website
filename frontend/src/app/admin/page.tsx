@@ -45,7 +45,7 @@ export default async function AdminPage() {
           </div>
           <div className="flex items-center gap-4">
             <Link
-              href="/"
+              href="/community"
               className="text-[0.8rem] text-text-muted no-underline transition-colors duration-150 hover:text-text-secondary"
             >
               ← Back to site
@@ -104,26 +104,6 @@ export default async function AdminPage() {
           </div>
         </div>
 
-        <div className="mt-10">
-          <div className="text-[0.7rem] text-gold tracking-[0.18em] uppercase mb-2">Member view</div>
-          <p className="text-[0.8rem] text-text-muted mb-4 leading-relaxed">
-            Open the approved-member experience. You&apos;re verified, so these load the live pages.
-          </p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <DiagLink href="/community"     label="Community" />
-            <DiagLink href="/opportunities" label="Opportunities" />
-            <DiagLink href="/events"        label="Events" />
-            <DiagLink href="/vcs"           label="Grants & VCs" />
-          </div>
-        </div>
-
-        <div className="mt-10 p-5 rounded-xl bg-bg-card border border-border-subtle">
-          <p className="text-[0.8rem] text-text-muted leading-relaxed">
-            This route is server-side gated via <span className="text-text-secondary">is_admin()</span>{" "}
-            and protected at the database layer by RLS, status-protection triggers, and admin RPC checks.
-            Non-admin users get a 404.
-          </p>
-        </div>
       </div>
     </div>
   );

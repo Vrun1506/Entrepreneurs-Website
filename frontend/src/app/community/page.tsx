@@ -5,36 +5,56 @@ import CommunityClient from "./CommunityClient";
 export default async function CommunityPage() {
   const { supabase, isAdmin } = await requireApprovedUser();
 
-  const { data: members, error } = await supabase
-    .from("profiles")
-    .select(`
-      id,
-      first_name,
-      surname,
-      role,
-      course,
-      grad_year,
-      bio,
-      working_on,
-      linkedin_url,
-      github_url,
-      portfolio_url,
-      created_at,
-      profile_skills ( skills ( id, name ) ),
-      profile_sectors ( sectors ( id, name ) )
-    `)
-    .eq("status", "approved")
-    .order("created_at", { ascending: false });
+  // Member directory + the roles each member is actively hiring for (the
+  // position_name of any opportunity they've posted that's live/approved).
+  // Approved opportunities are readable by approved members, so no RPC needed.
+  const [{ data: members, error }, { data: openRoles, error: rolesError }] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select(`
+        id,
+        first_name,
+        surname,
+        role,
+        course,
+        grad_year,
+        bio,
+        working_on,
+        linkedin_url,
+        github_url,
+        portfolio_url,
+        created_at,
+        profile_skills ( skills ( id, name ) ),
+        profile_sectors ( sectors ( id, name ) )
+      `)
+      .eq("status", "approved")
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("opportunities")
+      .select("posted_by, position_name")
+      .eq("status", "approved"),
+  ]);
 
   if (error) {
     console.error("Failed to load community:", error);
+  }
+  if (rolesError) {
+    console.error("Failed to load open roles:", rolesError);
+  }
+
+  // posted_by → list of role names they're looking for.
+  const lookingForByUser = new Map<string, string[]>();
+  for (const r of (openRoles ?? []) as { posted_by: string; position_name: string }[]) {
+    const list = lookingForByUser.get(r.posted_by) ?? [];
+    list.push(r.position_name);
+    lookingForByUser.set(r.posted_by, list);
   }
 
   // PostgREST returns each embedded relation as a single object for many-to-one
   // joins, but supabase-js's untyped client infers it as an array. Cast at the
   // boundary; runtime shape is { skills: { id, name } } per row.
   const memberRows = (members ?? []) as unknown as RawJoinRow[];
-  const mapped = memberRows.map(toMember);
+  const mapped = memberRows.map((r) => toMember(r, lookingForByUser.get(r.id) ?? []));
   // Newest = first N by created_at desc (the server already returns this order).
   // Directory list = alphabetical for predictable browsing.
   const newest = mapped.slice(0, 5);
@@ -80,7 +100,7 @@ type RawJoinRow = {
   profile_sectors: { sectors: { id: number; name: string } | null }[];
 };
 
-function toMember(r: RawJoinRow) {
+function toMember(r: RawJoinRow, lookingFor: string[]) {
   return {
     id: r.id,
     firstName: r.first_name,
@@ -95,5 +115,6 @@ function toMember(r: RawJoinRow) {
     portfolioUrl: r.portfolio_url,
     skills:  r.profile_skills.map((s)  => s.skills?.name).filter((n): n is string => !!n),
     sectors: r.profile_sectors.map((s) => s.sectors?.name).filter((n): n is string => !!n),
+    lookingFor,
   };
 }

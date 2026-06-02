@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { formatDateTime } from "@/lib/dates";
 
 // ════════════════════════════════════════════════════════════════════
 // Foundry · Active sessions card
@@ -19,21 +18,13 @@ import { formatDateTime } from "@/lib/dates";
 // case (compromised device) without that depth.
 // ════════════════════════════════════════════════════════════════════
 
-export default function SessionsSection({
-  signedInAs,
-  lastSignInAt,
-}: {
-  signedInAs:   string;
-  lastSignInAt: string | null;
-}) {
+export default function SessionsSection() {
   const router = useRouter();
   const supabase = createClient();
 
   const [confirming, setConfirming] = useState(false);
   const [pending,    setPending]    = useState(false);
   const [error,      setError]      = useState<string | null>(null);
-
-  const lastSeen = lastSignInAt ? formatDateTime(lastSignInAt) : null;
 
   const handleSignOutEverywhere = async () => {
     setError(null);
@@ -48,10 +39,7 @@ export default function SessionsSection({
   return (
     <div className="rounded-2xl bg-bg-card border border-border-subtle p-8 space-y-5">
       <div>
-        <div className="text-[0.95rem] font-medium text-text-primary mb-1">Active sessions</div>
-        <p className="text-[0.8rem] text-text-muted leading-relaxed">
-          You&apos;re currently signed in as <span className="text-text-secondary">{signedInAs}</span>{lastSeen ? ` (most recent sign-in: ${lastSeen})` : ""}. If you suspect another device still has a session — laptop you don&apos;t have anymore, browser on a shared computer, anything you didn&apos;t initiate — sign out everywhere. That revokes every refresh token tied to your account.
-        </p>
+        <div className="text-[0.95rem] font-medium text-text-primary">Active sessions</div>
       </div>
 
       {error && (

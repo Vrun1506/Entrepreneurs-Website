@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import SignOutButton from "@/app/admin/SignOutButton";
 import { BrandLogo } from "@/components/BrandLogo";
 
-type Tab = "community" | "opportunities" | "events" | "vcs" | "calendar" | "submissions" | "settings";
+type Tab = "community" | "opportunities" | "events" | "vcs" | "calendar" | "activity" | "submissions" | "settings";
 
 export default function AppNav({
   active,
@@ -42,6 +42,7 @@ export default function AppNav({
         { href: "/events",        label: "Events",        tab: "events"        as const },
         { href: "/vcs",           label: "Grants & VCs",  tab: "vcs"           as const },
         { href: "/calendar",      label: "Calendar",      tab: "calendar"      as const },
+        { href: "/my-activity",   label: "My activity",   tab: "activity"      as const },
         { href: "/my-submissions", label: "My submissions", tab: "submissions" as const },
       ]
     : [

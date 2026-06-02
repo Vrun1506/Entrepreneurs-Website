@@ -72,7 +72,6 @@ function Section({ type, label, items }: { type: ListingType; label: string; ite
     <section>
       <h2 className="text-[0.85rem] text-text-muted mb-3">
         {label} <span className="text-text-muted/70">— {items.length}</span>
-        {overflowing && <span className="hidden lg:inline text-text-muted/50 ml-2 text-[0.7rem]">scroll for more</span>}
       </h2>
       <div className="rounded-2xl bg-bg-card border border-border-subtle overflow-hidden">
         <div

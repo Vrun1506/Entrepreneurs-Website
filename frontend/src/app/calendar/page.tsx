@@ -106,9 +106,6 @@ export default async function CalendarPage() {
             <h1 className="font-display text-text-primary leading-[1.1] tracking-tight text-[clamp(1.75rem,3vw,2.5rem)]">
               Events, opportunity deadlines, and VC deadlines
             </h1>
-            <p className="text-[0.875rem] text-text-muted mt-3 leading-relaxed">
-              Everything you&apos;re organising or have posted, plus items you&apos;ve marked as applied or going. Mark items via the toggle on each listing card; remove them on <a href="/my-activity" className="text-gold-light hover:underline">/my-activity</a>. To push an event into Google Calendar or Apple Calendar / Outlook, use the &quot;Add to calendar&quot; button on the event card itself.
-            </p>
           </div>
           <CalendarClient items={items} />
         </div>

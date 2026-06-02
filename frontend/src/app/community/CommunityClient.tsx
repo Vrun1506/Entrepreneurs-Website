@@ -18,6 +18,7 @@ type Member = {
   portfolioUrl: string | null;
   skills: string[];
   sectors: string[];
+  lookingFor: string[];
 };
 
 export default function CommunityClient({
@@ -346,6 +347,17 @@ function MemberCard({ member: m, onClick }: { member: Member; onClick: () => voi
           <span className="text-gold/80">Working on:</span> {m.workingOn}
         </div>
       )}
+
+      {m.lookingFor.length > 0 && (
+        <div className="flex items-center flex-wrap gap-1.5 mt-3 text-[0.7rem] text-text-muted">
+          <span>Looking for</span>
+          {m.lookingFor.map((role) => (
+            <span key={role} className="px-2 py-0.5 rounded-full border border-gold/30 text-gold text-[0.7rem]">
+              {role}
+            </span>
+          ))}
+        </div>
+      )}
     </button>
   );
 }
@@ -412,6 +424,19 @@ function MemberDialog({ member: m, onClose }: { member: Member; onClose: () => v
             </section>
           )}
 
+          {m.lookingFor.length > 0 && (
+            <section>
+              <div className="text-[0.7rem] text-text-muted uppercase tracking-wider mb-2">Looking for</div>
+              <div className="flex flex-wrap gap-1.5">
+                {m.lookingFor.map((role) => (
+                  <span key={`lf-${role}`} className="px-2.5 py-1 rounded-full text-[0.725rem] border border-gold/30 text-gold">
+                    {role}
+                  </span>
+                ))}
+              </div>
+            </section>
+          )}
+
           {m.sectors.length > 0 && (
             <section>
               <div className="text-[0.7rem] text-text-muted uppercase tracking-wider mb-2">Interests</div>
@@ -446,7 +471,7 @@ function MemberDialog({ member: m, onClose }: { member: Member; onClose: () => v
           )}
 
           {!m.bio && !m.workingOn && m.sectors.length === 0 && m.skills.length === 0
-            && !m.linkedinUrl && !m.githubUrl && !m.portfolioUrl && (
+            && m.lookingFor.length === 0 && !m.linkedinUrl && !m.githubUrl && !m.portfolioUrl && (
             <p className="text-[0.85rem] text-text-muted italic">
               No additional details on this profile yet.
             </p>

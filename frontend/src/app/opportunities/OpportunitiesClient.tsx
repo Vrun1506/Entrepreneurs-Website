@@ -261,7 +261,7 @@ function OpportunityCard({
                   onClick={() => recordListingEvent("opportunity", o.id, "contact_click")}
                   className="inline-block px-4 py-2 rounded-lg bg-gold text-bg-primary text-[0.825rem] font-medium no-underline transition-colors hover:bg-gold-light"
                 >
-                  Email {o.contactEmail} ↗
+                  Email to apply ↗
                 </a>
               ) : (
                 <p className="text-[0.8rem] text-text-secondary">

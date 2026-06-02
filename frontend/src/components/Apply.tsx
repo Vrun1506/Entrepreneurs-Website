@@ -92,7 +92,7 @@ function FormPreview() {
             username@imperial.ac.uk
           </div>
           <p className="text-[0.68rem] text-text-muted mt-1.5">
-            Only @imperial.ac.uk and approved alumni emails accepted
+            Students: @imperial.ac.uk or @ic.ac.uk. Alumni: sign in with Google, admin-verified before access.
           </p>
         </div>
 
@@ -142,15 +142,17 @@ export default function Apply() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-start">
         <div>
           <h2 className="font-display leading-[1.1] tracking-tight mb-6 text-[clamp(2rem,3.5vw,3rem)]">
-            Sign up with your Imperial
+            Join Foundry in
             <br />
-            email address today.
+            a few minutes.
             <br />
             <em className="text-gold">That&apos;s it.</em>
           </h2>
 
           <p className="text-[0.95rem] text-text-secondary font-light leading-[1.75] mb-10">
-            Just get in and start meeting people.
+            Current students get in instantly with an Imperial email. Alumni sign in
+            with Google and are admitted after a quick admin check. Then build your
+            profile and start meeting people.
           </p>
 
           <div className="mb-10">
@@ -168,7 +170,7 @@ export default function Apply() {
               Join Foundry →
             </a>
             <span className="text-[0.8rem] text-text-muted">
-              Free · @imperial.ac.uk required
+              Free · Imperial students &amp; verified alumni
             </span>
           </div>
         </div>
