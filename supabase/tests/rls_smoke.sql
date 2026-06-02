@@ -272,6 +272,42 @@ begin
 end;
 $$;
 
+-- 9. get_my_listing_stats counts clicks by DISTINCT viewer, not raw events.
+--    Regression test for 20260602000001: record_listing_event lets any
+--    authenticated user insert unlimited click events for any listing_id, so
+--    count(*) let one member arbitrarily inflate the click total the poster
+--    sees on /my-submissions. Here user B fires 3 clicks and the admin fires
+--    1 on user A's listing (4 raw events, 2 distinct viewers). Owner A must
+--    see click_count = 2. Under the old count(*) this would be 4.
+do $$
+declare
+  v_a    uuid := (select v from _test_ctx where k='user_a');
+  v_b    uuid := (select v from _test_ctx where k='user_b');
+  v_adm  uuid := (select v from _test_ctx where k='admin');
+  v_opa  uuid := (select v from _test_ctx where k='opp_a');
+  v_clicks int;
+begin
+  -- User B clicks through three times (e.g. apply, then contact, then apply).
+  perform _set_caller(v_b);
+  perform public.record_listing_event('opportunity', v_opa, 'apply_click');
+  perform public.record_listing_event('opportunity', v_opa, 'contact_click');
+  perform public.record_listing_event('opportunity', v_opa, 'apply_click');
+
+  -- A second distinct viewer (admin) clicks once.
+  perform _set_caller(v_adm);
+  perform public.record_listing_event('opportunity', v_opa, 'external_click');
+
+  -- Owner A reads their stats: 4 raw click events, 2 distinct viewers.
+  perform _set_caller(v_a);
+  select click_count into v_clicks
+    from public.get_my_listing_stats()
+   where listing_id = v_opa;
+  if v_clicks is distinct from 2 then
+    raise exception 'FAIL: click_count = % (expected 2 distinct viewers; count(*) would give 4)', v_clicks;
+  end if;
+end;
+$$;
+
 -- ─── Cleanup ────────────────────────────────────────────────────────
 drop function _set_caller(uuid);
 rollback;
