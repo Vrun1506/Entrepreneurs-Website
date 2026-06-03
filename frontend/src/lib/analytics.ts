@@ -36,9 +36,18 @@ export function recordListingEvent(
   // Don't await — tracking failure must not affect UX. The RPC is
   // SECURITY DEFINER so it bypasses RLS but still requires an
   // authenticated session.
-  void client().rpc("record_listing_event", {
-    p_kind:       kind,
-    p_id:         id,
-    p_event_type: eventType,
-  });
+  //
+  // The .then() is load-bearing, not cosmetic: a supabase-js query
+  // builder is a lazy thenable that only dispatches its HTTP request
+  // when .then()/await is called. `void builder` evaluates and discards
+  // it WITHOUT firing — so the event was never recorded. The no-op
+  // handlers fire the request and swallow both outcomes (keeping it
+  // fire-and-forget, no unhandled rejection).
+  client()
+    .rpc("record_listing_event", {
+      p_kind:       kind,
+      p_id:         id,
+      p_event_type: eventType,
+    })
+    .then(() => {}, () => {});
 }
