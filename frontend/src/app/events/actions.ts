@@ -43,7 +43,7 @@ export async function submitEvent(args: { mode: Mode; payload: unknown; turnstil
   const p = parsed.data;
 
   const rpc = args.mode === "admin" ? "admin_create_event" : "submit_event";
-  const { error } = await supabase.rpc(rpc, {
+  const rpcArgs: Record<string, unknown> = {
     p_title:                 p.title,
     p_description:           p.description,
     p_luma_link:             p.lumaLink,
@@ -52,7 +52,12 @@ export async function submitEvent(args: { mode: Mode; payload: unknown; turnstil
     p_organiser_name:        p.organiserName,
     p_contact_email:         p.contactEmail,
     p_contact_email_visible: p.contactEmailVisible,
-  });
+  };
+  // The society-event flag is admin-only: only admin_create_event accepts
+  // it. submit_event (user path) has no such parameter, and the DB trigger
+  // is the final backstop against a non-admin setting it.
+  if (args.mode === "admin") rpcArgs.p_is_society_event = p.isSocietyEvent ?? false;
+  const { error } = await supabase.rpc(rpc, rpcArgs);
   if (error) return err(describeSupabaseError(error));
 
   revalidatePath("/events");
