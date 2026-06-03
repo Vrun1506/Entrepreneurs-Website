@@ -17,7 +17,9 @@ import { ok, err, type Result } from "@/lib/result";
 const httpUrl = z
   .string()
   .trim()
-  .max(2048, "URL is too long.")
+  // 512 matches the DB-level *_url_len CHECK constraints (see migration
+  // 20260602000004). Far larger than any real URL here; bump both together.
+  .max(512, "URL must be 512 characters or fewer.")
   .regex(/^https?:\/\//i, "Must be a valid URL starting with http:// or https://");
 
 const email = z

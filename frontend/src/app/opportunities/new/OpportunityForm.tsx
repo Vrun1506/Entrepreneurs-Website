@@ -259,7 +259,7 @@ export default function OpportunityForm({ signupEmail, skills, sectors, mode, ed
         </div>
         {applyMethod === "link" && (
           <div className="mt-3">
-            <input type="url" placeholder="https://yourcompany.com/careers/role-id" value={applyUrl} onChange={(e) => setApplyUrl(e.target.value)} className={inputCls} required />
+            <input type="url" maxLength={512} placeholder="https://yourcompany.com/careers/role-id" value={applyUrl} onChange={(e) => setApplyUrl(e.target.value)} className={inputCls} required />
           </div>
         )}
       </div>

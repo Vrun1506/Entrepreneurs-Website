@@ -396,6 +396,7 @@ function LinksStep({
           value={linkedin}
           onChange={(e) => setLinkedin(e.target.value)}
           className={inputCls}
+          maxLength={512}
           required={role === "alum"}
         />
       </div>
@@ -410,6 +411,7 @@ function LinksStep({
           value={github}
           onChange={(e) => setGithub(e.target.value)}
           className={inputCls}
+          maxLength={512}
         />
       </div>
       <div>
@@ -423,6 +425,7 @@ function LinksStep({
           value={portfolio}
           onChange={(e) => setPortfolio(e.target.value)}
           className={inputCls}
+          maxLength={512}
         />
       </div>
     </>
