@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { cleanText, cleanName, visibleLength } from "./text";
+import { cleanText, cleanName, isValidName, visibleLength } from "./text";
 
 describe("cleanText", () => {
   it("returns '' for null/undefined", () => {
@@ -33,6 +33,38 @@ describe("cleanName", () => {
 
   it("still trims and strips like cleanText", () => {
     expect(cleanName("  Jane​  Doe  ")).toBe("Jane Doe");
+  });
+});
+
+describe("isValidName", () => {
+  it("accepts letters from any language, incl. accents and non-Latin scripts", () => {
+    expect(isValidName("José")).toBe(true);
+    expect(isValidName("Søren")).toBe(true);
+    expect(isValidName("李四")).toBe(true);
+    expect(isValidName("محمد")).toBe(true);
+  });
+
+  it("accepts the allowed connectors: space, hyphen, apostrophe, period", () => {
+    expect(isValidName("Anne-Marie")).toBe(true);
+    expect(isValidName("O'Brien")).toBe(true);
+    expect(isValidName("O’Brien")).toBe(true); // curly apostrophe
+    expect(isValidName("de la Cruz")).toBe(true);
+    expect(isValidName("J. R. R.")).toBe(true);
+  });
+
+  it("rejects digits and symbol-soup", () => {
+    expect(isValidName("John123")).toBe(false);
+    expect(isValidName("a@b")).toBe(false);
+    expect(isValidName("x£y")).toBe(false);
+    expect(isValidName("name!")).toBe(false);
+    expect(isValidName("$$$")).toBe(false);
+  });
+
+  it("rejects empty / letter-less input", () => {
+    expect(isValidName("")).toBe(false);
+    expect(isValidName("   ")).toBe(false);
+    expect(isValidName("--")).toBe(false);
+    expect(isValidName("...")).toBe(false);
   });
 });
 
