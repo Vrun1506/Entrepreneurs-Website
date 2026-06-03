@@ -204,6 +204,7 @@ export default function ProfileForm(props: Props) {
           value={linkedin}
           onChange={(e) => setLinkedin(e.target.value)}
           className={inputCls}
+          maxLength={512}
           required={props.role === "alum"}
         />
       </div>
@@ -219,6 +220,7 @@ export default function ProfileForm(props: Props) {
           value={github}
           onChange={(e) => setGithub(e.target.value)}
           className={inputCls}
+          maxLength={512}
         />
       </div>
 
@@ -233,6 +235,7 @@ export default function ProfileForm(props: Props) {
           value={portfolio}
           onChange={(e) => setPortfolio(e.target.value)}
           className={inputCls}
+          maxLength={512}
         />
       </div>
 

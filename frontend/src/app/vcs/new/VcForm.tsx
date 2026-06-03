@@ -134,7 +134,7 @@ export default function VcForm({
       </Field>
 
       <Field label="Link" required hint="Their site, application form, or fund page">
-        <input type="url" placeholder="https://example.com" value={link} onChange={(e) => setLink(e.target.value)} className={inputCls} required />
+        <input type="url" maxLength={512} placeholder="https://example.com" value={link} onChange={(e) => setLink(e.target.value)} className={inputCls} required />
       </Field>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
