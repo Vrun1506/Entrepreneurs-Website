@@ -78,6 +78,10 @@ export const eventSchema = z.object({
   organiserName: z.string().trim().min(1, "Organiser name is required.").max(200),
   contactEmail: email,
   contactEmailVisible: z.boolean(),
+  // Admin-only flag (External vs Society event). Optional because user
+  // submissions never send it; the server action only forwards it in
+  // admin mode and the DB trigger rejects non-admin attempts to set it.
+  isSocietyEvent: z.boolean().optional(),
 });
 
 export type EventPayload = z.infer<typeof eventSchema>;

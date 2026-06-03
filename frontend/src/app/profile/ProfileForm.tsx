@@ -7,6 +7,7 @@ import { ChipGroup, type ChipItem } from "@/components/forms/ChipGroup";
 import { ErrorBanner, SuccessBanner } from "@/components/forms/Banners";
 import { inputCls } from "@/components/forms/styles";
 import { cleanName, cleanText, isValidName } from "@/lib/text";
+import { gradYearOptions, validateGradYear } from "@/lib/gradYears";
 import { describeSupabaseError } from "@/lib/supabaseErrors";
 
 type Lookup = ChipItem;
@@ -31,13 +32,6 @@ type Props = {
 const LINKEDIN_RE = /^https?:\/\/([a-z0-9-]+\.)*linkedin\.com\//i;
 const GITHUB_RE   = /^https?:\/\/([a-z0-9-]+\.)*github\.com\//i;
 const URL_RE      = /^https?:\/\/.+/i;
-
-const GRAD_YEARS = (() => {
-  const now = new Date().getFullYear();
-  const out: number[] = [];
-  for (let y = now + 6; y >= 1960; y--) out.push(y);
-  return out;
-})();
 
 export default function ProfileForm(props: Props) {
   const router = useRouter();
@@ -94,8 +88,13 @@ export default function ProfileForm(props: Props) {
       return;
     }
     const gradYearNum = parseInt(gradYear, 10);
-    if (!gradYearNum || gradYearNum < 1950 || gradYearNum > 2099) {
+    if (!gradYearNum) {
       setError("Please pick a valid graduation year.");
+      return;
+    }
+    const gradYearErr = validateGradYear(props.role, gradYearNum);
+    if (gradYearErr) {
+      setError(gradYearErr);
       return;
     }
     if (props.role === "alum" && !linkedin.trim()) {
@@ -187,7 +186,7 @@ export default function ProfileForm(props: Props) {
         </label>
         <select id="grad-year" value={gradYear} onChange={(e) => setGradYear(e.target.value)} className={inputCls} required>
           <option value="">Select a year</option>
-          {GRAD_YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+          {gradYearOptions(props.role).map((y) => <option key={y} value={y}>{y}</option>)}
         </select>
       </div>
 

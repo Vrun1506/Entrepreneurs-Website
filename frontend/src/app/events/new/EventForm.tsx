@@ -44,6 +44,12 @@ export default function EventForm({ signupEmail, defaultOrganiser, mode, editing
   const [useCustomContact, setUseCustomContact] = useState(initialContactIsCustom);
   const [customContactEmail, setCustomContactEmail] = useState(initialContactIsCustom ? iv!.contactEmail : "");
   const [contactEmailVisible, setContactEmailVisible] = useState(iv?.contactEmailVisible ?? false);
+  const [isSocietyEvent, setIsSocietyEvent] = useState(false);
+
+  // Admin-only: mark a direct-published event as an official society event
+  // (rendered gold in the directory) vs. an external one. Hidden for members
+  // and on edits; the DB trigger rejects non-admin attempts regardless.
+  const showSocietyToggle = mode === "admin" && !editingId;
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -120,6 +126,7 @@ export default function EventForm({ signupEmail, defaultOrganiser, mode, editing
         organiserName:         organiserName.trim(),
         contactEmail,
         contactEmailVisible,
+        isSocietyEvent:        showSocietyToggle ? isSocietyEvent : undefined,
       },
     });
 
@@ -136,6 +143,19 @@ export default function EventForm({ signupEmail, defaultOrganiser, mode, editing
   return (
     <form onSubmit={handleSubmit} className="space-y-5 rounded-2xl bg-bg-card border border-border-subtle p-8">
       {error && <ErrorBanner>{error}</ErrorBanner>}
+
+      {showSocietyToggle && (
+        <Field label="Event type" required hint="Society events are highlighted in gold in the directory.">
+          <select
+            value={isSocietyEvent ? "society" : "external"}
+            onChange={(e) => setIsSocietyEvent(e.target.value === "society")}
+            className={inputCls}
+          >
+            <option value="external">External event</option>
+            <option value="society">Society event</option>
+          </select>
+        </Field>
+      )}
 
       <Field label="Title" required>
         <input type="text" maxLength={200} value={title} onChange={(e) => setTitle(e.target.value)} className={inputCls} required />

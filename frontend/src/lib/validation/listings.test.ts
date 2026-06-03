@@ -112,6 +112,16 @@ describe("eventSchema", () => {
     const longUrl = "https://lu.ma/" + "a".repeat(512);
     expect(validate(eventSchema, { ...validEvent, lumaLink: longUrl }).ok).toBe(false);
   });
+
+  it("accepts the optional isSocietyEvent flag (true / false / omitted)", () => {
+    expect(validate(eventSchema, { ...validEvent, isSocietyEvent: true }).ok).toBe(true);
+    expect(validate(eventSchema, { ...validEvent, isSocietyEvent: false }).ok).toBe(true);
+    expect(validate(eventSchema, validEvent).ok).toBe(true); // omitted
+  });
+
+  it("rejects a non-boolean isSocietyEvent", () => {
+    expect(validate(eventSchema, { ...validEvent, isSocietyEvent: "yes" }).ok).toBe(false);
+  });
 });
 
 describe("vcGrantSchema", () => {

@@ -17,6 +17,7 @@ type FoundryEvent = {
   location: string;
   organiserName: string;
   contactEmail: string | null;
+  isSocietyEvent: boolean;
   postedBy: { firstName: string; surname: string; linkedinUrl: string | null };
 };
 
@@ -202,14 +203,25 @@ function EventCard({ ev, going, onDismiss }: { ev: FoundryEvent; going: boolean;
   const isOnline = ONLINE_RE.test(ev.location);
 
   return (
-    <article className="rounded-2xl bg-bg-card border border-border-subtle overflow-hidden">
+    <article
+      className={`rounded-2xl bg-bg-card border overflow-hidden ${
+        ev.isSocietyEvent ? "border-gold/45" : "border-border-subtle"
+      }`}
+    >
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="w-full px-5 py-4 text-left bg-transparent border-0 cursor-pointer transition-colors duration-150 hover:bg-white/[0.02]"
       >
-        <div className="text-[0.75rem] text-gold-light tracking-wide mb-1">
-          {timeLabel} <span className="text-text-muted">· {dateLabel}</span>
+        <div className="flex items-center justify-between gap-2 mb-1">
+          <div className="text-[0.75rem] text-gold-light tracking-wide">
+            {timeLabel} <span className="text-text-muted">· {dateLabel}</span>
+          </div>
+          {ev.isSocietyEvent && (
+            <span className="shrink-0 px-2 py-0.5 rounded-full text-[0.65rem] bg-gold-muted text-gold-light border border-gold/30">
+              Society event
+            </span>
+          )}
         </div>
         <div className="flex items-start gap-2 mb-3">
           <CalendarIcon />
