@@ -49,16 +49,22 @@ export async function submitContactTicket(input: unknown): Promise<Result> {
     return { ok: false, error: "Something went wrong sending your message. Please try again shortly." };
   }
 
-  // Best-effort acknowledgement to the sender. The ticket already reached the
-  // team above, so a hiccup here must not fail the request or prompt a retry.
-  try {
-    await sendContactConfirmation({
-      to: email,
-      firstName: name?.trim() || null,
-      subject,
-    });
-  } catch (e) {
-    console.error("submitContactTicket: confirmation enqueue failed", e);
+  // Best-effort acknowledgement to the sender — only for signed-in members,
+  // whose `email` is their own verified account address. Anonymous visitors
+  // supply an arbitrary email, so auto-replying to it would be a reflective
+  // spam vector (attacker submits a victim's address, victim gets the mail).
+  // The ticket already reached the team above either way; a hiccup here must
+  // not fail the request or prompt a retry.
+  if (user) {
+    try {
+      await sendContactConfirmation({
+        to: email,
+        firstName: name?.trim() || null,
+        subject,
+      });
+    } catch (e) {
+      console.error("submitContactTicket: confirmation enqueue failed", e);
+    }
   }
 
   return { ok: true };
