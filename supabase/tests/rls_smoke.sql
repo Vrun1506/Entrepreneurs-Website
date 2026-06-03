@@ -426,6 +426,8 @@ begin
   on conflict (id) do update set
     status       = excluded.status,
     role         = excluded.role,
+    course       = excluded.course,
+    grad_year    = excluded.grad_year,
     linkedin_url = excluded.linkedin_url;
 
   perform _set_caller(v_new);
