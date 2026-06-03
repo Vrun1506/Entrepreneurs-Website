@@ -9,6 +9,7 @@ import { ChipGroup, type ChipItem } from "@/components/forms/ChipGroup";
 import { ErrorBanner } from "@/components/forms/Banners";
 import { inputCls } from "@/components/forms/styles";
 import { cleanText } from "@/lib/text";
+import { gradYearOptions, validateGradYear } from "@/lib/gradYears";
 import { describeSupabaseError } from "@/lib/supabaseErrors";
 
 type Lookup = ChipItem;
@@ -27,13 +28,6 @@ const URL_RE      = /^https?:\/\/.+/i;
 
 const TOTAL_STEPS = 4;
 const STEP_TITLES = ["Your studies", "About you", "Interests & expertise", "Links"];
-
-const GRAD_YEARS = (() => {
-  const now = new Date().getFullYear();
-  const out: number[] = [];
-  for (let y = now + 6; y >= 1960; y--) out.push(y);
-  return out;
-})();
 
 export default function OnboardingForm({ role, firstName, surname, skills, sectors }: Props) {
   const router = useRouter();
@@ -65,7 +59,9 @@ export default function OnboardingForm({ role, firstName, surname, skills, secto
       if (!c) return "Course is required.";
       if (c.length > 200) return "Course must be 200 characters or fewer.";
       const y = parseInt(gradYear, 10);
-      if (!y || y < 1950 || y > 2099) return "Please pick a valid graduation year.";
+      if (!y) return "Please pick a valid graduation year.";
+      const yearErr = validateGradYear(role, y);
+      if (yearErr) return yearErr;
     }
     if (s === 1) {
       if (bio.length > 1000) return "Bio must be 1000 characters or fewer.";
@@ -293,7 +289,7 @@ function EducationStep({
           required
         >
           <option value="">Select a year</option>
-          {GRAD_YEARS.map((y) => (
+          {gradYearOptions(role).map((y) => (
             <option key={y} value={y}>{y}</option>
           ))}
         </select>

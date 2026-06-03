@@ -74,6 +74,7 @@ type RpcRow = {
   organiser_name: string;
   contact_email: string | null;
   contact_email_visible: boolean;
+  is_society_event: boolean;
   posted_by: string;
   created_at: string;
   poster_first_name: string | null;
@@ -91,6 +92,7 @@ function toEvent(r: RpcRow) {
     location: r.location,
     organiserName: r.organiser_name,
     contactEmail: r.contact_email,
+    isSocietyEvent: r.is_society_event,
     postedBy: {
       firstName:   r.poster_first_name ?? "",
       surname:     r.poster_surname    ?? "",

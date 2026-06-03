@@ -20,10 +20,11 @@ const REVALIDATE: Record<ListingType, string[]> = {
   vc_grant:    ["/vcs",           "/my-submissions"],
 };
 
-// Deletes one of the caller's own pending or rejected listings. RLS
-// enforces ownership + status — a request to delete somebody else's row
-// or an approved one returns 0 affected rows and we report that as not
-// found.
+// Deletes one of the caller's own listings. RLS already enforces
+// ownership, but we also filter by posted_by at the app layer as defence
+// in depth — so an ownership regression in a policy can't widen this into
+// a delete-anyone's-row primitive. A request for somebody else's row (or a
+// missing one) affects 0 rows and we report that as not found.
 export async function deleteOwnListing(type: ListingType, id: string): Promise<Result> {
   if (!TABLE[type]) return { ok: false, error: "Unknown listing type." };
 
@@ -33,7 +34,8 @@ export async function deleteOwnListing(type: ListingType, id: string): Promise<R
   const { error, count } = await supabase
     .from(TABLE[type])
     .delete({ count: "exact" })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("posted_by", user.id);
 
   if (error) return { ok: false, error: describeSupabaseError(error) };
   if (!count) return { ok: false, error: "Listing not found — it may have already been deleted." };

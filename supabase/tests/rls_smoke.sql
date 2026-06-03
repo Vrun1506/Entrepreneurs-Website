@@ -308,6 +308,265 @@ begin
 end;
 $$;
 
+-- 10. A user cannot change their own role.
+--     Regression test for 20260603000001: profiles.role was user-writable
+--     via profiles_update_own, so an alum could flip to 'student' and
+--     self-approve through submit_onboarding's role→status map. The
+--     role-protect trigger now rejects any non-admin / non-service role
+--     change.
+do $$
+declare
+  v_a uuid := (select v from _test_ctx where k='user_a');  -- a student
+begin
+  perform _set_caller(v_a);
+  begin
+    update public.profiles set role = 'alum' where id = v_a;
+    raise exception 'FAIL: user A changed own role without admin context';
+  exception
+    when sqlstate '42501' then null;  -- expected: role-protect trigger
+  end;
+end;
+$$;
+
+-- 11. submit_onboarding re-checks the Imperial domain for students.
+--     A student whose auth email is non-Imperial (only reachable via a
+--     role flip after an alum-style Google signup) cannot self-approve.
+do $$
+declare
+  v_new uuid := gen_random_uuid();
+  v_cy  int  := extract(year from now())::int;
+begin
+  set local role none;
+  perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+  insert into auth.users (id, email, raw_user_meta_data, raw_app_meta_data)
+  values (v_new, 'sneaky@gmail.com',
+          '{"first_name":"Sn","surname":"Eaky","role":"alum"}'::jsonb,
+          '{"provider":"google"}'::jsonb)
+  on conflict do nothing;
+  -- Flip alum→student + pending_onboarding as service_role (allowed by the
+  -- protect triggers). The auth email stays non-Imperial.
+  update public.profiles
+     set role = 'student', status = 'pending_onboarding'
+   where id = v_new;
+
+  perform _set_caller(v_new);
+  begin
+    perform public.submit_onboarding(
+      p_course        => 'MEng Computing',
+      p_grad_year     => v_cy + 1,
+      p_linkedin_url  => null,
+      p_github_url    => null,
+      p_portfolio_url => null,
+      p_bio           => null,
+      p_working_on    => null,
+      p_skill_ids     => null,
+      p_sector_ids    => null
+    );
+    raise exception 'FAIL: non-Imperial student completed onboarding';
+  exception
+    when sqlstate '42501' then null;  -- expected: domain re-check
+  end;
+  perform set_config('foundry.onboarding_submission', '', true);
+end;
+$$;
+
+-- 12. Students must pick a future graduation year (>= current_year + 1).
+do $$
+declare
+  v_new uuid := gen_random_uuid();
+  v_cy  int  := extract(year from now())::int;
+begin
+  set local role none;
+  perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+  insert into auth.users (id, email, raw_user_meta_data, raw_app_meta_data)
+  values (v_new, 'stud12@imperial.ac.uk',
+          '{"first_name":"St","surname":"Ud","role":"student"}'::jsonb,
+          '{"provider":"email"}'::jsonb)
+  on conflict do nothing;
+  insert into public.profiles (id, role, status, first_name, surname)
+  values (v_new, 'student', 'pending_onboarding', 'St', 'Ud')
+  on conflict (id) do update set status = excluded.status;
+
+  perform _set_caller(v_new);
+  begin
+    perform public.submit_onboarding(
+      p_course        => 'MEng Computing',
+      p_grad_year     => v_cy,          -- not in the future → rejected
+      p_linkedin_url  => null,
+      p_github_url    => null,
+      p_portfolio_url => null,
+      p_bio           => null,
+      p_working_on    => null,
+      p_skill_ids     => null,
+      p_sector_ids    => null
+    );
+    raise exception 'FAIL: student set a non-future graduation year';
+  exception
+    when sqlstate '22023' then null;  -- expected: grad-year bound
+  end;
+  perform set_config('foundry.onboarding_submission', '', true);
+end;
+$$;
+
+-- 13. Alumni cannot set a future graduation year (> current_year).
+do $$
+declare
+  v_new uuid := gen_random_uuid();
+  v_cy  int  := extract(year from now())::int;
+begin
+  set local role none;
+  perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+  insert into auth.users (id, email, raw_user_meta_data, raw_app_meta_data)
+  values (v_new, 'alum13@gmail.com',
+          '{"first_name":"Al","surname":"Um","role":"alum"}'::jsonb,
+          '{"provider":"google"}'::jsonb)
+  on conflict do nothing;
+  insert into public.profiles (id, role, status, first_name, surname, course, grad_year, linkedin_url)
+  values (v_new, 'alum', 'approved', 'Al', 'Um', 'MEng', v_cy - 1, 'https://linkedin.com/in/alum13')
+  on conflict (id) do update set
+    status       = excluded.status,
+    role         = excluded.role,
+    linkedin_url = excluded.linkedin_url;
+
+  perform _set_caller(v_new);
+  begin
+    perform public.update_profile(
+      p_first_name    => 'Al',
+      p_surname       => 'Um',
+      p_course        => 'MEng',
+      p_grad_year     => v_cy + 1,       -- future → rejected for alumni
+      p_linkedin_url  => 'https://linkedin.com/in/alum13',
+      p_github_url    => null,
+      p_portfolio_url => null,
+      p_bio           => null,
+      p_working_on    => null,
+      p_skill_ids     => null,
+      p_sector_ids    => null
+    );
+    raise exception 'FAIL: alum set a future graduation year';
+  exception
+    when sqlstate '22023' then null;  -- expected: grad-year bound
+  end;
+end;
+$$;
+
+-- 14. A non-admin cannot INSERT an event already flagged as a society
+--     event (impersonating an official event). The flag-protect trigger
+--     (20260603000002) rejects it.
+do $$
+declare
+  v_a uuid := (select v from _test_ctx where k='user_a');
+begin
+  perform _set_caller(v_a);
+  begin
+    insert into public.events (
+      posted_by, status, title, description, luma_link,
+      event_at, location, organiser_name, contact_email, is_society_event
+    ) values (
+      v_a, 'pending', 'Fake society night',
+      'Description that is at least twenty chars long.',
+      'https://lu.ma/x', now() + interval '7 days', 'Imperial',
+      'A User', 'a@imperial.ac.uk', true
+    );
+    raise exception 'FAIL: non-admin inserted a society event';
+  exception
+    when sqlstate '42501' then null;  -- expected: flag-protect trigger
+  end;
+end;
+$$;
+
+-- 15. A non-admin cannot UPDATE their own pending event to set the
+--     society flag (the user edit path is a direct PostgREST UPDATE).
+do $$
+declare
+  v_a   uuid := (select v from _test_ctx where k='user_a');
+  v_evt uuid := gen_random_uuid();
+begin
+  -- Seed an ordinary (external) pending event owned by A, as service_role.
+  set local role none;
+  perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+  insert into public.events (
+    id, posted_by, status, title, description, luma_link,
+    event_at, location, organiser_name, contact_email
+  ) values (
+    v_evt, v_a, 'pending', 'A''s external event',
+    'Description that is at least twenty chars long.',
+    'https://lu.ma/x', now() + interval '7 days', 'Imperial',
+    'A User', 'a@imperial.ac.uk'
+  );
+
+  perform _set_caller(v_a);
+  begin
+    update public.events set is_society_event = true where id = v_evt;
+    raise exception 'FAIL: non-admin set the society flag via update';
+  exception
+    when sqlstate '42501' then null;  -- expected: flag-protect trigger
+  end;
+end;
+$$;
+
+-- 16. admin_create_event with p_is_society_event => true publishes an
+--     approved society event, and the flag persists.
+do $$
+declare
+  v_adm uuid := (select v from _test_ctx where k='admin');
+  v_new uuid;
+  v_flag boolean;
+  v_status user_status;
+begin
+  perform _set_caller(v_adm);
+  v_new := public.admin_create_event(
+    p_title                 => 'Official Demo Day',
+    p_description           => 'Description that is at least twenty chars long.',
+    p_luma_link             => 'https://lu.ma/official',
+    p_event_at              => now() + interval '14 days',
+    p_location              => 'Imperial',
+    p_organiser_name        => 'Imperial Entrepreneurs',
+    p_contact_email         => 'admin@imperial.ac.uk',
+    p_contact_email_visible => false,
+    p_is_society_event      => true
+  );
+
+  set local role none;  -- read back as the owner
+  select is_society_event, status into v_flag, v_status
+    from public.events where id = v_new;
+  if v_flag is not true then
+    raise exception 'FAIL: admin_create_event did not persist the society flag';
+  end if;
+  if v_status <> 'approved' then
+    raise exception 'FAIL: admin_create_event did not auto-approve (status=%)', v_status;
+  end if;
+end;
+$$;
+
+-- 17. submit_event (the member path) produces an EXTERNAL event
+--     (is_society_event = false), with no way to opt in.
+do $$
+declare
+  v_b   uuid := (select v from _test_ctx where k='user_b');
+  v_new uuid;
+  v_flag boolean;
+begin
+  perform _set_caller(v_b);
+  v_new := public.submit_event(
+    p_title                 => 'Member meetup',
+    p_description           => 'Description that is at least twenty chars long.',
+    p_luma_link             => 'https://lu.ma/member',
+    p_event_at              => now() + interval '10 days',
+    p_location              => 'Online',
+    p_organiser_name        => 'B User',
+    p_contact_email         => 'b@imperial.ac.uk',
+    p_contact_email_visible => false
+  );
+
+  set local role none;  -- read back as the owner
+  select is_society_event into v_flag from public.events where id = v_new;
+  if v_flag is distinct from false then
+    raise exception 'FAIL: submit_event produced a non-external event (flag=%)', v_flag;
+  end if;
+end;
+$$;
+
 -- ─── Cleanup ────────────────────────────────────────────────────────
 -- The test blocks leak the transaction-local 'authenticated' role (see note
 -- above), so reset to the owner role before dropping the helper function.
