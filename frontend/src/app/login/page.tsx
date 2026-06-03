@@ -227,6 +227,28 @@ export default function LoginPage() {
     setResendCooldown(60);
   };
 
+  // Re-send the signup confirmation email. Distinct from the student
+  // resend: alum verification is a "confirm signup" email (auth.resend
+  // with type "signup"), not a passwordless OTP.
+  const handleAlumResend = async () => {
+    if (resendCooldown > 0 || isLoading) return;
+    setError("");
+    setIsLoading(true);
+    const { error: resendError } = await supabase.auth.resend({
+      type: "signup",
+      email: email.trim(),
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+    setIsLoading(false);
+    if (resendError) {
+      setError(resendError.message);
+      return;
+    }
+    setResendCooldown(60);
+  };
+
   const handleGoogle = async () => {
     setError("");
     setIsLoading(true);
@@ -283,10 +305,16 @@ export default function LoginPage() {
     setIsLoading(true);
 
     if (mode === "signup") {
-      const { error: signUpError } = await supabase.auth.signUp({
+      const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
+          // Without this, the confirmation link redirects to the Supabase
+          // Site URL root, which has no code-exchange handler — the alum
+          // lands logged-out on the homepage. Point it at /auth/callback so
+          // clicking the link establishes a session and routes by status,
+          // exactly like the student magic-link flow.
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
           // These keys are read by the tg_handle_new_user trigger to populate
           // public.profiles with role/first_name/surname on insert.
           // grad_year is collected later during onboarding.
@@ -300,6 +328,20 @@ export default function LoginPage() {
       if (signUpError) {
         setError(signUpError.message);
         setIsLoading(false);
+        return;
+      }
+      setIsLoading(false);
+      // "Confirm email" is ON, so signUp returns no session — the user must
+      // click the emailed link first. Show the check-your-inbox panel rather
+      // than calling routeAfterSignIn (which would find no session and dump
+      // them on '/'). This branch also covers Supabase's email-enumeration
+      // protection: signing up an already-registered address returns no
+      // session and no error, and showing the same panel avoids leaking
+      // whether the account exists. If "Confirm email" is ever turned off,
+      // data.session is populated and we route immediately.
+      if (!data.session) {
+        setEmailSent(true);
+        setResendCooldown(60);
         return;
       }
       await routeAfterSignIn();
@@ -404,9 +446,12 @@ export default function LoginPage() {
                 email={email} setEmail={setEmail}
                 password={password} setPassword={setPassword}
                 repeatPassword={repeatPassword} setRepeatPassword={setRepeatPassword}
+                emailSent={emailSent}
+                resendCooldown={resendCooldown}
                 isLoading={isLoading}
                 tcAgreed={tcAgreed} setTcAgreed={setTcAgreed}
                 onSubmit={handleAlumSubmit}
+                onResend={handleAlumResend}
                 onGoogle={handleGoogle}
                 onBack={backToChooser}
               />
@@ -633,9 +678,10 @@ function AlumForm({
   email, setEmail,
   password, setPassword,
   repeatPassword, setRepeatPassword,
+  emailSent, resendCooldown,
   isLoading,
   tcAgreed, setTcAgreed,
-  onSubmit, onGoogle, onBack,
+  onSubmit, onResend, onGoogle, onBack,
 }: {
   mode: Mode;
   firstName: string; setFirstName: (v: string) => void;
@@ -643,14 +689,58 @@ function AlumForm({
   email: string; setEmail: (v: string) => void;
   password: string; setPassword: (v: string) => void;
   repeatPassword: string; setRepeatPassword: (v: string) => void;
+  emailSent: boolean;
+  resendCooldown: number;
   isLoading: boolean;
   tcAgreed: boolean; setTcAgreed: (v: boolean) => void;
   onSubmit: (e: React.FormEvent) => void;
+  onResend: () => void;
   onGoogle: () => void;
   onBack: () => void;
 }) {
   const inputCls =
     "w-full px-4 py-3 bg-white/[0.03] border border-border rounded-lg text-[0.85rem] text-text-primary placeholder:text-text-muted outline-none transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]";
+
+  // After signup, "Confirm email" requires the alum to click the emailed
+  // link before they have a session. Show the same check-your-inbox panel
+  // the student flow uses, with a signup-confirmation resend.
+  if (emailSent) {
+    const canResend = resendCooldown <= 0 && !isLoading;
+    return (
+      <div className="space-y-5">
+        <BackLink onClick={onBack} />
+        <div className="py-6 text-center space-y-4">
+          <div className="w-12 h-12 rounded-full bg-gold/15 flex items-center justify-center mx-auto">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="text-gold" aria-hidden>
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+              <polyline points="22,6 12,13 2,6" />
+            </svg>
+          </div>
+          <h2 className="font-display text-[1.15rem] text-text-primary">Check your inbox</h2>
+          <p className="text-[0.8rem] text-text-secondary leading-relaxed">
+            We&apos;ve sent a confirmation link to <span className="text-text-primary">{email}</span>. Click it to verify your email and finish signing up.
+          </p>
+          <p className="text-[0.7rem] text-text-muted leading-relaxed">
+            The link expires in one hour. Check your spam folder if it doesn&apos;t arrive within a minute.
+          </p>
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={onResend}
+              disabled={!canResend}
+              className="text-[0.8rem] text-gold bg-transparent border-0 cursor-pointer transition-colors duration-150 hover:text-gold-light disabled:text-text-muted disabled:cursor-not-allowed"
+            >
+              {isLoading
+                ? "Resending…"
+                : resendCooldown > 0
+                  ? `Resend in ${resendCooldown}s`
+                  : "Didn’t receive it? Resend"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
