@@ -1,9 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
 import { requireAdmin } from "@/lib/auth/actionAuth";
 import { enqueueEmailsBulk, renderGraduationEmail } from "@/lib/email";
+import { emailBaseUrl } from "@/lib/siteUrl";
 import { describeSupabaseError } from "@/lib/supabaseErrors";
 
 type PreviewResult =
@@ -61,12 +61,9 @@ export async function deleteGraduates(cutoffYear: number): Promise<DeleteResult>
 
   const rows = (data ?? []) as { user_id: string; email: string | null; first_name: string | null }[];
 
-  // Derive the alum signup URL from the current request so the email
-  // works in both prod and local dev without hardcoding.
-  const h = await headers();
-  const proto = h.get("x-forwarded-proto") ?? "https";
-  const host  = h.get("x-forwarded-host") ?? h.get("host") ?? "";
-  const alumSignupUrl = host ? `${proto}://${host}/login?role=alum` : "/login?role=alum";
+  // Build the alum signup link from trusted config, NOT request headers
+  // (x-forwarded-host is attacker-controllable → email-link poisoning).
+  const alumSignupUrl = `${emailBaseUrl()}/login?role=alum`;
 
   // Render and bulk-enqueue rather than looping inline sends. A 200-grad
   // cohort would otherwise both blow past Vercel's function timeout
