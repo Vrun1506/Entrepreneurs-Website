@@ -1,9 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
 import { requireAdmin } from "@/lib/auth/actionAuth";
 import { sendAcceptanceEmail, sendRejectionEmail } from "@/lib/email";
+import { emailBaseUrl } from "@/lib/siteUrl";
 import { describeSupabaseError } from "@/lib/supabaseErrors";
 import type { BulkResult } from "@/app/admin/bulkTypes";
 
@@ -42,10 +42,9 @@ export async function approveUser(userId: string): Promise<Result> {
     return { ok: true };
   }
 
-  const h = await headers();
-  const proto = h.get("x-forwarded-proto") ?? "https";
-  const host  = h.get("x-forwarded-host") ?? h.get("host") ?? "";
-  const communityUrl = host ? `${proto}://${host}/community` : "/community";
+  // Build the email link from trusted config, NOT request headers
+  // (x-forwarded-host is attacker-controllable → email-link poisoning).
+  const communityUrl = `${emailBaseUrl()}/community`;
 
   try {
     await sendAcceptanceEmail({

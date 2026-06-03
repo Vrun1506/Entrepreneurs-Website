@@ -23,7 +23,11 @@ import { createServiceClient } from "@/lib/supabase/service";
 //
 // Failure handling per row:
 //   * 2xx              → sent_at = now()
-//   * 429              → push next_attempt_at +30 min; don't burn an attempt
+//   * 429              → push next_attempt_at +30 min; don't burn an attempt.
+//                        Resend returns 429 for both per-second rate limits
+//                        AND daily-quota-exceeded, so this is also our daily
+//                        cap: once the quota is hit, rows defer (not fail) and
+//                        flush automatically when the window resets.
 //   * 5xx / network    → bump attempts; exponential backoff (2^n min)
 //   * 4xx (not 429)    → bury (attempts := max_attempts)
 // ════════════════════════════════════════════════════════════════════
