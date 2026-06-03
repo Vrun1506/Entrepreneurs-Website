@@ -139,6 +139,19 @@ function OpportunityCard({
   const [open, setOpen] = useState(false);
   const { checking, stale, check } = useListingFreshness("opportunities", o.id);
   const expandRecorded = useRef(false);
+  const articleRef = useRef<HTMLElement | null>(null);
+
+  // Deep-link from a profile's "Looking for" button: /opportunities#o-<id>.
+  // Open this card and bring it into view on arrival.
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.location.hash === `#o-${o.id}`) {
+      // Reading window.location in a useState initialiser would cause a
+      // hydration mismatch (server renders closed); set it post-mount instead.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setOpen(true);
+      articleRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [o.id]);
 
   useEffect(() => {
     if (!open) return;
@@ -161,7 +174,7 @@ function OpportunityCard({
   const toggleOpen = () => setOpen((v) => !v);
 
   return (
-    <article className="rounded-2xl bg-bg-card border border-border-subtle overflow-hidden relative">
+    <article ref={articleRef} id={`o-${o.id}`} className="rounded-2xl bg-bg-card border border-border-subtle overflow-hidden relative">
       {/* Bookmark button — sits outside the toggle area so clicks don't expand. */}
       <div className="absolute top-3 right-3 z-10">
         <BookmarkButton bookmarked={bookmarked} onClick={onToggleBookmark} />
