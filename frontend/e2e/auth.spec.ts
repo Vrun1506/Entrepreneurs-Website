@@ -134,4 +134,13 @@ test.describe("auth entry flows", () => {
     await expect(page.getByRole("heading", { name: "Check your inbox" })).toBeVisible();
     await expect(page.getByText("newalum@example.com")).toBeVisible();
   });
+
+  test("auth/confirm without a token bounces to /login", async ({ page }) => {
+    // The token_hash verification route (used by cross-browser email links).
+    // With no token it must fail closed back to /login, not error out — the
+    // login page surfaces the reason from ?error=.
+    await page.goto("/auth/confirm");
+    await expect(page).toHaveURL(/\/login/);
+    await expect(page.getByText("missing_token")).toBeVisible();
+  });
 });
