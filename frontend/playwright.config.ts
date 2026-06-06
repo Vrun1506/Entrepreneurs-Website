@@ -37,8 +37,8 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
   projects: [
-    // Logged-out surface + access control.
-    { name: "public", testMatch: /public\.spec\.ts/, use: { ...devices["Desktop Chrome"] } },
+    // Logged-out surface + access control + auth entry flows.
+    { name: "public", testMatch: /(public|auth)\.spec\.ts/, use: { ...devices["Desktop Chrome"] } },
     // Approved student session (from global-setup).
     {
       name: "member",
