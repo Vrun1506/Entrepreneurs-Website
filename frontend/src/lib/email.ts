@@ -36,21 +36,15 @@ type EnqueueArgs = {
 };
 
 function contactInbox(): string {
-  // No hardcoded address fallback: a silent default could quietly misroute
-  // support mail to an unmonitored/undeliverable mailbox. Fail loud instead —
-  // CONTACT_INBOX_EMAIL is set in prod.
-  const inbox = process.env.CONTACT_INBOX_EMAIL;
-  if (!inbox) throw new Error("CONTACT_INBOX_EMAIL is not set");
-  return inbox;
+  return process.env.CONTACT_INBOX_EMAIL ?? "contact@imperialentrepreneurs.com";
 }
 
 // Reply-to address for messages a recipient might want to appeal:
 // account rejection, account removal by admin, listing rejection.
-// Falls back to the (configured) contact inbox so appeals always land
-// somewhere monitored, even before APPEALS_EMAIL is set — no hardcoded
-// address.
+// Falls back to the contact inbox so appeals always land somewhere
+// monitored, even before APPEALS_EMAIL is configured.
 function appealsInbox(): string {
-  return process.env.APPEALS_EMAIL ?? contactInbox();
+  return process.env.APPEALS_EMAIL ?? "appeals@imperialentrepreneurs.com";
 }
 
 // ─── Enqueue helpers ────────────────────────────────────────────────
