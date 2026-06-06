@@ -23,6 +23,11 @@ export async function register() {
 // rate-limiter being reachable). If you'd rather fail closed, throw here.
 function assertProductionAbuseControls() {
   if (process.env.NODE_ENV !== "production") return;
+  // Vercel preview deploys also run with NODE_ENV=production but deliberately
+  // don't carry the production abuse-control secrets — skip them so they don't
+  // false-alarm. Only the real production deployment should be loud. When
+  // VERCEL_ENV is unset (e.g. self-hosted prod) we keep the original behaviour.
+  if (process.env.VERCEL_ENV && process.env.VERCEL_ENV !== "production") return;
 
   const missing: string[] = [];
   if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
