@@ -24,7 +24,7 @@ jobs:
       db: ${{ steps.filter.outputs.db }}
     steps:
       - uses: actions/checkout@v5
-      - uses: dorny/paths-filter@v3
+      - uses: dorny/paths-filter@v4
         id: filter
         with:
           filters: |
