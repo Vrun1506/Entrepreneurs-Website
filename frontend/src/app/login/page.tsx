@@ -353,6 +353,26 @@ export default function LoginPage() {
       password,
     });
     if (signInError) {
+      // Unconfirmed email: Supabase blocks sign-in until the confirmation
+      // link is clicked. Don't dead-end on the raw "Email not confirmed"
+      // string — resend the confirmation and show the same check-your-inbox
+      // panel as signup. (Students recover via an OTP re-send; this is the
+      // alum equivalent, the sign-in twin of the signup fix.)
+      const unconfirmed =
+        signInError.code === "email_not_confirmed" ||
+        /not confirmed/i.test(signInError.message);
+      if (unconfirmed) {
+        // Best-effort resend; the panel also offers a manual "Resend".
+        await supabase.auth.resend({
+          type: "signup",
+          email: email.trim(),
+          options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+        });
+        setIsLoading(false);
+        setEmailSent(true);
+        setResendCooldown(60);
+        return;
+      }
       setError(signInError.message);
       setIsLoading(false);
       return;
