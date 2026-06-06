@@ -16,13 +16,13 @@ on:
       base_url:
         description: "Base URL to smoke-test"
         required: false
-        default: "https://imperialentrepreneurs.com"
+        default: "https://www.imperialentrepreneurs.com"
   workflow_call:
     inputs:
       base_url:
         required: false
         type: string
-        default: "https://imperialentrepreneurs.com"
+        default: "https://www.imperialentrepreneurs.com"
   # schedule:
   #   - cron: "*/30 * * * *"
 
@@ -38,4 +38,4 @@ jobs:
       - name: Run prod smoke
         run: node scripts/prod-smoke.mjs
         env:
-          PROD_BASE_URL: ${{ inputs.base_url || 'https://imperialentrepreneurs.com' }}
+          PROD_BASE_URL: ${{ inputs.base_url || 'https://www.imperialentrepreneurs.com' }}

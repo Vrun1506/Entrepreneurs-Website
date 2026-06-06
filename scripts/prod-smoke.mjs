@@ -3,9 +3,12 @@
 // never touches real data / analytics. This is deploy-time health, not
 // continuous uptime monitoring (that's an external monitor's job).
 //
-// Usage: PROD_BASE_URL=https://imperialentrepreneurs.com node scripts/prod-smoke.mjs
+// Usage: PROD_BASE_URL=https://www.imperialentrepreneurs.com node scripts/prod-smoke.mjs
 
-const BASE = (process.env.PROD_BASE_URL ?? "https://imperialentrepreneurs.com").replace(/\/$/, "");
+// Default to www: the apex 307s to www, where the CSP header and canonical
+// app shell actually live. Hitting the apex would smoke-test the redirect, not
+// the app.
+const BASE = (process.env.PROD_BASE_URL ?? "https://www.imperialentrepreneurs.com").replace(/\/$/, "");
 
 // [path, optional substring that must appear in the body]
 const CHECKS = [

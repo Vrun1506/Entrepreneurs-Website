@@ -569,6 +569,41 @@ begin
 end;
 $$;
 
+-- 18. No dead RPC overloads. A `CREATE OR REPLACE FUNCTION` with a drifted
+--     signature doesn't replace the old function — it creates a SECOND
+--     overload, and the stale one keeps answering. supabase-js `.rpc(name)`
+--     calls by name only and can't disambiguate, so ANY duplicate public
+--     function name is a latent bug (PostgREST errors with "could not choose
+--     the best candidate function"). This guard makes that loud. Extension-
+--     owned functions (pgcrypto et al. legitimately overload) are excluded.
+set local role postgres;
+do $$
+declare
+  v_dupes text;
+begin
+  select string_agg(format('%s (%s overloads)', proname, cnt), ', ')
+  into v_dupes
+  from (
+    select p.proname, count(*) as cnt
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and not exists (
+        select 1 from pg_depend d
+        where d.objid = p.oid and d.deptype = 'e'  -- skip extension-owned funcs
+      )
+    group by p.proname
+    having count(*) > 1
+  ) dupes;
+
+  if v_dupes is not null then
+    raise exception
+      'FAIL: public function(s) have multiple overloads (supabase-js .rpc() cannot disambiguate — likely a dead CREATE OR REPLACE signature drift): %',
+      v_dupes;
+  end if;
+end;
+$$;
+
 -- ─── Cleanup ────────────────────────────────────────────────────────
 -- The test blocks leak the transaction-local 'authenticated' role (see note
 -- above), so reset to the owner role before dropping the helper function.
