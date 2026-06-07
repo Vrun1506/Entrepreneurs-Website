@@ -8,6 +8,20 @@ import { cleanName, isValidName } from "@/lib/text";
 import { SignupDisclosures } from "@/components/forms/SignupDisclosures";
 import { BrandLogo } from "@/components/BrandLogo";
 
+// Auth error text reaches us partly via ?error= in the URL, which is
+// attacker-controllable — rendering it verbatim is a phishing/content-spoof
+// vector. Map the cases users actually hit to fixed friendly copy and fall
+// back to a generic line, so raw URL input is never shown as page content.
+function friendlyAuthError(raw: string): string {
+  const e = raw.toLowerCase();
+  if (e.includes("not confirmed")) return "Please confirm your email first — check your inbox for the verification link.";
+  if (e.includes("expired") || e.includes("invalid") || e.includes("missing_token") || e.includes("missing_code")) return "That link is invalid or has expired. Please request a new one.";
+  if (e.includes("code verifier") || e.includes("both auth code")) return "Please open the link in the same browser you started in, or try signing in again.";
+  if (e.includes("access_denied") || e.includes("cancel")) return "Sign-in was cancelled.";
+  if (e.includes("rate") || e.includes("too many")) return "Too many attempts. Please wait a moment and try again.";
+  return "Something went wrong during sign-in. Please try again.";
+}
+
 /* ── Decorative background ────────────────────────────────────────── */
 function BackgroundEffects() {
   return (
@@ -78,6 +92,7 @@ export default function LoginPage() {
   const [emailSent, setEmailSent] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [tcAgreed, setTcAgreed] = useState(false);
+  const [forgotSent, setForgotSent] = useState(false);
 
   // Tick the resend cooldown to 0 once per second when active.
   useEffect(() => {
@@ -95,7 +110,7 @@ export default function LoginPage() {
     const e = params.get("error");
     if (!e) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setError(e);
+    setError(friendlyAuthError(e));
     const url = new URL(window.location.href);
     url.searchParams.delete("error");
     window.history.replaceState({}, "", url.toString());
@@ -143,6 +158,7 @@ export default function LoginPage() {
     setEmailSent(false);
     setResendCooldown(0);
     setTcAgreed(false);
+    setForgotSent(false);
   };
 
   const switchMode = (next: Mode) => {
@@ -247,6 +263,39 @@ export default function LoginPage() {
       return;
     }
     setResendCooldown(60);
+  };
+
+  // Alumni password recovery. Kept on the PKCE link (redirectTo /auth/callback)
+  // deliberately — recovery is the highest-stakes flow, so the link alone must
+  // not be enough to take over an account. /auth/callback shuttles a valid
+  // recovery click on to /reset-password.
+  const handleForgotPassword = async () => {
+    if (resendCooldown > 0 || isLoading) return;
+    setError("");
+    const trimmed = email.trim();
+    if (!trimmed) {
+      setError("Please enter your email address first.");
+      return;
+    }
+    setIsLoading(true);
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(trimmed, {
+      redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+    });
+    setIsLoading(false);
+    if (resetError) {
+      setError(resetError.message);
+      return;
+    }
+    // resetPasswordForEmail is anti-enumeration (succeeds even for unknown
+    // emails), so the confirmation never leaks whether an account exists.
+    setForgotSent(true);
+    setResendCooldown(60);
+  };
+
+  // Clear recovery sub-view state (used both on entering and leaving it).
+  const exitForgot = () => {
+    setForgotSent(false);
+    setError("");
   };
 
   const handleGoogle = async () => {
@@ -470,9 +519,12 @@ export default function LoginPage() {
                 resendCooldown={resendCooldown}
                 isLoading={isLoading}
                 tcAgreed={tcAgreed} setTcAgreed={setTcAgreed}
+                forgotSent={forgotSent}
                 onSubmit={handleAlumSubmit}
                 onResend={handleAlumResend}
                 onGoogle={handleGoogle}
+                onForgot={handleForgotPassword}
+                onForgotReset={exitForgot}
                 onBack={backToChooser}
               />
             )}
@@ -701,7 +753,8 @@ function AlumForm({
   emailSent, resendCooldown,
   isLoading,
   tcAgreed, setTcAgreed,
-  onSubmit, onResend, onGoogle, onBack,
+  forgotSent,
+  onSubmit, onResend, onGoogle, onForgot, onForgotReset, onBack,
 }: {
   mode: Mode;
   firstName: string; setFirstName: (v: string) => void;
@@ -713,11 +766,16 @@ function AlumForm({
   resendCooldown: number;
   isLoading: boolean;
   tcAgreed: boolean; setTcAgreed: (v: boolean) => void;
+  forgotSent: boolean;
   onSubmit: (e: React.FormEvent) => void;
   onResend: () => void;
   onGoogle: () => void;
+  onForgot: () => void;
+  onForgotReset: () => void;
   onBack: () => void;
 }) {
+  const [forgotView, setForgotView] = useState(false);
+
   const inputCls =
     "w-full px-4 py-3 bg-white/[0.03] border border-border rounded-lg text-[0.85rem] text-text-primary placeholder:text-text-muted outline-none transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]";
 
@@ -759,6 +817,90 @@ function AlumForm({
           </div>
         </div>
       </div>
+    );
+  }
+
+  // Password-recovery sub-view (sign-in only). Sends a PKCE reset link to the
+  // entered email; it lands on /auth/callback?next=/reset-password.
+  if (forgotView) {
+    const canSend = resendCooldown <= 0 && !isLoading;
+    const backToSignIn = () => { onForgotReset(); setForgotView(false); };
+
+    if (forgotSent) {
+      return (
+        <div className="space-y-5">
+          <BackLink onClick={backToSignIn} />
+          <div className="py-6 text-center space-y-4">
+            <div className="w-12 h-12 rounded-full bg-gold/15 flex items-center justify-center mx-auto">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="text-gold" aria-hidden>
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+                <polyline points="22,6 12,13 2,6" />
+              </svg>
+            </div>
+            <h2 className="font-display text-[1.15rem] text-text-primary">Check your inbox</h2>
+            <p className="text-[0.8rem] text-text-secondary leading-relaxed">
+              If an account exists for <span className="text-text-primary">{email}</span>, we&apos;ve sent a password-reset link.
+            </p>
+            <p className="text-[0.7rem] text-text-muted leading-relaxed">
+              The link expires in one hour. Open it in the same browser you&apos;re using now.
+            </p>
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={onForgot}
+                disabled={!canSend}
+                className="text-[0.8rem] text-gold bg-transparent border-0 cursor-pointer transition-colors duration-150 hover:text-gold-light disabled:text-text-muted disabled:cursor-not-allowed"
+              >
+                {isLoading
+                  ? "Resending…"
+                  : resendCooldown > 0
+                    ? `Resend in ${resendCooldown}s`
+                    : "Didn’t receive it? Resend"}
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <form onSubmit={(e) => { e.preventDefault(); onForgot(); }} className="space-y-4">
+        <BackLink onClick={backToSignIn} />
+        <div className="space-y-1.5">
+          <h2 className="font-display text-[1.15rem] text-text-primary">Reset your password</h2>
+          <p className="text-[0.8rem] text-text-secondary leading-relaxed">
+            Enter your email and we&apos;ll send you a link to set a new password.
+          </p>
+        </div>
+        <div>
+          <label htmlFor="reset-email" className="block text-[0.75rem] text-text-muted mb-1.5">Email</label>
+          <input
+            id="reset-email"
+            type="email"
+            autoComplete="email"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className={inputCls}
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={resendCooldown > 0 || isLoading}
+          className="w-full mt-1 flex items-center justify-center px-6 py-3.5 rounded-xl bg-gold text-bg-primary text-[0.9rem] font-medium tracking-wide border-0 cursor-pointer transition-all duration-200 hover:bg-gold-light hover:-translate-y-px disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+        >
+          {isLoading ? (
+            <div className="w-[18px] h-[18px] border-2 border-[#0c0c0b]/30 border-t-[#0c0c0b] rounded-full animate-spin" />
+          ) : resendCooldown > 0 ? (
+            `Resend in ${resendCooldown}s`
+          ) : (
+            "Send reset link"
+          )}
+        </button>
+        <p className="text-[0.72rem] text-text-muted leading-relaxed text-center px-2">
+          Signed up with Google? Use <span className="text-text-secondary">Continue with Google</span> instead.
+        </p>
+      </form>
     );
   }
 
@@ -854,6 +996,18 @@ function AlumForm({
           className={inputCls}
         />
       </div>
+
+      {mode === "signin" && (
+        <div className="-mt-1 text-right">
+          <button
+            type="button"
+            onClick={() => { onForgotReset(); setForgotView(true); }}
+            className="text-[0.75rem] text-gold bg-transparent border-0 cursor-pointer transition-colors duration-150 hover:text-gold-light"
+          >
+            Forgot your password?
+          </button>
+        </div>
+      )}
 
       {mode === "signup" && (
         <div>
