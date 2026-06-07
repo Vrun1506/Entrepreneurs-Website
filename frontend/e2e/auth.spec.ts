@@ -147,9 +147,12 @@ test.describe("auth entry flows", () => {
   test("alum: forgot-password sends a reset link and shows confirmation", async ({ page }) => {
     await mockGoTrue(page, "**/auth/v1/recover**", {});
 
+    // The mode toggle also resets the role chooser, so switch to sign-in mode
+    // first (from the chooser), THEN pick alum — otherwise we bounce back to
+    // the chooser and the forgot link never renders.
     await page.goto("/login");
-    await page.getByRole("button", { name: /Imperial alum/i }).click();
     await page.getByRole("button", { name: "Sign in" }).click(); // toggle into sign-in mode
+    await page.getByRole("button", { name: /Imperial alum/i }).click();
     await page.getByRole("button", { name: "Forgot your password?" }).click();
 
     await page.locator("#reset-email").fill("alum@example.com");
