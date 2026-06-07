@@ -1,0 +1,34 @@
+name: ZAP baseline scan
+
+# Manual, on-demand passive scan (spider + header/CSP/cookie checks — NO active
+# attacks). Run it against production or a preview URL to confirm security
+# headers and the CSP. Manual-only so it never adds PR noise and never fuzzes a
+# live site. Trigger: Actions → "ZAP baseline scan" → Run workflow.
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "URL to scan (passive baseline only)"
+        required: true
+        default: "https://www.imperialentrepreneurs.com"
+
+permissions:
+  contents: read
+  issues: write # the action can file/update a findings issue if enabled below
+
+jobs:
+  zap:
+    name: ZAP baseline
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: ZAP baseline
+        uses: zaproxy/action-baseline@v0.12.0
+        with:
+          target: ${{ github.event.inputs.target }}
+          # Passive baseline returns non-zero on WARN findings; don't fail the
+          # run — this is informational. The HTML report is uploaded as an
+          # artifact regardless.
+          fail_action: false
+          allow_issue_writing: false
