@@ -141,6 +141,32 @@ test.describe("auth entry flows", () => {
     // login page surfaces the reason from ?error=.
     await page.goto("/auth/confirm");
     await expect(page).toHaveURL(/\/login/);
-    await expect(page.getByText("missing_token")).toBeVisible();
+    await expect(page.getByText(/invalid or has expired/i)).toBeVisible();
+  });
+
+  test("alum: forgot-password sends a reset link and shows confirmation", async ({ page }) => {
+    await mockGoTrue(page, "**/auth/v1/recover**", {});
+
+    // The mode toggle also resets the role chooser, so switch to sign-in mode
+    // first (from the chooser), THEN pick alum — otherwise we bounce back to
+    // the chooser and the forgot link never renders.
+    await page.goto("/login");
+    await page.getByRole("button", { name: "Sign in" }).click(); // toggle into sign-in mode
+    await page.getByRole("button", { name: /Imperial alum/i }).click();
+    await page.getByRole("button", { name: "Forgot your password?" }).click();
+
+    await page.locator("#reset-email").fill("alum@example.com");
+    await page.getByRole("button", { name: "Send reset link" }).click();
+
+    await expect(page.getByRole("heading", { name: "Check your inbox" })).toBeVisible();
+    await expect(page.getByText("alum@example.com")).toBeVisible();
+  });
+
+  test("reset-password without a recovery session bounces to /login", async ({ page }) => {
+    // The page requires both a session and the pw-recovery marker cookie; with
+    // neither it must fail closed so it can't be used to bypass the settings
+    // reauth on password change.
+    await page.goto("/reset-password");
+    await expect(page).toHaveURL(/\/login/);
   });
 });

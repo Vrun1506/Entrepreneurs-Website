@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-export default function PasswordChangeForm({ hasPassword }: { hasPassword: boolean }) {
+export default function PasswordChangeForm({ hasPassword, email }: { hasPassword: boolean; email: string }) {
   const supabase = createClient();
 
+  const [currentPassword, setCurrentPassword] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -23,6 +24,10 @@ export default function PasswordChangeForm({ hasPassword }: { hasPassword: boole
     setError("");
     setSaved(false);
 
+    if (!currentPassword) {
+      setError("Please enter your current password.");
+      return;
+    }
     if (password.length < 8) {
       setError("Password must be at least 8 characters.");
       return;
@@ -33,6 +38,20 @@ export default function PasswordChangeForm({ hasPassword }: { hasPassword: boole
     }
 
     setIsLoading(true);
+
+    // Reauthenticate first: verify the current password so an unlocked, logged-in
+    // session can't silently change the credential. On success this refreshes the
+    // same user's session; on failure the existing session is untouched and we abort.
+    const { error: reauthError } = await supabase.auth.signInWithPassword({
+      email,
+      password: currentPassword,
+    });
+    if (reauthError) {
+      setError("Current password is incorrect.");
+      setIsLoading(false);
+      return;
+    }
+
     const { error: updateError } = await supabase.auth.updateUser({ password });
     if (updateError) {
       setError(updateError.message);
@@ -47,6 +66,7 @@ export default function PasswordChangeForm({ hasPassword }: { hasPassword: boole
     await supabase.auth.signOut({ scope: "others" });
 
     setSaved(true);
+    setCurrentPassword("");
     setPassword("");
     setConfirm("");
     setIsLoading(false);
@@ -71,6 +91,19 @@ export default function PasswordChangeForm({ hasPassword }: { hasPassword: boole
           Password updated.
         </div>
       )}
+
+      <div>
+        <label htmlFor="current-password" className="block text-[0.75rem] text-text-muted mb-1.5">Current password</label>
+        <input
+          id="current-password"
+          type="password"
+          autoComplete="current-password"
+          value={currentPassword}
+          onChange={(e) => setCurrentPassword(e.target.value)}
+          className={inputCls}
+          required
+        />
+      </div>
 
       <div>
         <label htmlFor="new-password" className="block text-[0.75rem] text-text-muted mb-1.5">New password</label>
