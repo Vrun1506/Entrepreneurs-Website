@@ -776,6 +776,22 @@ function AlumForm({
         Continue with Google
       </button>
 
+      {/* OAuth can't distinguish signup from sign-in client-side, and the
+          checkbox only renders in signup mode, so consent for the Google path
+          is captured by this always-visible notice (affirmative action + clear
+          terms) rather than the hard checkbox gate used for email/password. */}
+      <p className="text-[0.72rem] text-text-muted leading-relaxed text-center px-2">
+        By continuing with Google, you agree to our{" "}
+        <Link href="/terms" target="_blank" className="text-gold hover:text-gold-light no-underline">
+          Terms &amp; Conditions
+        </Link>{" "}
+        and{" "}
+        <Link href="/privacy" target="_blank" className="text-gold hover:text-gold-light no-underline">
+          Privacy Policy
+        </Link>
+        .
+      </p>
+
       <div className="flex items-center gap-3 py-1">
         <div className="flex-1 h-px bg-border-subtle" />
         <span className="text-[0.7rem] text-text-muted uppercase tracking-widest">or</span>
