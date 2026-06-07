@@ -604,6 +604,76 @@ begin
 end;
 $$;
 
+-- 19. A non-admin cannot call ANY admin-only RPC. These are SECURITY DEFINER
+--     (they bypass RLS by design), so their ONLY gate is the internal
+--     is_admin() check, which raises 'Forbidden' with SQLSTATE 42501. This is
+--     the "can't reach admin endpoints" guarantee. We assert each raises 42501;
+--     a silent success (or any other error) fails the test loudly.
+--     `perform * from f(...)` works for both void- and table-returning RPCs.
+set local role postgres;
+do $$
+declare
+  v_a   uuid := (select v from _test_ctx where k='user_a');  -- non-admin
+  v_b   uuid := (select v from _test_ctx where k='user_b');
+  v_opa uuid := (select v from _test_ctx where k='opp_a');
+begin
+  perform _set_caller(v_a);
+
+  begin
+    perform * from public.approve_user(v_b, null);
+    raise exception 'FAIL: non-admin called approve_user without being blocked';
+  exception when sqlstate '42501' then null;
+  end;
+
+  begin
+    perform * from public.reject_user(v_b, 'spam');
+    raise exception 'FAIL: non-admin called reject_user without being blocked';
+  exception when sqlstate '42501' then null;
+  end;
+
+  begin
+    perform * from public.admin_delete_user(v_b, 'spam');
+    raise exception 'FAIL: non-admin called admin_delete_user without being blocked';
+  exception when sqlstate '42501' then null;
+  end;
+
+  begin
+    perform * from public.approve_opportunity(v_opa, null);
+    raise exception 'FAIL: non-admin called approve_opportunity without being blocked';
+  exception when sqlstate '42501' then null;
+  end;
+
+  begin
+    perform * from public.reject_opportunity(v_opa, 'spam');
+    raise exception 'FAIL: non-admin called reject_opportunity without being blocked';
+  exception when sqlstate '42501' then null;
+  end;
+end;
+$$;
+
+-- 20. A user cannot read another user's bookmarks (IDOR on a per-user table).
+--     opportunity_bookmarks is select-own-only (user_id = auth.uid()).
+set local role postgres;
+do $$
+declare
+  v_a   uuid := (select v from _test_ctx where k='user_a');
+  v_b   uuid := (select v from _test_ctx where k='user_b');
+  v_opb uuid := (select v from _test_ctx where k='opp_b');
+  v_seen int;
+begin
+  -- Seed a bookmark owned by B (role postgres bypasses RLS for the insert).
+  insert into public.opportunity_bookmarks (user_id, opportunity_id)
+  values (v_b, v_opb) on conflict do nothing;
+
+  -- As A, B's bookmark must be invisible.
+  perform _set_caller(v_a);
+  select count(*) into v_seen from public.opportunity_bookmarks where user_id = v_b;
+  if v_seen <> 0 then
+    raise exception 'FAIL: user A could read user B''s bookmarks (% rows)', v_seen;
+  end if;
+end;
+$$;
+
 -- ─── Cleanup ────────────────────────────────────────────────────────
 -- The test blocks leak the transaction-local 'authenticated' role (see note
 -- above), so reset to the owner role before dropping the helper function.
