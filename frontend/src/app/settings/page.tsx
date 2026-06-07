@@ -82,7 +82,7 @@ export default async function SettingsPage() {
               </div>
             </Link>
 
-            <PasswordChangeForm hasPassword={hasPassword} />
+            <PasswordChangeForm hasPassword={hasPassword} email={user.email ?? ""} />
 
             <SessionsSection />
 
