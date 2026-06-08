@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { allow, clientIp } from "./ratelimit";
+import { allow, clientIp, failOpen } from "./ratelimit";
 
 describe("clientIp", () => {
   it("prefers cf-connecting-ip over x-forwarded-for (spoof-resistant behind Cloudflare)", () => {
@@ -33,5 +33,15 @@ describe("allow", () => {
     // allow() must fail open (the documented behaviour).
     expect(await allow("submit", "user-1")).toBe(true);
     expect(await allow("mutations", "1.2.3.4")).toBe(true);
+  });
+});
+
+describe("failOpen (behaviour when the limiter backend is unreachable)", () => {
+  it("fails OPEN for the coarse mutations backstop (availability)", () => {
+    expect(failOpen("mutations")).toBe(true);
+  });
+
+  it("fails CLOSED for the security-sensitive submit bucket", () => {
+    expect(failOpen("submit")).toBe(false);
   });
 });
