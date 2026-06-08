@@ -674,6 +674,68 @@ begin
 end;
 $$;
 
+-- 21. Function-grant lockdown (regression guard for the whole class of bug).
+--     On Supabase the real authz boundary for a function is its in-body check
+--     PLUS the named-role grant — `revoke ... from public` alone is a no-op
+--     because anon/authenticated hold direct grants. This assertion fails CI
+--     if ANY public function outside the intentionally-callable allowlist
+--     becomes EXECUTE-able by anon or authenticated (e.g. a future migration
+--     that forgets to lock a new internal/cron/trigger function, or relies on
+--     `revoke from public`). `has_function_privilege` is authoritative — it
+--     accounts for direct grants, the PUBLIC grant, and role membership.
+--
+--     Every name in the allowlist is reached by the frontend as a user
+--     session AND self-defends in-body (is_admin / auth.uid / is_approved),
+--     or is an RLS helper (is_admin/is_approved) the policies call. Adding a
+--     new user-facing RPC means adding it here on purpose — that deliberate
+--     edit is the point of the tripwire.
+set local role postgres;
+do $$
+declare
+  v_allowed text[] := array[
+    -- RLS + app helpers (policies call is_admin/is_approved)
+    'is_admin','is_approved',
+    -- account / profile (user)
+    'delete_my_account','update_profile','submit_onboarding',
+    -- listing submit / edit (user)
+    'submit_opportunity','update_opportunity','submit_event','submit_vc_grant',
+    -- admin direct-create
+    'admin_create_opportunity','admin_create_event','admin_create_vc_grant',
+    -- admin review queues + actions
+    'list_pending_opportunities_admin','list_pending_events_admin',
+    'approve_opportunity','reject_opportunity','approve_event','reject_event',
+    'approve_vc_grant','reject_vc_grant','approve_user','reject_user',
+    'admin_delete_user','admin_delete_graduates','admin_get_signup_emails',
+    'admin_outbound_email_stats',
+    -- public / member reads
+    'list_approved_opportunities','list_approved_events',
+    'list_my_bookmarked_opportunities',
+    'get_my_activity','get_my_listing_actions','get_my_listing_stats',
+    'get_opportunity_for_edit','get_event_for_edit',
+    -- listing engagement
+    'mark_listing_action','unmark_listing_action','record_listing_event'
+  ];
+  v_leaked text;
+begin
+  select string_agg(distinct p.proname, ', ' order by p.proname)
+    into v_leaked
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace and n.nspname = 'public'
+   where p.prokind = 'f'
+     -- only our own functions; ignore anything owned by an extension
+     and not exists (
+       select 1 from pg_depend d
+        where d.objid = p.oid and d.deptype = 'e')
+     and (has_function_privilege('anon',          p.oid, 'EXECUTE')
+          or has_function_privilege('authenticated', p.oid, 'EXECUTE'))
+     and not (p.proname = any (v_allowed));
+  if v_leaked is not null then
+    raise exception
+      'FAIL: internal function(s) EXECUTE-able by anon/authenticated: %', v_leaked;
+  end if;
+end;
+$$;
+
 -- ─── Cleanup ────────────────────────────────────────────────────────
 -- The test blocks leak the transaction-local 'authenticated' role (see note
 -- above), so reset to the owner role before dropping the helper function.
