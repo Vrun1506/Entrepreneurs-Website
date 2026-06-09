@@ -218,7 +218,7 @@ function EventCard({ ev, going, onDismiss }: { ev: FoundryEvent; going: boolean;
             {timeLabel} <span className="text-text-muted">· {dateLabel}</span>
           </div>
           {ev.isSocietyEvent && (
-            <span className="shrink-0 px-2 py-0.5 rounded-full text-[0.65rem] bg-gold-muted text-gold-light border border-gold/30">
+            <span className="shrink-0 px-2.5 py-0.5 rounded-full text-[0.7rem] font-semibold bg-gold text-bg-primary">
               Society event
             </span>
           )}
