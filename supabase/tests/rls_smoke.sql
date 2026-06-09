@@ -713,7 +713,12 @@ declare
     'get_my_activity','get_my_listing_actions','get_my_listing_stats',
     'get_opportunity_for_edit','get_event_for_edit',
     -- listing engagement
-    'mark_listing_action','unmark_listing_action','record_listing_event'
+    'mark_listing_action','unmark_listing_action','record_listing_event',
+    -- this test's OWN role-impersonation helper (created near the top of this
+    -- file, dropped in cleanup below). Not an app RPC — it only exists during
+    -- the test run, where Supabase default privileges make it anon-callable;
+    -- harmless, so it is exempted here rather than being a false leak.
+    '_set_caller'
   ];
   v_leaked text;
 begin
