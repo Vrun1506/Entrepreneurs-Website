@@ -1,12 +1,15 @@
 import Link from "next/link";
 
-// TODO: Replace this placeholder with the final Terms & Conditions text
-// reviewed by Imperial College Union / your legal contact. The signup
-// flow links here from SignupDisclosures.
+// Terms & Conditions — the contract between IC Founders Ltd and members.
+// Grounded in the real eligibility rules (Imperial email / alumni review),
+// the directory/signposting nature of the service, and English law. The
+// signup flow links here from SignupDisclosures.
 
 export const metadata = {
   title: "Terms & Conditions · Foundry",
 };
+
+const LAST_UPDATED = "9 June 2026";
 
 export default function TermsPage() {
   return (
@@ -21,40 +24,141 @@ export default function TermsPage() {
             Terms &amp; Conditions
           </h1>
           <p className="text-[0.825rem] text-text-muted mt-3">
-            Last updated: {new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}.
+            Last updated: {LAST_UPDATED}.
           </p>
         </div>
 
-        <div className="rounded-2xl bg-bg-card border border-[#ff4d4d]/30 px-6 py-5 mb-8 text-[0.85rem] text-[#ff8b8b] leading-relaxed">
-          <strong>Placeholder.</strong> Replace this page&apos;s content with the finalised Terms &amp; Conditions
-          drafted with Imperial College Union and/or your legal contact before launch. The signup flow links here
-          and the checkbox refers to this document.
-        </div>
+        <article className="space-y-6 text-[0.875rem] text-text-secondary leading-relaxed">
+          <Section title="1. Who we are and these terms">
+            <p>
+              Foundry is operated under the name &ldquo;Imperial Entrepreneurs&rdquo; by <strong>IC Founders Ltd</strong>,
+              a company limited by guarantee registered in England and Wales (company number <strong>17171277</strong>),
+              registered office 71–75 Shelton Street, Covent Garden, London, WC2H 9JQ (&ldquo;we&rdquo;, &ldquo;us&rdquo;, &ldquo;our&rdquo;).
+              These Terms and Conditions govern your access to and use of Foundry. By creating an account or using
+              Foundry you agree to these terms and to our{" "}
+              <Link href="/privacy" className="text-gold hover:text-gold-light no-underline">Privacy Policy</Link>. If you
+              do not agree, please do not use Foundry.
+            </p>
+          </Section>
 
-        <article className="prose-foundry space-y-6 text-[0.875rem] text-text-secondary leading-relaxed">
-          <Section title="1. Who we are">
-            <p>Foundry is a private community platform run by Imperial Entrepreneurs, a registered Imperial College Union society, for Imperial students and alumni interested in the startup ecosystem.</p>
+          <Section title="2. Eligibility and your account">
+            <p>
+              Foundry is for current Imperial College London students and alumni aged 18 or over. To join as a
+              current student you need a valid Imperial email address (@imperial.ac.uk or @ic.ac.uk). To join as an
+              alum you confirm you have studied at Imperial; our admins review alumni applications before granting
+              access. You agree to provide accurate information, to keep your account secure, and not to share your
+              login or let anyone else use your account. You may hold only one account.
+            </p>
           </Section>
-          <Section title="2. Eligibility">
-            <p>To sign up as a current student, you need a valid Imperial email address (@imperial.ac.uk or @ic.ac.uk). To sign up as an alum, you confirm you have studied at Imperial; admins review alumni applications before granting access.</p>
+
+          <Section title="3. Acceptable use">
+            <p>You agree that you will not, and will not attempt to:</p>
+            <ul className="list-disc pl-5 space-y-1 mt-2">
+              <li>post content that is unlawful, false, misleading, defamatory, discriminatory, harassing, or that infringes anyone&rsquo;s rights;</li>
+              <li>misrepresent an opportunity, event, or funding source, or post scams, fraudulent, or &ldquo;too good to be true&rdquo; offers;</li>
+              <li>post a listing that solicits money, fees, or personal financial information from members under false pretences;</li>
+              <li>impersonate any person or organisation, or misstate your affiliation with Imperial;</li>
+              <li>collect, scrape, or harvest other members&rsquo; data, or use the member directory for spam or unsolicited marketing;</li>
+              <li>upload malware, attempt to bypass our security or access controls, probe or disrupt the service, or use it other than through the interface we provide;</li>
+              <li>use Foundry for any commercial purpose unrelated to its community aims without our permission.</li>
+            </ul>
+            <p className="mt-2">
+              We may remove content and suspend or terminate accounts that breach this section, at our reasonable
+              discretion.
+            </p>
           </Section>
-          <Section title="3. Member responsibilities">
-            <p>You agree not to post content that is unlawful, misleading, discriminatory, harassing, or that misrepresents an opportunity, event, or funding source. Admins may remove content or accounts that violate these terms.</p>
-          </Section>
+
           <Section title="4. Content you post">
-            <p>You retain ownership of content you post. By posting, you grant Foundry a non-exclusive licence to display it to other approved members. When you delete your account or a listing, that content is removed from Foundry.</p>
+            <p>
+              You retain ownership of the content you submit. By posting it, you grant us a non-exclusive,
+              royalty-free licence to host, store, and display that content to other approved members for the
+              purpose of operating Foundry. You confirm that you have the right to post it and that it does not
+              breach these terms or anyone&rsquo;s rights. When you delete a listing or your account, we remove that
+              content from our live systems as described in the{" "}
+              <Link href="/privacy" className="text-gold hover:text-gold-light no-underline">Privacy Policy</Link>.
+            </p>
           </Section>
-          <Section title="5. Account suspension and removal">
-            <p>We may suspend or remove accounts that violate these terms or that we cannot verify as belonging to current Imperial students or alumni. We will notify you by email when this happens, with a reason.</p>
+
+          <Section title="5. Listings are signposting, not endorsements">
+            <p>
+              Foundry is a directory and signposting service. The opportunities, events, and VC / grant listings are
+              posted by members and third parties. <strong>We do not verify, endorse, or guarantee</strong> any
+              listing, organisation, or person, and nothing on Foundry is financial, legal, investment, or careers
+              advice. You are responsible for your own due diligence before applying to, attending, funding, or
+              otherwise engaging with anything you find here. Any dealings between you and a third party are solely
+              between you and them.
+            </p>
           </Section>
-          <Section title="6. Disclaimer of liability">
-            <p>Foundry is a directory and signposting service. We do not endorse the opportunities, events, or VCs listed. Members are responsible for their own due diligence before applying, attending, or engaging.</p>
+
+          <Section title="6. Moderation, suspension, and removal">
+            <p>
+              We may review, moderate, suspend, or remove accounts or content — including accounts we cannot verify
+              as belonging to current Imperial students or alumni, and current-student accounts at the end of their
+              final year (with an option to reapply as an alum). Where we suspend or remove your account we will aim
+              to notify you by email with a reason. If you believe a decision was wrong, you can appeal by emailing{" "}
+              <strong>appeals@imperialentrepreneurs.com</strong>.
+            </p>
           </Section>
-          <Section title="7. Changes to these terms">
-            <p>We may update these terms; material changes will be notified to members by email at the registered address. Continued use after notification constitutes acceptance.</p>
+
+          <Section title="7. Our intellectual property">
+            <p>
+              Foundry, the &ldquo;Imperial Entrepreneurs&rdquo; and &ldquo;Foundry&rdquo; names, the platform, and its design and
+              code are owned by or licensed to us. These terms do not grant you any right to use our branding or
+              reproduce the platform except as needed to use Foundry normally.
+            </p>
           </Section>
-          <Section title="8. Contact">
-            <p>For questions, contact the team via the in-app contact form on /settings → Contact the team.</p>
+
+          <Section title="8. Availability and changes to the service">
+            <p>
+              Foundry is provided free of charge and on an &ldquo;as is&rdquo; and &ldquo;as available&rdquo; basis. We may change,
+              suspend, or discontinue features, or the whole service, at any time. We do not guarantee that Foundry
+              will be uninterrupted or error-free.
+            </p>
+          </Section>
+
+          <Section title="9. Liability">
+            <p>
+              Nothing in these terms limits or excludes our liability for death or personal injury caused by our
+              negligence, for fraud or fraudulent misrepresentation, or for any other liability that cannot be
+              limited or excluded under English law.
+            </p>
+            <p className="mt-2">
+              Subject to that, to the fullest extent permitted by law: we are not liable for any loss or damage
+              arising from listings posted by members or third parties, from your dealings with other members or
+              third parties, from your reliance on any content on Foundry, or from any interruption, error, or
+              unavailability of the service; and we are not liable for indirect or consequential loss, or for loss
+              of profit, opportunity, data, or goodwill. Because Foundry is provided free of charge, our total
+              liability to you for any claim connected with the service is limited to £100.
+            </p>
+          </Section>
+
+          <Section title="10. Indemnity">
+            <p>
+              You agree to indemnify us against reasonable losses and costs we incur as a result of content you post
+              in breach of these terms or of your misuse of Foundry.
+            </p>
+          </Section>
+
+          <Section title="11. Changes to these terms">
+            <p>
+              We may update these terms. If we make a material change we will notify members by email at their
+              registered address. Continued use of Foundry after notification constitutes acceptance of the updated
+              terms.
+            </p>
+          </Section>
+
+          <Section title="12. Governing law and jurisdiction">
+            <p>
+              These terms and any dispute arising out of or in connection with them are governed by the laws of
+              England and Wales, and the courts of England and Wales have exclusive jurisdiction.
+            </p>
+          </Section>
+
+          <Section title="13. Contact">
+            <p>
+              Questions about these terms: <strong>contact@imperialentrepreneurs.com</strong>. Appeals against a
+              moderation decision: <strong>appeals@imperialentrepreneurs.com</strong>.
+            </p>
           </Section>
         </article>
       </div>
