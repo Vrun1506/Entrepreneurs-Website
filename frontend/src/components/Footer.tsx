@@ -37,6 +37,7 @@ export default function Footer() {
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[0.75rem]">
             <Link href="/contact" className="text-text-muted no-underline transition-colors duration-150 hover:text-text-secondary">Contact</Link>
             <Link href="/privacy" className="text-text-muted no-underline transition-colors duration-150 hover:text-text-secondary">Privacy</Link>
+            <Link href="/cookies" className="text-text-muted no-underline transition-colors duration-150 hover:text-text-secondary">Cookies</Link>
             <Link href="/terms" className="text-text-muted no-underline transition-colors duration-150 hover:text-text-secondary">Terms</Link>
           </div>
         </nav>
