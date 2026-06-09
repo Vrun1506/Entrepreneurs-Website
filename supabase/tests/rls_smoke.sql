@@ -741,6 +741,30 @@ begin
 end;
 $$;
 
+-- ─── 22. admin_create_* RPCs guard against a missing poster profile ──
+-- All three insert posted_by = caller, which FK-references profiles(id). A
+-- bootstrap admin with no profile row used to get a raw 23503 surfaced to
+-- the UI as "That item no longer exists"; migration 20260610000000 added a
+-- pre-flight guard that raises a clear message instead. Assert all three
+-- still carry it — recreating any of them from an older definition (the
+-- dead-overload trap this codebase has hit before) would silently drop it.
+set local role postgres;
+do $$
+declare
+  v_guarded int;
+begin
+  select count(*) into v_guarded
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace and n.nspname = 'public'
+   where p.proname in ('admin_create_opportunity', 'admin_create_event', 'admin_create_vc_grant')
+     and pg_get_functiondef(p.oid) ilike '%does not have a member profile%';
+  if v_guarded <> 3 then
+    raise exception
+      'FAIL: only % of 3 admin_create_* functions carry the no-profile guard', v_guarded;
+  end if;
+end;
+$$;
+
 -- ─── Cleanup ────────────────────────────────────────────────────────
 -- The test blocks leak the transaction-local 'authenticated' role (see note
 -- above), so reset to the owner role before dropping the helper function.
