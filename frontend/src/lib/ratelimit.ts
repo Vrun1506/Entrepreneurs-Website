@@ -49,9 +49,18 @@ function instance(bucket: RateBucket): Ratelimit | null {
   return inst;
 }
 
+// Whether to allow a request when the limiter backend (Upstash) is
+// unreachable. The coarse `mutations` backstop fails OPEN — a transient
+// Redis blip must not take down all traffic. The security-sensitive
+// `submit` bucket fails CLOSED — an outage must not become a way to bypass
+// the per-user abuse limit on submissions.
+export function failOpen(bucket: RateBucket): boolean {
+  return bucket !== "submit";
+}
+
 // Returns true when the request is allowed. Allows everything when rate
-// limiting is disabled or on an unexpected Redis error (fail-open — a
-// transient Upstash blip must not take down submissions).
+// limiting is disabled (no Upstash env). On an unexpected Redis error the
+// outcome is bucket-dependent — see failOpen().
 export async function allow(bucket: RateBucket, identifier: string): Promise<boolean> {
   const inst = instance(bucket);
   if (!inst) return true;
@@ -59,7 +68,7 @@ export async function allow(bucket: RateBucket, identifier: string): Promise<boo
     const { success } = await inst.limit(identifier);
     return success;
   } catch {
-    return true;
+    return failOpen(bucket);
   }
 }
 
