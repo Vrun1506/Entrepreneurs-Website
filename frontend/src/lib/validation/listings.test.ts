@@ -179,4 +179,9 @@ describe("contactSchema", () => {
   it("rejects an empty message", () => {
     expect(validate(contactSchema, { ...base, message: "   " }).ok).toBe(false);
   });
+
+  it("rejects a subject with CR/LF (email header injection)", () => {
+    expect(validate(contactSchema, { ...base, subject: "Hi\r\nBcc: victim@example.com" }).ok).toBe(false);
+    expect(validate(contactSchema, { ...base, subject: "Hi\nthere" }).ok).toBe(false);
+  });
 });
