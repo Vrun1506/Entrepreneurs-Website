@@ -738,7 +738,7 @@ function CodeEntryPanel({
         </button>
 
         <p className="text-[0.7rem] text-text-muted leading-relaxed">
-          The code expires in one hour. Check your spam folder if it doesn&apos;t arrive within a minute.
+          The code expires in 30 minutes. Check your spam folder if it doesn&apos;t arrive within a minute.
         </p>
         <div className="pt-1">
           <button
@@ -950,7 +950,7 @@ function AlumForm({
               If an account exists for <span className="text-text-primary">{email}</span>, we&apos;ve sent a password-reset link.
             </p>
             <p className="text-[0.7rem] text-text-muted leading-relaxed">
-              The link expires in one hour. Open it in the same browser you&apos;re using now.
+              The link expires in 30 minutes. Open it in the same browser you&apos;re using now.
             </p>
             <div className="pt-2">
               <button
