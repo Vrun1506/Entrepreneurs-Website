@@ -84,7 +84,11 @@ jobs:
 
       - uses: supabase/setup-cli@v2
         with:
-          version: latest
+          # Pinned: 2.106.0 (2026-06-11) regressed the local stack's default
+          # table grants — a fresh `supabase start` no longer grants SELECT to
+          # `authenticated`, so seed/RLS jobs fail with "permission denied for
+          # table …". 2.105.0 is the last-good (validated CI green through #24).
+          version: 2.105.0
 
       # `supabase init` is non-interactive in CI; the `|| true` skips it if
       # config.toml already exists.
@@ -117,7 +121,11 @@ jobs:
 
       - uses: supabase/setup-cli@v2
         with:
-          version: latest
+          # Pinned: 2.106.0 (2026-06-11) regressed the local stack's default
+          # table grants — a fresh `supabase start` no longer grants SELECT to
+          # `authenticated`, so seed/RLS jobs fail with "permission denied for
+          # table …". 2.105.0 is the last-good (validated CI green through #24).
+          version: 2.105.0
 
       - run: supabase init || true
       - run: supabase start
@@ -205,7 +213,11 @@ jobs:
 
       - uses: supabase/setup-cli@v2
         with:
-          version: latest
+          # Pinned: 2.106.0 (2026-06-11) regressed the local stack's default
+          # table grants — a fresh `supabase start` no longer grants SELECT to
+          # `authenticated`, so seed/RLS jobs fail with "permission denied for
+          # table …". 2.105.0 is the last-good (validated CI green through #24).
+          version: 2.105.0
       - run: supabase init || true
       - run: supabase start
 

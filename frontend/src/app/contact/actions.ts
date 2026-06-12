@@ -50,15 +50,16 @@ export async function submitContactTicket(input: unknown): Promise<Result> {
   }
 
   // Best-effort acknowledgement to the sender — only for signed-in members,
-  // whose `email` is their own verified account address. Anonymous visitors
-  // supply an arbitrary email, so auto-replying to it would be a reflective
-  // spam vector (attacker submits a victim's address, victim gets the mail).
-  // The ticket already reached the team above either way; a hiccup here must
-  // not fail the request or prompt a retry.
-  if (user) {
+  // and always sent to their *session* address, never the caller-supplied
+  // form value. A server action is just a POST endpoint: a member could submit
+  // an arbitrary `email`, so auto-replying to the form value would be a
+  // reflective-spam vector (Foundry-branded mail to a victim of their choosing).
+  // Anonymous visitors get no confirmation at all. The ticket already reached
+  // the team above either way; a hiccup here must not fail the request.
+  if (user?.email) {
     try {
       await sendContactConfirmation({
-        to: email,
+        to: user.email,
         firstName: name?.trim() || null,
         subject,
       });

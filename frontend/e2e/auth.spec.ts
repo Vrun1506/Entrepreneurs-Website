@@ -53,13 +53,13 @@ test.describe("auth entry flows", () => {
     await page.getByRole("button", { name: /current Imperial student/i }).click();
     await page.getByRole("checkbox").check(); // T&C gates the submit button
     await page.locator("#email").fill("someone@gmail.com");
-    await page.getByRole("button", { name: "Send verification link" }).click();
+    await page.getByRole("button", { name: "Send verification code" }).click();
 
     await expect(page.getByText(/use your Imperial email/i)).toBeVisible();
     expect(otpCalled, "no OTP request should fire for a bad domain").toBe(false);
   });
 
-  test("student: a valid Imperial email shows the check-your-inbox panel", async ({ page }) => {
+  test("student: a valid Imperial email shows the code-entry panel", async ({ page }) => {
     await mockGoTrue(page, "**/auth/v1/otp**", {});
 
     await page.goto("/login");
@@ -68,10 +68,92 @@ test.describe("auth entry flows", () => {
     await page.locator("#surname").fill("Lovelace");
     await page.locator("#email").fill("ada@imperial.ac.uk");
     await page.getByRole("checkbox").check();
-    await page.getByRole("button", { name: "Send verification link" }).click();
+    await page.getByRole("button", { name: "Send verification code" }).click();
 
-    await expect(page.getByRole("heading", { name: "Check your inbox" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Enter your code" })).toBeVisible();
     await expect(page.getByText("ada@imperial.ac.uk")).toBeVisible();
+    await expect(page.locator("#otp-code")).toBeVisible();
+  });
+
+  test("student: entering the emailed code POSTs it to verifyOtp", async ({ page }) => {
+    // Assert the wiring (code field → verifyOtp with the typed token). We don't
+    // assert the post-verify landing page: routeAfterSignIn navigates to a
+    // server-guarded route, and page.route can't mock Next's server-side
+    // Supabase calls, so the real stack would bounce the fake session — flaky.
+    // Capturing the verify request proves the client behaviour deterministically.
+    await mockGoTrue(page, "**/auth/v1/otp**", {});
+
+    let verifyBody: string | null = null;
+    await page.route("**/auth/v1/verify**", async (route) => {
+      const cors = {
+        "access-control-allow-origin": "*",
+        "access-control-allow-headers": "*",
+        "access-control-allow-methods": "*",
+      };
+      if (route.request().method() === "OPTIONS") {
+        await route.fulfill({ status: 204, headers: cors });
+        return;
+      }
+      verifyBody = route.request().postData();
+      await route.fulfill({
+        status: 200,
+        headers: { ...cors, "content-type": "application/json" },
+        body: JSON.stringify({
+          access_token: "fake-access",
+          token_type: "bearer",
+          expires_in: 3600,
+          refresh_token: "fake-refresh",
+          user: { id: "00000000-0000-0000-0000-000000000002", email: "ada@imperial.ac.uk" },
+        }),
+      });
+    });
+
+    await page.goto("/login");
+    await page.getByRole("button", { name: /current Imperial student/i }).click();
+    await page.locator("#first-name").fill("Ada");
+    await page.locator("#surname").fill("Lovelace");
+    await page.locator("#email").fill("ada@imperial.ac.uk");
+    await page.getByRole("checkbox").check();
+    await page.getByRole("button", { name: "Send verification code" }).click();
+
+    await page.locator("#otp-code").fill("123456");
+    await page.getByRole("button", { name: "Verify" }).click();
+
+    await expect.poll(() => verifyBody).toContain("123456");
+  });
+
+  test("student: a wrong code shows a friendly verify error", async ({ page }) => {
+    await mockGoTrue(page, "**/auth/v1/otp**", {});
+    // GoTrue rejects a bad/expired OTP with a 4xx; assert the mapped copy.
+    await page.route("**/auth/v1/verify**", async (route) => {
+      const cors = {
+        "access-control-allow-origin": "*",
+        "access-control-allow-headers": "*",
+        "access-control-allow-methods": "*",
+      };
+      if (route.request().method() === "OPTIONS") {
+        await route.fulfill({ status: 204, headers: cors });
+        return;
+      }
+      await route.fulfill({
+        status: 403,
+        headers: { ...cors, "content-type": "application/json" },
+        body: JSON.stringify({ error_code: "otp_expired", msg: "Token has expired or is invalid" }),
+      });
+    });
+
+    await page.goto("/login");
+    await page.getByRole("button", { name: /current Imperial student/i }).click();
+    await page.locator("#first-name").fill("Ada");
+    await page.locator("#surname").fill("Lovelace");
+    await page.locator("#email").fill("ada@imperial.ac.uk");
+    await page.getByRole("checkbox").check();
+    await page.getByRole("button", { name: "Send verification code" }).click();
+
+    await page.locator("#otp-code").fill("999999");
+    await page.getByRole("button", { name: "Verify" }).click();
+
+    await expect(page.getByText(/code (has expired|is incorrect)/i)).toBeVisible();
   });
 
   test("alum: the submit button is gated on the T&C checkbox", async ({ page }) => {
@@ -112,10 +194,10 @@ test.describe("auth entry flows", () => {
     await expect(page.getByText(/at least 8 characters/i)).toBeVisible();
   });
 
-  test("alum: a successful signup with no session shows check-your-inbox", async ({ page }) => {
+  test("alum: a successful signup with no session shows the code-entry panel", async ({ page }) => {
     // "Confirm email" ON → GoTrue returns a user but no session. This is the
-    // path that used to dump alums on '/' (fixed in this PR): assert they get
-    // the check-your-inbox panel instead.
+    // path that used to dump alums on '/' (fixed earlier): assert they get the
+    // code-entry panel to type the emailed code instead.
     await mockGoTrue(page, "**/auth/v1/signup**", {
       user: { id: "00000000-0000-0000-0000-000000000001", email: "newalum@example.com" },
       session: null,
@@ -131,8 +213,9 @@ test.describe("auth entry flows", () => {
     await page.getByRole("checkbox").check();
     await page.getByRole("button", { name: "Create account" }).click();
 
-    await expect(page.getByRole("heading", { name: "Check your inbox" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Enter your code" })).toBeVisible();
     await expect(page.getByText("newalum@example.com")).toBeVisible();
+    await expect(page.locator("#otp-code")).toBeVisible();
   });
 
   test("auth/confirm without a token bounces to /login", async ({ page }) => {
