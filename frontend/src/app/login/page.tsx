@@ -14,12 +14,22 @@ import { BrandLogo } from "@/components/BrandLogo";
 // back to a generic line, so raw URL input is never shown as page content.
 function friendlyAuthError(raw: string): string {
   const e = raw.toLowerCase();
-  if (e.includes("not confirmed")) return "Please confirm your email first — check your inbox for the verification link.";
+  if (e.includes("not confirmed")) return "Please confirm your email first — check your inbox for the verification code.";
   if (e.includes("expired") || e.includes("invalid") || e.includes("missing_token") || e.includes("missing_code")) return "That link is invalid or has expired. Please request a new one.";
   if (e.includes("code verifier") || e.includes("both auth code")) return "Please open the link in the same browser you started in, or try signing in again.";
   if (e.includes("access_denied") || e.includes("cancel")) return "Sign-in was cancelled.";
   if (e.includes("rate") || e.includes("too many")) return "Too many attempts. Please wait a moment and try again.";
   return "Something went wrong during sign-in. Please try again.";
+}
+
+// Friendly copy for verifyOtp failures (wrong/expired code). Distinct from
+// friendlyAuthError so we say "code" not "link".
+function friendlyVerifyError(raw: string): string {
+  const e = raw.toLowerCase();
+  if (e.includes("expired")) return "That code has expired. Request a new one below.";
+  if (e.includes("invalid") || e.includes("token")) return "That code is incorrect. Check it and try again.";
+  if (e.includes("rate") || e.includes("too many")) return "Too many attempts. Please wait a moment and try again.";
+  return "We couldn't verify that code. Please try again.";
 }
 
 /* ── Decorative background ────────────────────────────────────────── */
@@ -94,6 +104,13 @@ export default function LoginPage() {
   const [tcAgreed, setTcAgreed] = useState(false);
   const [forgotSent, setForgotSent] = useState(false);
 
+  // On-screen OTP code entry (replaces the emailed magic link — Microsoft 365
+  // Safe Links pre-fetches link URLs and burns the single-use token, so codes
+  // are the only reliable path for our Imperial mail audience).
+  const [code, setCode] = useState("");
+  const [verifying, setVerifying] = useState(false);
+  const [verifyError, setVerifyError] = useState("");
+
   // Tick the resend cooldown to 0 once per second when active.
   useEffect(() => {
     if (resendCooldown <= 0) return;
@@ -159,6 +176,9 @@ export default function LoginPage() {
     setResendCooldown(0);
     setTcAgreed(false);
     setForgotSent(false);
+    setCode("");
+    setVerifying(false);
+    setVerifyError("");
   };
 
   const switchMode = (next: Mode) => {
@@ -243,6 +263,27 @@ export default function LoginPage() {
     setResendCooldown(60);
   };
 
+  // Verify the 6-digit code the student typed. signInWithOtp issues an email
+  // OTP (type "email"); verifyOtp needs no PKCE verifier, so it works on any
+  // device/browser. On success the session is set in the browser client and we
+  // route by status exactly like every other path.
+  const handleStudentVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setVerifyError("");
+    setVerifying(true);
+    const { error: vErr } = await supabase.auth.verifyOtp({
+      email: email.trim().toLowerCase(),
+      token: code.trim(),
+      type: "email",
+    });
+    if (vErr) {
+      setVerifying(false);
+      setVerifyError(friendlyVerifyError(vErr.message));
+      return;
+    }
+    await routeAfterSignIn();
+  };
+
   // Re-send the signup confirmation email. Distinct from the student
   // resend: alum verification is a "confirm signup" email (auth.resend
   // with type "signup"), not a passwordless OTP.
@@ -263,6 +304,25 @@ export default function LoginPage() {
       return;
     }
     setResendCooldown(60);
+  };
+
+  // Verify the 6-digit code for an alum signup confirmation (type "signup",
+  // matching signUp / resend({ type: "signup" })). Same success routing.
+  const handleAlumVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setVerifyError("");
+    setVerifying(true);
+    const { error: vErr } = await supabase.auth.verifyOtp({
+      email: email.trim().toLowerCase(),
+      token: code.trim(),
+      type: "signup",
+    });
+    if (vErr) {
+      setVerifying(false);
+      setVerifyError(friendlyVerifyError(vErr.message));
+      return;
+    }
+    await routeAfterSignIn();
   };
 
   // Alumni password recovery. Kept on the PKCE link (redirectTo /auth/callback)
@@ -443,8 +503,8 @@ export default function LoginPage() {
         : "Tell us how you sign in."
       : role === "student"
         ? mode === "signup"
-          ? "We'll send a verification link to your Imperial email."
-          : "Enter your Imperial email and we'll send you a sign-in link."
+          ? "We'll email a verification code to your Imperial email."
+          : "Enter your Imperial email and we'll email you a sign-in code."
         : mode === "signup"
           ? "Your profile will be manually reviewed before access is granted."
           : "Sign in with your email and password.";
@@ -501,6 +561,9 @@ export default function LoginPage() {
                 isLoading={isLoading}
                 resendCooldown={resendCooldown}
                 tcAgreed={tcAgreed} setTcAgreed={setTcAgreed}
+                code={code} setCode={setCode}
+                verifying={verifying} verifyError={verifyError}
+                onVerify={handleStudentVerify}
                 onSubmit={handleStudentSubmit}
                 onResend={handleStudentResend}
                 onBack={backToChooser}
@@ -520,6 +583,9 @@ export default function LoginPage() {
                 isLoading={isLoading}
                 tcAgreed={tcAgreed} setTcAgreed={setTcAgreed}
                 forgotSent={forgotSent}
+                code={code} setCode={setCode}
+                verifying={verifying} verifyError={verifyError}
+                onVerify={handleAlumVerify}
                 onSubmit={handleAlumSubmit}
                 onResend={handleAlumResend}
                 onGoogle={handleGoogle}
@@ -609,6 +675,90 @@ function BackLink({ onClick }: { onClick: () => void }) {
   );
 }
 
+/* ── Shared OTP code-entry panel ──────────────────────────────────── */
+// Shown after an email code is sent (student sign-in/up + alum signup). The
+// user types the 6-digit code; onVerify runs the flow-specific verifyOtp.
+function CodeEntryPanel({
+  mode, email, code, setCode, verifying, verifyError,
+  resendCooldown, isLoading, onVerify, onResend, onBack,
+}: {
+  mode: Mode;
+  email: string;
+  code: string; setCode: (v: string) => void;
+  verifying: boolean; verifyError: string;
+  resendCooldown: number; isLoading: boolean;
+  onVerify: (e: React.FormEvent) => void;
+  onResend: () => void;
+  onBack: () => void;
+}) {
+  const canResend = resendCooldown <= 0 && !isLoading && !verifying;
+  return (
+    <div className="space-y-5">
+      <BackLink onClick={onBack} />
+      <form onSubmit={onVerify} className="py-2 text-center space-y-4">
+        <div className="w-12 h-12 rounded-full bg-gold/15 flex items-center justify-center mx-auto">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="text-gold" aria-hidden>
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+            <polyline points="22,6 12,13 2,6" />
+          </svg>
+        </div>
+        <h2 className="font-display text-[1.15rem] text-text-primary">Enter your code</h2>
+        <p className="text-[0.8rem] text-text-secondary leading-relaxed">
+          We emailed a 6-digit code to <span className="text-text-primary">{email}</span>. Enter it below to {mode === "signup" ? "finish signing up" : "sign in"}.
+        </p>
+
+        <label htmlFor="otp-code" className="sr-only">Verification code</label>
+        <input
+          id="otp-code"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          pattern="\d*"
+          maxLength={6}
+          value={code}
+          onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+          placeholder="000000"
+          autoFocus
+          className="w-full px-4 py-3 bg-white/[0.03] border border-border rounded-lg text-center text-[1.4rem] tracking-[0.4em] font-medium text-text-primary placeholder:text-text-muted placeholder:tracking-[0.4em] outline-none transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]"
+        />
+
+        {verifyError && (
+          <p className="text-[0.78rem] text-[#ff6b6b] leading-relaxed">{verifyError}</p>
+        )}
+
+        <button
+          type="submit"
+          disabled={code.length !== 6 || verifying}
+          className="w-full flex items-center justify-center px-6 py-3.5 rounded-xl bg-gold text-bg-primary text-[0.9rem] font-medium tracking-wide border-0 cursor-pointer transition-all duration-200 hover:bg-gold-light hover:-translate-y-px disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+        >
+          {verifying ? (
+            <div className="w-[18px] h-[18px] border-2 border-[#0c0c0b]/30 border-t-[#0c0c0b] rounded-full animate-spin" />
+          ) : (
+            "Verify"
+          )}
+        </button>
+
+        <p className="text-[0.7rem] text-text-muted leading-relaxed">
+          The code expires in one hour. Check your spam folder if it doesn&apos;t arrive within a minute.
+        </p>
+        <div className="pt-1">
+          <button
+            type="button"
+            onClick={onResend}
+            disabled={!canResend}
+            className="text-[0.8rem] text-gold bg-transparent border-0 cursor-pointer transition-colors duration-150 hover:text-gold-light disabled:text-text-muted disabled:cursor-not-allowed"
+          >
+            {isLoading
+              ? "Resending…"
+              : resendCooldown > 0
+                ? `Resend in ${resendCooldown}s`
+                : "Didn’t receive it? Resend"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 /* ── Student verification-link flow ───────────────────────────────── */
 function StudentMagicLinkFlow({
   mode,
@@ -617,7 +767,8 @@ function StudentMagicLinkFlow({
   email, setEmail,
   emailSent, isLoading, resendCooldown,
   tcAgreed, setTcAgreed,
-  onSubmit, onResend, onBack,
+  code, setCode, verifying, verifyError,
+  onVerify, onSubmit, onResend, onBack,
 }: {
   mode: Mode;
   firstName: string; setFirstName: (v: string) => void;
@@ -627,6 +778,9 @@ function StudentMagicLinkFlow({
   isLoading: boolean;
   resendCooldown: number;
   tcAgreed: boolean; setTcAgreed: (v: boolean) => void;
+  code: string; setCode: (v: string) => void;
+  verifying: boolean; verifyError: string;
+  onVerify: (e: React.FormEvent) => void;
   onSubmit: (e: React.FormEvent) => void;
   onResend: () => void;
   onBack: () => void;
@@ -635,40 +789,15 @@ function StudentMagicLinkFlow({
     "w-full px-4 py-3 bg-white/[0.03] border border-border rounded-lg text-[0.85rem] text-text-primary placeholder:text-text-muted outline-none transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]";
 
   if (emailSent) {
-    const canResend = resendCooldown <= 0 && !isLoading;
     return (
-      <div className="space-y-5">
-        <BackLink onClick={onBack} />
-        <div className="py-6 text-center space-y-4">
-          <div className="w-12 h-12 rounded-full bg-gold/15 flex items-center justify-center mx-auto">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="text-gold" aria-hidden>
-              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-              <polyline points="22,6 12,13 2,6" />
-            </svg>
-          </div>
-          <h2 className="font-display text-[1.15rem] text-text-primary">Check your inbox</h2>
-          <p className="text-[0.8rem] text-text-secondary leading-relaxed">
-            We&apos;ve sent a verification link to <span className="text-text-primary">{email}</span>. Click it to {mode === "signup" ? "verify your Imperial email and finish signing up" : "sign in"}.
-          </p>
-          <p className="text-[0.7rem] text-text-muted leading-relaxed">
-            The link expires in one hour. Check your spam folder if it doesn&apos;t arrive within a minute.
-          </p>
-          <div className="pt-2">
-            <button
-              type="button"
-              onClick={onResend}
-              disabled={!canResend}
-              className="text-[0.8rem] text-gold bg-transparent border-0 cursor-pointer transition-colors duration-150 hover:text-gold-light disabled:text-text-muted disabled:cursor-not-allowed"
-            >
-              {isLoading
-                ? "Resending…"
-                : resendCooldown > 0
-                  ? `Resend in ${resendCooldown}s`
-                  : "Didn’t receive it? Resend"}
-            </button>
-          </div>
-        </div>
-      </div>
+      <CodeEntryPanel
+        mode={mode}
+        email={email}
+        code={code} setCode={setCode}
+        verifying={verifying} verifyError={verifyError}
+        resendCooldown={resendCooldown} isLoading={isLoading}
+        onVerify={onVerify} onResend={onResend} onBack={onBack}
+      />
     );
   }
 
@@ -735,7 +864,7 @@ function StudentMagicLinkFlow({
         {isLoading ? (
           <div className="w-[18px] h-[18px] border-2 border-[#0c0c0b]/30 border-t-[#0c0c0b] rounded-full animate-spin" />
         ) : (
-          mode === "signup" ? "Send verification link" : "Send sign-in link"
+          mode === "signup" ? "Send verification code" : "Send sign-in code"
         )}
       </button>
     </form>
@@ -754,6 +883,7 @@ function AlumForm({
   isLoading,
   tcAgreed, setTcAgreed,
   forgotSent,
+  code, setCode, verifying, verifyError, onVerify,
   onSubmit, onResend, onGoogle, onForgot, onForgotReset, onBack,
 }: {
   mode: Mode;
@@ -767,6 +897,9 @@ function AlumForm({
   isLoading: boolean;
   tcAgreed: boolean; setTcAgreed: (v: boolean) => void;
   forgotSent: boolean;
+  code: string; setCode: (v: string) => void;
+  verifying: boolean; verifyError: string;
+  onVerify: (e: React.FormEvent) => void;
   onSubmit: (e: React.FormEvent) => void;
   onResend: () => void;
   onGoogle: () => void;
@@ -779,44 +912,19 @@ function AlumForm({
   const inputCls =
     "w-full px-4 py-3 bg-white/[0.03] border border-border rounded-lg text-[0.85rem] text-text-primary placeholder:text-text-muted outline-none transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]";
 
-  // After signup, "Confirm email" requires the alum to click the emailed
-  // link before they have a session. Show the same check-your-inbox panel
-  // the student flow uses, with a signup-confirmation resend.
+  // After signup, "Confirm email" requires the alum to verify before they have
+  // a session. Show the shared code-entry panel; the resend re-sends the signup
+  // confirmation (type "signup").
   if (emailSent) {
-    const canResend = resendCooldown <= 0 && !isLoading;
     return (
-      <div className="space-y-5">
-        <BackLink onClick={onBack} />
-        <div className="py-6 text-center space-y-4">
-          <div className="w-12 h-12 rounded-full bg-gold/15 flex items-center justify-center mx-auto">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="text-gold" aria-hidden>
-              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-              <polyline points="22,6 12,13 2,6" />
-            </svg>
-          </div>
-          <h2 className="font-display text-[1.15rem] text-text-primary">Check your inbox</h2>
-          <p className="text-[0.8rem] text-text-secondary leading-relaxed">
-            We&apos;ve sent a confirmation link to <span className="text-text-primary">{email}</span>. Click it to verify your email and finish signing up.
-          </p>
-          <p className="text-[0.7rem] text-text-muted leading-relaxed">
-            The link expires in one hour. Check your spam folder if it doesn&apos;t arrive within a minute.
-          </p>
-          <div className="pt-2">
-            <button
-              type="button"
-              onClick={onResend}
-              disabled={!canResend}
-              className="text-[0.8rem] text-gold bg-transparent border-0 cursor-pointer transition-colors duration-150 hover:text-gold-light disabled:text-text-muted disabled:cursor-not-allowed"
-            >
-              {isLoading
-                ? "Resending…"
-                : resendCooldown > 0
-                  ? `Resend in ${resendCooldown}s`
-                  : "Didn’t receive it? Resend"}
-            </button>
-          </div>
-        </div>
-      </div>
+      <CodeEntryPanel
+        mode={mode}
+        email={email}
+        code={code} setCode={setCode}
+        verifying={verifying} verifyError={verifyError}
+        resendCooldown={resendCooldown} isLoading={isLoading}
+        onVerify={onVerify} onResend={onResend} onBack={onBack}
+      />
     );
   }
 
