@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cleanName, isValidName } from "@/lib/text";
 import { SignupDisclosures } from "@/components/forms/SignupDisclosures";
+import { TurnstileWidget, turnstileConfigured } from "@/components/forms/TurnstileWidget";
 import { BrandLogo } from "@/components/BrandLogo";
 
 // Auth error text reaches us partly via ?error= in the URL, which is
@@ -111,6 +112,20 @@ export default function LoginPage() {
   const [verifying, setVerifying] = useState(false);
   const [verifyError, setVerifyError] = useState("");
 
+  // Cloudflare Turnstile for the auth send-endpoints (sign-in / sign-up /
+  // resend / password reset). Login talks to Supabase directly from the
+  // browser, so we use Supabase's native captcha: pass options.captchaToken and
+  // GoTrue verifies it server-side. A token is single-use, so after each send
+  // we bump turnstileNonce, which remounts the widget (via its key) to issue a
+  // fresh token for the next send/resend. Inert unless both the public site key
+  // (widget) and the dashboard captcha setting are configured.
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileNonce, setTurnstileNonce] = useState(0);
+  const refreshTurnstile = () => {
+    setTurnstileToken("");
+    setTurnstileNonce((n) => n + 1);
+  };
+
   // Tick the resend cooldown to 0 once per second when active.
   useEffect(() => {
     if (resendCooldown <= 0) return;
@@ -179,6 +194,7 @@ export default function LoginPage() {
     setCode("");
     setVerifying(false);
     setVerifyError("");
+    refreshTurnstile();
   };
 
   const switchMode = (next: Mode) => {
@@ -225,12 +241,17 @@ export default function LoginPage() {
       };
     }
 
+    if (turnstileConfigured && !turnstileToken) {
+      return "Please complete the verification challenge below.";
+    }
+
     const { error: otpError } = await supabase.auth.signInWithOtp({
       email: trimmedEmail,
       options: {
         shouldCreateUser: mode === "signup",
         emailRedirectTo: `${window.location.origin}/auth/callback`,
         data: signupData,
+        captchaToken: turnstileToken || undefined,
       },
     });
     return otpError ? otpError.message : null;
@@ -242,6 +263,7 @@ export default function LoginPage() {
     setIsLoading(true);
     const err = await sendStudentVerificationEmail();
     setIsLoading(false);
+    refreshTurnstile();
     if (err) {
       setError(err);
       return;
@@ -256,6 +278,7 @@ export default function LoginPage() {
     setIsLoading(true);
     const err = await sendStudentVerificationEmail();
     setIsLoading(false);
+    refreshTurnstile();
     if (err) {
       setError(err);
       return;
@@ -290,15 +313,21 @@ export default function LoginPage() {
   const handleAlumResend = async () => {
     if (resendCooldown > 0 || isLoading) return;
     setError("");
+    if (turnstileConfigured && !turnstileToken) {
+      setError("Please complete the verification challenge below.");
+      return;
+    }
     setIsLoading(true);
     const { error: resendError } = await supabase.auth.resend({
       type: "signup",
       email: email.trim(),
       options: {
         emailRedirectTo: `${window.location.origin}/auth/callback`,
+        captchaToken: turnstileToken || undefined,
       },
     });
     setIsLoading(false);
+    refreshTurnstile();
     if (resendError) {
       setError(resendError.message);
       return;
@@ -337,11 +366,17 @@ export default function LoginPage() {
       setError("Please enter your email address first.");
       return;
     }
+    if (turnstileConfigured && !turnstileToken) {
+      setError("Please complete the verification challenge below.");
+      return;
+    }
     setIsLoading(true);
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(trimmed, {
       redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+      captchaToken: turnstileToken || undefined,
     });
     setIsLoading(false);
+    refreshTurnstile();
     if (resetError) {
       setError(resetError.message);
       return;
@@ -410,6 +445,10 @@ export default function LoginPage() {
       setError("Password must be at least 8 characters.");
       return;
     }
+    if (turnstileConfigured && !turnstileToken) {
+      setError("Please complete the verification challenge below.");
+      return;
+    }
 
     setIsLoading(true);
 
@@ -424,6 +463,7 @@ export default function LoginPage() {
           // clicking the link establishes a session and routes by status,
           // exactly like the student magic-link flow.
           emailRedirectTo: `${window.location.origin}/auth/callback`,
+          captchaToken: turnstileToken || undefined,
           // These keys are read by the tg_handle_new_user trigger to populate
           // public.profiles with role/first_name/surname on insert.
           // grad_year is collected later during onboarding.
@@ -434,6 +474,7 @@ export default function LoginPage() {
           },
         },
       });
+      refreshTurnstile();
       if (signUpError) {
         setError(signUpError.message);
         setIsLoading(false);
@@ -460,7 +501,9 @@ export default function LoginPage() {
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email,
       password,
+      options: { captchaToken: turnstileToken || undefined },
     });
+    refreshTurnstile();
     if (signInError) {
       // Unconfirmed email: Supabase blocks sign-in until the confirmation
       // link is clicked. Don't dead-end on the raw "Email not confirmed"
@@ -471,11 +514,18 @@ export default function LoginPage() {
         signInError.code === "email_not_confirmed" ||
         /not confirmed/i.test(signInError.message);
       if (unconfirmed) {
-        // Best-effort resend; the panel also offers a manual "Resend".
+        // Best-effort resend; the panel also offers a manual "Resend". With
+        // captcha enabled this auto-resend can't succeed (the single-use token
+        // was just spent by signInWithPassword), so it no-ops here and the
+        // user falls back to the panel's manual Resend, which gets a fresh
+        // token from the remounted widget.
         await supabase.auth.resend({
           type: "signup",
           email: email.trim(),
-          options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+            captchaToken: turnstileToken || undefined,
+          },
         });
         setIsLoading(false);
         setEmailSent(true);
@@ -593,6 +643,16 @@ export default function LoginPage() {
                 onForgotReset={exitForgot}
                 onBack={backToChooser}
               />
+            )}
+
+            {/* Bot challenge for the auth send-endpoints. One widget for every
+                sub-view (request / resend / forgot); remounts via key to mint a
+                fresh single-use token after each send. Renders nothing unless
+                the public site key is set. */}
+            {turnstileConfigured && role !== null && (
+              <div className="mt-5 flex justify-center">
+                <TurnstileWidget key={turnstileNonce} onToken={setTurnstileToken} />
+              </div>
             )}
 
             {/* Toggle */}
