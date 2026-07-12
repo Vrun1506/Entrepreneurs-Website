@@ -19,6 +19,12 @@ export default function Hero() {
       <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-12 items-start">
         {/* Left: copy */}
         <div>
+          {/* Brand eyebrow — surfaces the exact "Imperial Entrepreneurs" name at
+              the top of the homepage for branded search + human recognition. */}
+          <p className="anim-fade-up font-medium text-gold text-sm tracking-[0.2em] uppercase mb-4">
+            Imperial Entrepreneurs
+          </p>
+
           {/* Headline */}
           <h1 className="anim-fade-up delay-100 font-display text-text-primary mb-7 leading-[1.05] tracking-tight text-[clamp(2.5rem,5vw,4.75rem)]">
             The founder community,
