@@ -1,7 +1,12 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { DM_Serif_Display, DM_Sans } from "next/font/google";
 import "./globals.css";
 import { PostHogProvider } from "@/components/analytics/PostHogProvider";
+
+// Canonical host: the apex 307-redirects to www, so www is the indexable origin.
+const SITE_URL = "https://www.imperialentrepreneurs.com";
+const SITE_NAME = "Imperial Entrepreneurs";
 
 const dmSerifDisplay = DM_Serif_Display({
   weight: "400",
@@ -20,8 +25,65 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Foundry — Imperial College Startup Community",
-  description: "Where Imperial founders find each other.",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: "Imperial Entrepreneurs — Foundry | Imperial College Startup Community",
+    // Child pages set their own title; this appends the brand for the SERP.
+    template: "%s | Imperial Entrepreneurs",
+  },
+  description:
+    "Imperial Entrepreneurs is the founder community at Imperial College London — connect with student founders, alumni, mentors, and investors through Foundry.",
+  applicationName: SITE_NAME,
+  keywords: ["Imperial Entrepreneurs", "Imperial College", "Foundry", "student founders", "startup community", "Imperial startups"],
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    siteName: SITE_NAME,
+    title: "Imperial Entrepreneurs — Foundry",
+    description:
+      "The founder community at Imperial College London. Connect with student founders, alumni, mentors, and investors through Foundry.",
+    url: SITE_URL,
+    locale: "en_GB",
+    images: [{ url: "/entrepreneurs-logo.png", alt: "Imperial Entrepreneurs" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Imperial Entrepreneurs — Foundry",
+    description: "The founder community at Imperial College London.",
+    images: ["/entrepreneurs-logo.png"],
+  },
+};
+
+// Organization + WebSite structured data. This is the primary signal that the
+// site *is* the entity "Imperial Entrepreneurs" (knowledge panel / sitelinks /
+// branded-search recognition). alternateName carries the "Foundry" product brand.
+const structuredData = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": `${SITE_URL}/#organization`,
+      name: SITE_NAME,
+      alternateName: "Foundry",
+      url: SITE_URL,
+      logo: `${SITE_URL}/entrepreneurs-logo.png`,
+      description:
+        "The founder community at Imperial College London, connecting student founders, alumni, mentors, and investors through Foundry.",
+      sameAs: [
+        "https://www.linkedin.com/company/imperial-entrepreneurs/",
+        "https://www.instagram.com/imperialentrepreneurs/",
+      ],
+    },
+    {
+      "@type": "WebSite",
+      "@id": `${SITE_URL}/#website`,
+      name: SITE_NAME,
+      alternateName: "Foundry",
+      url: SITE_URL,
+      publisher: { "@id": `${SITE_URL}/#organization` },
+      inLanguage: "en-GB",
+    },
+  ],
 };
 
 // The middleware (proxy.ts) sets a per-request CSP nonce; Next.js only stamps
@@ -30,10 +92,18 @@ export const metadata: Metadata = {
 // Cost is minimal here — only /login, /privacy, /terms were ever static.
 export const dynamic = "force-dynamic";
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // The middleware (proxy.ts) mints a per-request CSP nonce and exposes it on
+  // x-nonce. Carry it onto the JSON-LD tag so the strict nonce CSP never flags it.
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
     <html lang="en" className={`${dmSerifDisplay.variable} ${dmSans.variable}`} data-scroll-behavior="smooth">
       <body suppressHydrationWarning>
+        <script
+          type="application/ld+json"
+          nonce={nonce}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+        />
         <PostHogProvider>{children}</PostHogProvider>
       </body>
     </html>
