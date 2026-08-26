@@ -5,8 +5,7 @@ import { describeSupabaseError } from "@/lib/supabaseErrors";
 import type { Result } from "@/lib/result";
 import { ok, err } from "@/lib/result";
 import { getActionAuth } from "@/lib/auth/actionAuth";
-import { allow } from "@/lib/ratelimit";
-import { verifyTurnstile } from "@/lib/turnstile";
+import { guardSubmission, type SubmissionMode } from "@/lib/actions/guardSubmission";
 import { eventSchema, validate } from "@/lib/validation/listings";
 
 // User-facing actions for events. Admin actions live in
@@ -18,25 +17,12 @@ import { eventSchema, validate } from "@/lib/validation/listings";
 // PostgREST UPDATEs are migration-hostile because they're tied to
 // Supabase's SDK + RLS shape rather than a plain HTTP contract.
 
-type Mode = "user" | "admin";
-
 // Create an event. mode="user" enqueues for review; mode="admin"
 // publishes immediately. Auth → Zod → SECURITY DEFINER RPC.
-export async function submitEvent(args: { mode: Mode; payload: unknown; turnstileToken?: string }): Promise<Result> {
-  const { user, isAdmin, status, supabase } = await getActionAuth();
-  if (!user) return err("You must be signed in to post an event.");
-  if (args.mode === "admin" && !isAdmin) return err("Admin access required.");
-  if (args.mode === "user" && !isAdmin && status !== "approved") {
-    return err("Your membership must be approved before you can post.");
-  }
-  if (args.mode === "user") {
-    if (!(await verifyTurnstile(args.turnstileToken))) {
-      return err("Verification failed. Please complete the challenge and try again.");
-    }
-    if (!(await allow("submit", user.id))) {
-      return err("You're posting too frequently. Please try again later.");
-    }
-  }
+export async function submitEvent(args: { mode: SubmissionMode; payload: unknown; turnstileToken?: string }): Promise<Result> {
+  const guard = await guardSubmission({ mode: args.mode, noun: "an event", turnstileToken: args.turnstileToken });
+  if (!guard.ok) return guard;
+  const { supabase } = guard.data;
 
   const parsed = validate(eventSchema, args.payload);
   if (!parsed.ok) return parsed;

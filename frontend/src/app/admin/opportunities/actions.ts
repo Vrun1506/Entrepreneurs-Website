@@ -5,19 +5,8 @@ import { requireAdmin } from "@/lib/auth/actionAuth";
 import { sendListingRejectionEmail } from "@/lib/email";
 import { describeSupabaseError } from "@/lib/supabaseErrors";
 import type { BulkResult } from "@/app/admin/bulkTypes";
-
-type Result = { ok: true } | { ok: false; error: string };
-
-async function runBulk(ids: string[], one: (id: string) => Promise<Result>): Promise<BulkResult> {
-  let succeeded = 0;
-  const errors: string[] = [];
-  for (const id of ids) {
-    const r = await one(id);
-    if (r.ok) succeeded++;
-    else errors.push(r.error);
-  }
-  return { ok: true, succeeded, failed: errors.length, firstError: errors[0] };
-}
+import type { Result } from "@/lib/result";
+import { runBulk } from "@/lib/admin/bulk";
 
 export async function approveOpportunity(opportunityId: string): Promise<Result> {
   const auth = await requireAdmin();
