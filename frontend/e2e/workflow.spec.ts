@@ -114,7 +114,13 @@ for (const kind of KINDS) {
 
     // 5. It's now live on the members' board for the student.
     await page.goto(kind.listPath);
-    await expect(page.getByText(editedTitle)).toBeVisible();
+    // Count first, then visibility. The list streams, and during that commit
+    // the card can briefly exist twice — enough for a strict locator to fail
+    // on a page that settles correctly a moment later. toHaveCount retries,
+    // so this waits for the settled DOM instead of racing it.
+    const liveCard = page.getByText(editedTitle);
+    await expect(liveCard).toHaveCount(1);
+    await expect(liveCard).toBeVisible();
 
     // 6. Student deletes it; it disappears from their submissions.
     //
