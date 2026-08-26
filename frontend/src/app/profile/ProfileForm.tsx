@@ -10,6 +10,7 @@ import { cleanName, cleanText, isValidName } from "@/lib/text";
 import { gradYearOptions, validateGradYear } from "@/lib/gradYears";
 import { describeSupabaseError } from "@/lib/supabaseErrors";
 import { Button } from "@/components/ui/Button";
+import { invalidateDirectoryCache } from "@/app/profile/actions";
 
 type Lookup = ChipItem;
 
@@ -146,6 +147,9 @@ export default function ProfileForm(props: Props) {
 
     setSaved(true);
     setIsLoading(false);
+    // The RPC above ran client-side, so nothing on the server knows the
+    // directory changed. Tell it before refreshing.
+    await invalidateDirectoryCache();
     router.refresh();
   };
 

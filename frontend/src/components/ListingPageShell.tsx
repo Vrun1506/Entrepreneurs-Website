@@ -22,8 +22,9 @@ export default function ListingPageShell({
   submittedKind: string;
   eyebrow: string;
   title: string;
-  /** One line under the heading, usually the item count. */
-  summary: string;
+  /** One line under the heading, usually the item count. May be a suspended
+   *  node when the count depends on the data being streamed in. */
+  summary: ReactNode;
   cta: { href: string; label: string };
   /** Extra links beside the CTA (only /opportunities has any). */
   actions?: ReactNode;
