@@ -73,7 +73,14 @@ export const eventSchema = z.object({
   title: z.string().trim().min(2, "Title is required.").max(200),
   description: z.string().trim().min(20, "Description must be at least 20 characters.").max(5000),
   lumaLink: httpUrl,
-  eventAtIso: z.string().refine((s) => !Number.isNaN(Date.parse(s)), "Invalid date/time."),
+  eventAtIso: z
+    .string()
+    .refine((s) => !Number.isNaN(Date.parse(s)), "Invalid date/time.")
+    // Was enforced only in EventForm, so the server accepted an event in the
+    // past. The five-minute grace absorbs the round trip (and any clock skew
+    // between the browser and the server) for someone submitting an event
+    // that starts imminently.
+    .refine((s) => Date.parse(s) > Date.now() - 5 * 60_000, "Event must start in the future."),
   location: z.string().trim().min(1, "Location is required.").max(200),
   organiserName: z.string().trim().min(1, "Organiser name is required.").max(200),
   contactEmail: email,
