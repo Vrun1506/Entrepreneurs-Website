@@ -78,27 +78,13 @@ async function fetchDirectory(supabase: SupabaseClient<Database>): Promise<Direc
   //
   // Two queries in parallel, not one per member: the roles are fetched in
   // bulk and grouped in memory below.
+  // list_directory_cards truncates bio/working_on to what the card renders
+  // and omits the three profile URLs entirely — the dialog fetches those on
+  // open. Measured at 1,203 members: 2,261 kB of full profiles becomes
+  // 752 kB. Truncating here rather than in the mapper below means the bytes
+  // never leave Postgres.
   const [{ data: members, error }, { data: openRoles, error: rolesError }] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select(`
-        id,
-        first_name,
-        surname,
-        role,
-        course,
-        grad_year,
-        bio,
-        working_on,
-        linkedin_url,
-        github_url,
-        portfolio_url,
-        created_at,
-        profile_skills ( skills ( id, name ) ),
-        profile_sectors ( sectors ( id, name ) )
-      `)
-      .eq("status", "approved")
-      .order("created_at", { ascending: false }),
+    supabase.rpc("list_directory_cards"),
     supabase
       .from("opportunities")
       .select("id, posted_by, position_name")
@@ -117,10 +103,7 @@ async function fetchDirectory(supabase: SupabaseClient<Database>): Promise<Direc
     lookingForByUser.set(r.posted_by, list);
   }
 
-  // PostgREST returns each embedded relation as a single object for many-to-one
-  // joins, but supabase-js's untyped client infers it as an array. Cast at the
-  // boundary; runtime shape is { skills: { id, name } } per row.
-  const memberRows = (members ?? []) as unknown as RawJoinRow[];
+  const memberRows = (members ?? []) as CardRow[];
   const mapped = memberRows.map((r) => toMember(r, lookingForByUser.get(r.id) ?? []));
 
   // Newest = first N by created_at desc (the server already returns this order).
@@ -144,7 +127,9 @@ async function Directory({ data }: { data: Promise<DirectoryData> }) {
   return <CommunityClient members={directory} newest={newest} />;
 }
 
-type RawJoinRow = {
+// One row of list_directory_cards. bio and working_on are previews, not
+// the full text — the dialog reads those directly when it opens.
+type CardRow = {
   id: string;
   first_name: string;
   surname: string;
@@ -153,15 +138,12 @@ type RawJoinRow = {
   grad_year: number | null;
   bio: string | null;
   working_on: string | null;
-  linkedin_url: string | null;
-  github_url: string | null;
-  portfolio_url: string | null;
   created_at: string;
-  profile_skills:  { skills:  { id: number; name: string } | null }[];
-  profile_sectors: { sectors: { id: number; name: string } | null }[];
+  skill_names: string[];
+  sector_names: string[];
 };
 
-function toMember(r: RawJoinRow, lookingFor: { id: string; role: string }[]) {
+function toMember(r: CardRow, lookingFor: { id: string; role: string }[]) {
   return {
     id: r.id,
     firstName: r.first_name,
@@ -169,13 +151,10 @@ function toMember(r: RawJoinRow, lookingFor: { id: string; role: string }[]) {
     role: r.role,
     course: r.course,
     gradYear: r.grad_year,
-    bio: r.bio,
-    workingOn: r.working_on,
-    linkedinUrl: r.linkedin_url,
-    githubUrl: r.github_url,
-    portfolioUrl: r.portfolio_url,
-    skills:  r.profile_skills.map((s)  => s.skills?.name).filter((n): n is string => !!n),
-    sectors: r.profile_sectors.map((s) => s.sectors?.name).filter((n): n is string => !!n),
+    bioPreview: r.bio,
+    workingOnPreview: r.working_on,
+    skills:  r.skill_names  ?? [],
+    sectors: r.sector_names ?? [],
     lookingFor,
   };
 }
