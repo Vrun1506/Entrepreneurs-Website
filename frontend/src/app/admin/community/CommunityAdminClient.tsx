@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import SearchableMultiSelect from "@/components/forms/SearchableMultiSelect";
+import { useUrlFilters, useSearchDraft } from "@/lib/filters/useUrlFilters";
+import { SearchInput, FilterPanel, ChipGroup, RangeFilter } from "@/components/filters/FilterBar";
 import { adminDeleteUser } from "./actions";
 import type { UserStatus } from "@/lib/database.overrides";
 
@@ -31,17 +33,20 @@ const STATUS_LABEL: Record<Status, string> = {
 };
 
 export default function CommunityAdminClient({ members }: { members: Member[] }) {
-  const [query, setQuery] = useState("");
+  // Client-side navigation: this view is already the whole member table,
+  // so filtering is local. Putting it in the URL is what lets an admin send
+  // "these are the alumni still awaiting review" as a link.
+  const filters = useUrlFilters();
+  const [query, setQuery] = useSearchDraft(filters);
   const [selected, setSelected] = useState<Member | null>(null);
-  const [filtersOpen, setFiltersOpen] = useState(false);
 
-  const [selectedRoles,    setSelectedRoles]    = useState<Set<Role>>(new Set());
-  const [selectedStatuses, setSelectedStatuses] = useState<Set<Status>>(new Set());
-  const [selectedCourses,  setSelectedCourses]  = useState<Set<string>>(new Set());
-  const [selectedSectors,  setSelectedSectors]  = useState<Set<string>>(new Set());
-  const [selectedSkills,   setSelectedSkills]   = useState<Set<string>>(new Set());
-  const [gradYearMin,      setGradYearMin]      = useState<string>("");
-  const [gradYearMax,      setGradYearMax]      = useState<string>("");
+  const selectedRoles    = filters.getSet("role");
+  const selectedStatuses = filters.getSet("status");
+  const selectedCourses  = filters.getSet("course");
+  const selectedSectors  = filters.getSet("sector");
+  const selectedSkills   = filters.getSet("skill");
+  const gradYearMin      = filters.get("gradMin");
+  const gradYearMax      = filters.get("gradMax");
 
   const { availableCourses, availableSectors, availableSkills, gradYearBounds } = useMemo(() => {
     const courses = new Set<string>();
@@ -94,151 +99,94 @@ export default function CommunityAdminClient({ members }: { members: Member[] })
     selectedSectors.size + selectedSkills.size +
     (gradYearMin ? 1 : 0) + (gradYearMax ? 1 : 0);
 
-  const clearFilters = () => {
-    setSelectedRoles(new Set());
-    setSelectedStatuses(new Set());
-    setSelectedCourses(new Set());
-    setSelectedSectors(new Set());
-    setSelectedSkills(new Set());
-    setGradYearMin("");
-    setGradYearMax("");
-  };
 
   return (
     <>
-      <div className="mb-4">
-        <input
-          type="search"
-          aria-label="Search members"
-          spellCheck={false}
-          autoComplete="off"
-          placeholder="Search by name, email, or what they're working on"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="w-full px-4 py-3 bg-white/[0.03] border border-border rounded-xl text-[0.875rem] text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]"
-        />
-      </div>
+      <SearchInput
+        label="Search members"
+        placeholder="Search by name, email, or what they're working on"
+        value={query}
+        onChange={setQuery}
+      />
 
-      <div className="mb-6">
-        <div className="flex items-center gap-3 mb-3">
-          <button
-            type="button"
-            onClick={() => setFiltersOpen((o) => !o)}
-            className="text-[0.8rem] text-text-secondary hover:text-text-primary bg-transparent border-0 cursor-pointer transition-colors flex items-center gap-1"
-          >
-            <FilterIcon />
-            Filters
-            {activeFilterCount > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 rounded-full text-[0.65rem] bg-gold/15 text-gold-light border border-gold/25">
-                {activeFilterCount}
-              </span>
-            )}
-            <span className="ml-1 text-text-muted">{filtersOpen ? "▲" : "▼"}</span>
-          </button>
-          {activeFilterCount > 0 && (
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="text-[0.75rem] text-text-muted hover:text-text-primary bg-transparent border-0 cursor-pointer transition-colors"
-            >
-              Clear all
-            </button>
-          )}
-          {/* Announced as filters change, so a screen-reader user hears the
-              result count without having to go hunting for it. tabular-nums
-              stops the row shifting as the digits change width. */}
-          <span role="status" className="ml-auto text-[0.8rem] text-text-muted tabular-nums">
+      <FilterPanel
+        activeCount={activeFilterCount}
+        onClear={() => filters.clear("role", "status", "course", "sector", "skill", "gradMin", "gradMax")}
+        resultCount={
+          <>
             {filtered.length} of {members.length}
             <span className="sr-only"> members shown</span>
-          </span>
-        </div>
+          </>
+        }
+      >
+        <ChipGroup
+          label="Role"
+          options={[
+            { value: "student", label: "Students" },
+            { value: "alum",    label: "Alumni" },
+          ]}
+          selected={selectedRoles}
+          onToggle={(v) => filters.toggle("role", v)}
+        />
 
-        {filtersOpen && (
-          <div className="rounded-2xl bg-bg-card border border-border-subtle p-5 space-y-5">
-            <ChipGroup
-              label="Role"
-              options={[
-                { value: "student", label: "Students" },
-                { value: "alum",    label: "Alumni" },
-              ]}
-              selected={selectedRoles}
-              onToggle={(v) => toggleSet(selectedRoles, v as Role, setSelectedRoles)}
-            />
+        <ChipGroup
+          label="Status"
+          options={[
+            { value: "pending_onboarding", label: "Onboarding" },
+            { value: "pending_review",     label: "Awaiting review" },
+            { value: "approved",           label: "Approved" },
+            { value: "rejected",           label: "Rejected" },
+          ]}
+          selected={selectedStatuses}
+          onToggle={(v) => filters.toggle("status", v)}
+        />
 
-            <ChipGroup
-              label="Status"
-              options={[
-                { value: "pending_onboarding", label: "Onboarding" },
-                { value: "pending_review",     label: "Awaiting review" },
-                { value: "approved",           label: "Approved" },
-                { value: "rejected",           label: "Rejected" },
-              ]}
-              selected={selectedStatuses}
-              onToggle={(v) => toggleSet(selectedStatuses, v as Status, setSelectedStatuses)}
-            />
-
-            {availableCourses.length > 0 && (
-              <SearchableMultiSelect
-                label="Course"
-                options={availableCourses}
-                selected={selectedCourses}
-                onChange={setSelectedCourses}
-                placeholder="Filter by course — search or pick"
-                emptyText="No course matches that search."
-              />
-            )}
-
-            {availableSectors.length > 0 && (
-              <ChipGroup
-                label="Interests"
-                options={availableSectors.map((s) => ({ value: s, label: s }))}
-                selected={selectedSectors}
-                onToggle={(v) => toggleSet(selectedSectors, v, setSelectedSectors)}
-              />
-            )}
-
-            {availableSkills.length > 0 && (
-              <ChipGroup
-                label="Skills"
-                options={availableSkills.map((s) => ({ value: s, label: s }))}
-                selected={selectedSkills}
-                onToggle={(v) => toggleSet(selectedSkills, v, setSelectedSkills)}
-              />
-            )}
-
-            {gradYearBounds && (
-              <div>
-                <div className="text-[0.75rem] text-text-muted mb-2">
-                  Graduation year <span className="text-text-muted/70">— range {gradYearBounds.min}–{gradYearBounds.max}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    placeholder={`From ${gradYearBounds.min}`}
-                    aria-label="Graduation year from"
-                    value={gradYearMin}
-                    onChange={(e) => setGradYearMin(e.target.value)}
-                    min={gradYearBounds.min}
-                    max={gradYearBounds.max}
-                    className="w-[140px] px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.8rem] text-text-primary placeholder:text-text-muted focus:border-gold/50"
-                  />
-                  <span className="text-text-muted text-[0.8rem]">to</span>
-                  <input
-                    type="number"
-                    placeholder={`To ${gradYearBounds.max}`}
-                    aria-label="Graduation year to"
-                    value={gradYearMax}
-                    onChange={(e) => setGradYearMax(e.target.value)}
-                    min={gradYearBounds.min}
-                    max={gradYearBounds.max}
-                    className="w-[140px] px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.8rem] text-text-primary placeholder:text-text-muted focus:border-gold/50"
-                  />
-                </div>
-              </div>
-            )}
-          </div>
+        {availableCourses.length > 0 && (
+          <SearchableMultiSelect
+            label="Course"
+            options={availableCourses}
+            selected={selectedCourses}
+            onChange={(next) => filters.apply({ course: [...next] })}
+            placeholder="Filter by course — search or pick"
+            emptyText="No course matches that search."
+          />
         )}
-      </div>
+
+        {availableSectors.length > 0 && (
+          <ChipGroup
+            label="Interests"
+            options={availableSectors.map((s) => ({ value: s, label: s }))}
+            selected={selectedSectors}
+            onToggle={(v) => filters.toggle("sector", v)}
+          />
+        )}
+
+        {availableSkills.length > 0 && (
+          <ChipGroup
+            label="Skills"
+            options={availableSkills.map((s) => ({ value: s, label: s }))}
+            selected={selectedSkills}
+            onToggle={(v) => filters.toggle("skill", v)}
+          />
+        )}
+
+        {gradYearBounds && (
+          <RangeFilter
+            label="Graduation year"
+            hint={` — range ${gradYearBounds.min}–${gradYearBounds.max}`}
+            type="number"
+            bounds={gradYearBounds}
+            from={gradYearMin}
+            to={gradYearMax}
+            fromLabel="Graduation year from"
+            toLabel="Graduation year to"
+            fromPlaceholder={`From ${gradYearBounds.min}`}
+            toPlaceholder={`To ${gradYearBounds.max}`}
+            onFromChange={(v) => filters.apply({ gradMin: v })}
+            onToChange={(v) => filters.apply({ gradMax: v })}
+          />
+        )}
+      </FilterPanel>
 
       {filtered.length === 0 ? (
         <div className="text-center py-16 text-text-muted text-[0.85rem]">
@@ -290,53 +238,6 @@ export default function CommunityAdminClient({ members }: { members: Member[] })
   );
 }
 
-function toggleSet<T>(set: Set<T>, value: T, setter: (s: Set<T>) => void) {
-  const next = new Set(set);
-  if (next.has(value)) next.delete(value); else next.add(value);
-  setter(next);
-}
-
-function ChipGroup<T extends string>({
-  label, options, selected, onToggle,
-}: {
-  label: string;
-  options: { value: T; label: string }[];
-  selected: Set<T>;
-  onToggle: (v: T) => void;
-}) {
-  return (
-    <div>
-      <div className="text-[0.75rem] text-text-muted mb-2">{label}</div>
-      <div className="flex flex-wrap gap-1.5">
-        {options.map((o) => {
-          const on = selected.has(o.value);
-          return (
-            <button
-              key={o.value}
-              type="button"
-              onClick={() => onToggle(o.value)}
-              className={`px-3 py-1.5 rounded-full text-[0.775rem] border transition-colors duration-150 cursor-pointer ${
-                on
-                  ? "bg-gold-muted border-gold/50 text-gold-light"
-                  : "bg-white/[0.02] border-border text-text-secondary hover:border-gold/30 hover:text-text-primary"
-              }`}
-            >
-              {o.label}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function FilterIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
-    </svg>
-  );
-}
 
 function DeleteUserModal({ member, onClose }: { member: Member; onClose: () => void }) {
   const router = useRouter();

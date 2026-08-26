@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState, useTransition } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import SocialLinks from "@/components/SocialLinks";
 import SearchableMultiSelect from "@/components/forms/SearchableMultiSelect";
+import { useUrlFilters, useSearchDraft } from "@/lib/filters/useUrlFilters";
+import { SearchInput, FilterPanel, ChipGroup, RangeFilter } from "@/components/filters/FilterBar";
 import { Dialog, closeDialog } from "@/components/ui/Dialog";
 import { browserClient } from "@/lib/supabase/browser";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -70,51 +71,15 @@ export default function CommunityClient({
   matching: number;
   pageSize: number;
 }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const [pending, startTransition] = useTransition();
+  // Server-side navigation: the directory is too large to ship whole, so a
+  // filter is an argument to a Postgres query rather than a local operation.
+  // `filters` (the prop) is the server's own parse of these same params —
+  // the values rendered here and the values the query ran with are one
+  // thing, not two that can disagree.
+  const url = useUrlFilters({ navigate: "server", resetKey: "page" });
+  const [queryDraft, setQueryDraft] = useSearchDraft(url);
 
-  const [filtersOpen, setFiltersOpen] = useState(false);
   const [openMember, setOpenMember] = useState<Member | null>(null);
-
-  // The search box stays locally controlled so typing is never gated on a
-  // round trip; the URL catches up on a debounce.
-  const [queryDraft, setQueryDraft] = useState(filters.q);
-  // Resync when the URL's q changes from outside the box — the back button,
-  // or "Clear all". Adjusted during render rather than in an effect, which
-  // is React's documented pattern for reacting to a changed prop and avoids
-  // rendering one frame with the stale value.
-  const [lastAppliedQuery, setLastAppliedQuery] = useState(filters.q);
-  if (lastAppliedQuery !== filters.q) {
-    setLastAppliedQuery(filters.q);
-    setQueryDraft(filters.q);
-  }
-
-  const apply = useCallback((next: Record<string, string | string[] | null>) => {
-    const params = new URLSearchParams(searchParams.toString());
-    for (const [k, v] of Object.entries(next)) {
-      const empty = v == null || v === "" || (Array.isArray(v) && v.length === 0);
-      if (empty) params.delete(k);
-      else params.set(k, Array.isArray(v) ? v.join(",") : v);
-    }
-    // Any change other than paging returns to page 1. Staying on page 7 of a
-    // result set that now has two pages shows an empty grid.
-    if (!("page" in next)) params.delete("page");
-    startTransition(() => {
-      router.push(params.size ? `${pathname}?${params}` : pathname, { scroll: false });
-    });
-  }, [router, pathname, searchParams]);
-
-  // Debounced so a search is one request per pause, not one per keystroke.
-  useEffect(() => {
-    if (queryDraft === filters.q) return;
-    const t = setTimeout(() => apply({ q: queryDraft }), 300);
-    return () => clearTimeout(t);
-  }, [queryDraft, filters.q, apply]);
-
-  const toggleValue = (key: string, current: string[], value: string) =>
-    apply({ [key]: current.includes(value) ? current.filter((v) => v !== value) : [...current, value] });
 
   const activeFilterCount =
     filters.roles.length + filters.courses.length + filters.sectors.length +
@@ -126,8 +91,6 @@ export default function CommunityClient({
       ? { min: facets.grad_min, max: facets.grad_max }
       : null;
 
-  const clearFilters = () =>
-    apply({ role: null, course: null, sector: null, skill: null, gradMin: null, gradMax: null });
 
   return (
     <>
@@ -145,134 +108,87 @@ export default function CommunityClient({
         </section>
       )}
 
-      <div className="mb-4">
-        <input
-          type="search"
-          aria-label="Search members"
-          spellCheck={false}
-          autoComplete="off"
-          placeholder="Search by name, course, skill, sector, or what they're working on"
-          value={queryDraft}
-          onChange={(e) => setQueryDraft(e.target.value)}
-          className="w-full px-4 py-3 bg-white/[0.03] border border-border rounded-xl text-[0.875rem] text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]"
-        />
-      </div>
+      <SearchInput
+        label="Search members"
+        placeholder="Search by name, course, skill, sector, or what they're working on"
+        value={queryDraft}
+        onChange={setQueryDraft}
+      />
 
-      <div className="mb-6">
-        <div className="flex items-center gap-3 mb-3">
-          <button
-            type="button"
-            onClick={() => setFiltersOpen((o) => !o)}
-            className="text-[0.8rem] text-text-secondary hover:text-text-primary bg-transparent border-0 cursor-pointer transition-colors flex items-center gap-1 py-2 -my-2"
-          >
-            <FilterIcon />
-            Filters
-            {activeFilterCount > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 rounded-full text-[0.65rem] bg-gold/15 text-gold-light border border-gold/25">
-                {activeFilterCount}
-              </span>
-            )}
-            <span className="ml-1 text-text-muted">{filtersOpen ? "▲" : "▼"}</span>
-          </button>
-          {activeFilterCount > 0 && (
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="text-[0.75rem] text-text-muted hover:text-text-primary bg-transparent border-0 cursor-pointer transition-colors"
-            >
-              Clear all
-            </button>
-          )}
-          {/* Announced as filters change, so a screen-reader user hears the
-              result count without having to go hunting for it. tabular-nums
-              stops the row shifting as the digits change width. */}
-          <span role="status" className="ml-auto text-[0.8rem] text-text-muted tabular-nums">
-            {matching === facets.total
-              ? `${facets.total}`
-              : `${matching} of ${facets.total}`}
+      <FilterPanel
+        activeCount={activeFilterCount}
+        onClear={() => url.clear("role", "course", "sector", "skill", "gradMin", "gradMax")}
+        resultCount={
+          <>
+            {matching === facets.total ? `${facets.total}` : `${matching} of ${facets.total}`}
             <span className="sr-only"> members match</span>
-          </span>
-        </div>
+          </>
+        }
+      >
+        <ChipGroup
+          label="Role"
+          options={[
+            { value: "student", label: "Students" },
+            { value: "alum",    label: "Alumni" },
+          ]}
+          selected={new Set(filters.roles)}
+          onToggle={(v) => url.toggle("role", v)}
+        />
 
-        {filtersOpen && (
-          <div className="rounded-2xl bg-bg-card border border-border-subtle p-5 space-y-5">
-            <FilterGroup
-              label="Role"
-              options={[
-                { value: "student", label: "Students" },
-                { value: "alum",    label: "Alumni" },
-              ]}
-              selected={new Set(filters.roles)}
-              onToggle={(v) => toggleValue("role", filters.roles, v)}
-            />
-
-            {facets.courses.length > 0 && (
-              <SearchableMultiSelect
-                label="Course"
-                options={facets.courses}
-                selected={new Set(filters.courses)}
-                onChange={(next) => apply({ course: [...next] })}
-                placeholder="Filter by course — search or pick"
-                emptyText="No course matches that search."
-              />
-            )}
-
-            {facets.sectors.length > 0 && (
-              <FilterGroup
-                label="Sectors"
-                options={facets.sectors.map((s) => ({ value: s, label: s }))}
-                selected={new Set(filters.sectors)}
-                onToggle={(v) => toggleValue("sector", filters.sectors, v)}
-              />
-            )}
-
-            {facets.skills.length > 0 && (
-              <FilterGroup
-                label="Skills"
-                options={facets.skills.map((s) => ({ value: s, label: s }))}
-                selected={new Set(filters.skills)}
-                onToggle={(v) => toggleValue("skill", filters.skills, v)}
-              />
-            )}
-
-            {gradYearBounds && (
-              <div>
-                <div className="text-[0.75rem] text-text-muted mb-2">
-                  Graduation year <span className="text-text-muted/70">— range {gradYearBounds.min}–{gradYearBounds.max}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    placeholder={`From ${gradYearBounds.min}`}
-                    aria-label="Graduation year from"
-                    defaultValue={filters.gradMin}
-                    onBlur={(e) => apply({ gradMin: e.target.value })}
-                    min={gradYearBounds.min}
-                    max={gradYearBounds.max}
-                    className="w-[140px] px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.8rem] text-text-primary placeholder:text-text-muted focus:border-gold/50"
-                  />
-                  <span className="text-text-muted text-[0.8rem]">to</span>
-                  <input
-                    type="number"
-                    placeholder={`To ${gradYearBounds.max}`}
-                    aria-label="Graduation year to"
-                    defaultValue={filters.gradMax}
-                    onBlur={(e) => apply({ gradMax: e.target.value })}
-                    min={gradYearBounds.min}
-                    max={gradYearBounds.max}
-                    className="w-[140px] px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.8rem] text-text-primary placeholder:text-text-muted focus:border-gold/50"
-                  />
-                </div>
-              </div>
-            )}
-          </div>
+        {facets.courses.length > 0 && (
+          <SearchableMultiSelect
+            label="Course"
+            options={facets.courses}
+            selected={new Set(filters.courses)}
+            onChange={(next) => url.apply({ course: [...next] })}
+            placeholder="Filter by course — search or pick"
+            emptyText="No course matches that search."
+          />
         )}
-      </div>
+
+        {facets.sectors.length > 0 && (
+          <ChipGroup
+            label="Sectors"
+            options={facets.sectors.map((s) => ({ value: s, label: s }))}
+            selected={new Set(filters.sectors)}
+            onToggle={(v) => url.toggle("sector", v)}
+          />
+        )}
+
+        {facets.skills.length > 0 && (
+          <ChipGroup
+            label="Skills"
+            options={facets.skills.map((s) => ({ value: s, label: s }))}
+            selected={new Set(filters.skills)}
+            onToggle={(v) => url.toggle("skill", v)}
+          />
+        )}
+
+        {gradYearBounds && (
+          <RangeFilter
+            label="Graduation year"
+            hint={` — range ${gradYearBounds.min}–${gradYearBounds.max}`}
+            type="number"
+            bounds={gradYearBounds}
+            from={filters.gradMin}
+            to={filters.gradMax}
+            fromLabel="Graduation year from"
+            toLabel="Graduation year to"
+            fromPlaceholder={`From ${gradYearBounds.min}`}
+            toPlaceholder={`To ${gradYearBounds.max}`}
+            // Every keystroke here is a database query, so wait for the field
+            // to be finished with rather than filtering on a half-typed year.
+            commitOn="blur"
+            onFromChange={(v) => url.apply({ gradMin: v })}
+            onToChange={(v) => url.apply({ gradMax: v })}
+          />
+        )}
+      </FilterPanel>
 
       {/* A pending navigation dims the current page rather than replacing it
           with a skeleton: the results are still valid, just about to change,
           and swapping them for placeholders on every keystroke would flash. */}
-      <div className={pending ? "opacity-60 transition-opacity duration-150" : undefined}>
+      <div className={url.pending ? "opacity-60 transition-opacity duration-150" : undefined}>
         {members.length === 0 ? (
           <div className="text-center py-16 text-text-muted text-[0.85rem]">
             {facets.total === 0 ? "No members yet." : "No members match your search or filters."}
@@ -288,8 +204,8 @@ export default function CommunityClient({
         <nav aria-label="Directory pages" className="mt-8 flex items-center justify-center gap-3">
           <button
             type="button"
-            disabled={filters.page <= 1 || pending}
-            onClick={() => apply({ page: String(filters.page - 1) })}
+            disabled={filters.page <= 1 || url.pending}
+            onClick={() => url.apply({ page: String(filters.page - 1) })}
             className="px-4 py-2 rounded-lg bg-transparent border border-border text-text-secondary text-[0.8rem] cursor-pointer transition-colors hover:text-text-primary hover:border-gold/40 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             ← Previous
@@ -299,8 +215,8 @@ export default function CommunityClient({
           </span>
           <button
             type="button"
-            disabled={filters.page >= totalPages || pending}
-            onClick={() => apply({ page: String(filters.page + 1) })}
+            disabled={filters.page >= totalPages || url.pending}
+            onClick={() => url.apply({ page: String(filters.page + 1) })}
             className="px-4 py-2 rounded-lg bg-transparent border border-border text-text-secondary text-[0.8rem] cursor-pointer transition-colors hover:text-text-primary hover:border-gold/40 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Next →
@@ -315,48 +231,6 @@ export default function CommunityClient({
   );
 }
 
-
-function FilterGroup<T extends string>({
-  label, options, selected, onToggle,
-}: {
-  label: string;
-  options: { value: T; label: string }[];
-  selected: Set<T>;
-  onToggle: (v: T) => void;
-}) {
-  return (
-    <div>
-      <div className="text-[0.75rem] text-text-muted mb-2">{label}</div>
-      <div className="flex flex-wrap gap-1.5">
-        {options.map((o) => {
-          const on = selected.has(o.value);
-          return (
-            <button
-              key={o.value}
-              type="button"
-              onClick={() => onToggle(o.value)}
-              className={`px-3 py-1.5 rounded-full text-[0.775rem] border transition-colors duration-150 cursor-pointer ${
-                on
-                  ? "bg-gold-muted border-gold/50 text-gold-light"
-                  : "bg-white/[0.02] border-border text-text-secondary hover:border-gold/30 hover:text-text-primary"
-              }`}
-            >
-              {o.label}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function FilterIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
-    </svg>
-  );
-}
 
 function NewestCard({ member: m, onClick }: { member: Member; onClick: () => void }) {
   return (
@@ -427,7 +301,7 @@ function MemberCard({ member: m, onClick }: { member: Member; onClick: () => voi
           {m.lookingFor.slice(0, MAX_LOOKING_FOR).map((lf) => (
             <Link
               key={lf.id}
-              href={`/opportunities#o-${lf.id}`}
+              href={`/opportunities?o=${lf.id}`}
               onClick={(e) => e.stopPropagation()}
               className="px-2 py-0.5 rounded-full border border-gold/30 text-gold text-[0.7rem] no-underline hover:bg-gold/10 transition-colors"
             >
@@ -533,7 +407,7 @@ function MemberDialog({ member: m, onClose }: { member: Member; onClose: () => v
               {m.lookingFor.slice(0, MAX_LOOKING_FOR).map((lf) => (
                 <Link
                   key={lf.id}
-                  href={`/opportunities#o-${lf.id}`}
+                  href={`/opportunities?o=${lf.id}`}
                   className="px-2.5 py-1 rounded-full text-[0.725rem] border border-gold/30 text-gold no-underline hover:bg-gold/10 transition-colors"
                 >
                   {lf.role}

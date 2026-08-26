@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useUrlFilters, useSearchDraft } from "@/lib/filters/useUrlFilters";
+import { SearchInput, FilterPanel, ChipChoice, RangeFilter } from "@/components/filters/FilterBar";
 import { useListingFreshness } from "@/lib/useListingFreshness";
 import { ListingGoneNotice } from "@/components/ListingGoneNotice";
 import { MarkActionPill } from "@/components/MarkActionPill";
@@ -19,7 +21,13 @@ type Vc = {
   postedBy: { firstName: string; surname: string };
 };
 
-type KindFilter = "all" | "vc" | "grant";
+const KINDS = [
+  { value: "all",   label: "All" },
+  { value: "vc",    label: "VCs" },
+  { value: "grant", label: "Grants" },
+] as const;
+
+const KIND_VALUES = KINDS.map((k) => k.value);
 
 export default function VcsClient({
   items, appliedIds = [],
@@ -28,11 +36,13 @@ export default function VcsClient({
   /** VC/grant IDs the current user has self-marked as applied. */
   appliedIds?: string[];
 }) {
-  const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<KindFilter>("all");
-  const [from, setFrom] = useState<string>("");
-  const [to,   setTo]   = useState<string>("");
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  // Client-side navigation — see the note in EventsClient. The URL owns the
+  // filters so a view is shareable; the filtering itself stays in the browser.
+  const filters = useUrlFilters();
+  const [query, setQuery] = useSearchDraft(filters);
+  const filter = filters.getOne("kind", KIND_VALUES, "all");
+  const from = filters.get("from");
+  const to   = filters.get("to");
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const appliedSet = useMemo(() => new Set(appliedIds), [appliedIds]);
 
@@ -62,98 +72,47 @@ export default function VcsClient({
   }, [items, query, filter, from, to, dismissed]);
 
   const activeFilterCount = (filter !== "all" ? 1 : 0) + (from ? 1 : 0) + (to ? 1 : 0);
-  const clearFilters = () => { setFilter("all"); setFrom(""); setTo(""); };
 
   const dismiss = (id: string) => setDismissed((prev) => new Set(prev).add(id));
 
   return (
     <>
-      <div className="mb-4">
-        <input
-          type="search"
-          aria-label="Search VCs and grants"
-          spellCheck={false}
-          autoComplete="off"
-          placeholder="Search by name, stage, or amount"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="w-full px-4 py-3 bg-white/[0.03] border border-border rounded-xl text-[0.875rem] text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]"
-        />
-      </div>
+      <SearchInput
+        label="Search VCs and grants"
+        placeholder="Search by name, stage, or amount"
+        value={query}
+        onChange={setQuery}
+      />
 
-      <div className="mb-6">
-        <div className="flex items-center gap-3 mb-3">
-          <button
-            type="button"
-            onClick={() => setFiltersOpen((o) => !o)}
-            className="text-[0.8rem] text-text-secondary hover:text-text-primary bg-transparent border-0 cursor-pointer transition-colors flex items-center gap-1 py-2 -my-2"
-          >
-            <FilterIcon />
-            Filters
-            {activeFilterCount > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 rounded-full text-[0.65rem] bg-gold/15 text-gold-light border border-gold/25">
-                {activeFilterCount}
-              </span>
-            )}
-            <span className="ml-1 text-text-muted">{filtersOpen ? "▲" : "▼"}</span>
-          </button>
-          {activeFilterCount > 0 && (
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="text-[0.75rem] text-text-muted hover:text-text-primary bg-transparent border-0 cursor-pointer transition-colors"
-            >
-              Clear all
-            </button>
-          )}
-          {/* Announced as filters change, so a screen-reader user hears the
-              result count without having to go hunting for it. tabular-nums
-              stops the row shifting as the digits change width. */}
-          <span role="status" className="ml-auto text-[0.8rem] text-text-muted tabular-nums">
+      <FilterPanel
+        activeCount={activeFilterCount}
+        onClear={() => filters.clear("kind", "from", "to")}
+        resultCount={
+          <>
             {filtered.length} of {items.length}
             <span className="sr-only"> listings shown</span>
-          </span>
-        </div>
+          </>
+        }
+      >
+        <ChipChoice
+          label="Kind"
+          options={KINDS}
+          value={filter}
+          onChange={(next) => filters.apply({ kind: next === "all" ? null : next })}
+        />
 
-        {filtersOpen && (
-          <div className="rounded-2xl bg-bg-card border border-border-subtle p-5 space-y-5">
-            <div>
-              <div className="text-[0.75rem] text-text-muted mb-2">Kind</div>
-              <div className="flex flex-wrap gap-1.5">
-                <FilterChip label="All"    active={filter === "all"}   onClick={() => setFilter("all")} />
-                <FilterChip label="VCs"    active={filter === "vc"}    onClick={() => setFilter("vc")} />
-                <FilterChip label="Grants" active={filter === "grant"} onClick={() => setFilter("grant")} />
-              </div>
-            </div>
-
-            <div>
-              <div className="text-[0.75rem] text-text-muted mb-2">
-                Deadline range
-                <span className="text-text-muted/70"> — when set, rolling-application listings are hidden</span>
-              </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <input
-                  type="date"
-                  aria-label="Deadline from date"
-                  value={from}
-                  onChange={(e) => setFrom(e.target.value)}
-                  max={to || undefined}
-                  className="px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.8rem] text-text-primary focus:border-gold/50"
-                />
-                <span className="text-text-muted text-[0.8rem]">to</span>
-                <input
-                  type="date"
-                  aria-label="Deadline to date"
-                  value={to}
-                  onChange={(e) => setTo(e.target.value)}
-                  min={from || undefined}
-                  className="px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.8rem] text-text-primary focus:border-gold/50"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+        <RangeFilter
+          label="Deadline range"
+          hint=" — when set, rolling-application listings are hidden"
+          type="date"
+          from={from}
+          to={to}
+          fromLabel="Deadline from date"
+          toLabel="Deadline to date"
+          onFromChange={(v) => filters.apply({ from: v })}
+          onToChange={(v) => filters.apply({ to: v })}
+        />
+      </FilterPanel>
 
       {filtered.length === 0 ? (
         <div className="text-center py-16 text-text-muted text-[0.85rem]">
@@ -165,26 +124,6 @@ export default function VcsClient({
         </div>
       )}
     </>
-  );
-}
-
-function FilterChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`px-3 py-1.5 rounded-full text-[0.775rem] border transition-colors duration-150 cursor-pointer ${active ? "bg-gold-muted border-gold/50 text-gold-light" : "bg-white/[0.02] border-border text-text-secondary hover:border-gold/30 hover:text-text-primary"}`}
-    >
-      {label}
-    </button>
-  );
-}
-
-function FilterIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
-    </svg>
   );
 }
 

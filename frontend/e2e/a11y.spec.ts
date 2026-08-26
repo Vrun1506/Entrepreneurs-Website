@@ -55,5 +55,9 @@ test("the skip link is first in the tab order and moves focus into <main>", asyn
   // outcome so a reorder can't quietly leave the link laid out inline.
   expect(await link.evaluate((el) => getComputedStyle(el).position)).toBe("fixed");
   await page.keyboard.press("Enter");
-  expect(await page.evaluate(() => document.activeElement?.tagName)).toBe("MAIN");
+  // Polled, not read once: the fragment navigation and React's commit are
+  // separate ticks, and reading between them caught focus back on <body>.
+  await expect
+    .poll(() => page.evaluate(() => document.activeElement?.tagName))
+    .toBe("MAIN");
 });
