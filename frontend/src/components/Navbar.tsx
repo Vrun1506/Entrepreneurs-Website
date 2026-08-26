@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
+import { scrollBehavior } from "@/lib/motion";
 
 const NAV_LINKS = [
   { label: "Who are we?", href: "#who-we-are" },
@@ -15,11 +16,11 @@ function Logo() {
   return (
     <a
       href="#"
-      onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+      onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: scrollBehavior() }); }}
       className="no-underline inline-block"
       aria-label="Foundry — Imperial Entrepreneurs"
     >
-      <BrandLogo size="md" />
+      <BrandLogo size="md" priority />
     </a>
   );
 }
@@ -92,7 +93,7 @@ export default function Navbar() {
 
   const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
     e.preventDefault();
-    document.getElementById(href.replace("#", ""))?.scrollIntoView({ behavior: "smooth" });
+    document.getElementById(href.replace("#", ""))?.scrollIntoView({ behavior: scrollBehavior() });
     setMenuOpen(false);
   };
 

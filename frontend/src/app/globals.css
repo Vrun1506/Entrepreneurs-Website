@@ -42,6 +42,10 @@
 
 html {
   scroll-behavior: smooth;
+  /* The app is dark-only. Telling the UA so fixes the chrome it renders for us:
+     scrollbars, <select> option lists, date pickers and autofill backgrounds,
+     which otherwise paint light-on-light (worst on Windows). */
+  color-scheme: dark;
 }
 
 body {
@@ -50,6 +54,32 @@ body {
   font-family: theme(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Anchor targets sit under the fixed navbar without this. */
+h1, h2, h3, h4, h5, h6, [id] {
+  scroll-margin-top: 5rem;
+}
+
+/* ─────────────────────────────────────────────
+   INTERACTION
+   ───────────────────────────────────────────── */
+
+/* Removes the ~300ms double-tap-zoom delay on touch, and replaces the default
+   blue-grey tap flash with one that belongs to this palette. */
+button, a, [role="button"], summary {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: rgba(201, 168, 76, 0.15);
+}
+
+/* The single focus indicator for the whole app. :focus-visible (not :focus) so
+   it appears for keyboard and programmatic focus but not on mouse click. The
+   offset is load-bearing — it puts the ring on the page background, so it stays
+   visible on gold-filled buttons where a gold ring would otherwise vanish. */
+:focus-visible {
+  outline: 2px solid theme(--color-gold);
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
 /* ─────────────────────────────────────────────
@@ -96,3 +126,32 @@ body {
 .delay-400 { animation-delay: 0.4s; }
 .delay-500 { animation-delay: 0.5s; }
 .delay-600 { animation-delay: 0.6s; }
+
+/* ─────────────────────────────────────────────
+   REDUCED MOTION
+   ───────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* The hero entrance animations start at opacity:0 and animate to 1. Zeroing
+     the duration above would leave them stuck invisible, so land them on their
+     final state instead of removing them. */
+  .anim-fade-up, .anim-fade-in {
+    opacity: 1;
+    animation: none !important;
+  }
+
+  /* Deliberate exception: a progress spinner that stops spinning reads as a
+     hung request. Rotation in an 18px box is not a vestibular trigger, so slow
+     it rather than freeze it. Overrides the two properties the reset above
+     changed, so it doesn't depend on Tailwind's keyframe name being in scope. */
+  .animate-spin {
+    animation-duration: 1.5s !important;
+    animation-iteration-count: infinite !important;
+  }
+}

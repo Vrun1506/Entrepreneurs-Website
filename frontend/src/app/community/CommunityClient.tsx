@@ -124,7 +124,7 @@ export default function CommunityClient({
           placeholder="Search by name, course, skill, sector, or what they're working on"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="w-full px-4 py-3 bg-white/[0.03] border border-border rounded-xl text-[0.875rem] text-text-primary placeholder:text-text-muted outline-none transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]"
+          className="w-full px-4 py-3 bg-white/[0.03] border border-border rounded-xl text-[0.875rem] text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]"
         />
       </div>
 
@@ -212,7 +212,7 @@ export default function CommunityClient({
                     onChange={(e) => setGradYearMin(e.target.value)}
                     min={gradYearBounds.min}
                     max={gradYearBounds.max}
-                    className="w-[140px] px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.8rem] text-text-primary placeholder:text-text-muted outline-none focus:border-gold/50"
+                    className="w-[140px] px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.8rem] text-text-primary placeholder:text-text-muted focus:border-gold/50"
                   />
                   <span className="text-text-muted text-[0.8rem]">to</span>
                   <input
@@ -222,7 +222,7 @@ export default function CommunityClient({
                     onChange={(e) => setGradYearMax(e.target.value)}
                     min={gradYearBounds.min}
                     max={gradYearBounds.max}
-                    className="w-[140px] px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.8rem] text-text-primary placeholder:text-text-muted outline-none focus:border-gold/50"
+                    className="w-[140px] px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.8rem] text-text-primary placeholder:text-text-muted focus:border-gold/50"
                   />
                 </div>
               </div>

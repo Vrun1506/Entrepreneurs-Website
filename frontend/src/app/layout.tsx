@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import { DM_Serif_Display, DM_Sans } from "next/font/google";
 import "./globals.css";
@@ -54,6 +54,30 @@ export const metadata: Metadata = {
   },
 };
 
+// Matches --color-bg-primary so mobile browser chrome blends into the page
+// instead of framing it in white.
+export const viewport: Viewport = {
+  themeColor: "#0c0c0b",
+};
+
+// Origins the app opens a connection to on nearly every page. Warming the
+// TCP+TLS handshake here saves a round trip on the first request to each.
+// Derived from the same env as the CSP (see lib/csp.ts) so they can't drift.
+const PRECONNECT_ORIGINS = [
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_POSTHOG_HOST ?? "https://eu.i.posthog.com",
+  process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ? "https://challenges.cloudflare.com" : undefined,
+]
+  .map((value) => {
+    if (!value) return null;
+    try {
+      return new URL(value).origin;
+    } catch {
+      return null;
+    }
+  })
+  .filter((origin): origin is string => origin !== null);
+
 // Organization + WebSite structured data. This is the primary signal that the
 // site *is* the entity "Imperial Entrepreneurs" (knowledge panel / sitelinks /
 // branded-search recognition). alternateName carries the "Foundry" product brand.
@@ -99,6 +123,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en" className={`${dmSerifDisplay.variable} ${dmSans.variable}`} data-scroll-behavior="smooth">
       <body suppressHydrationWarning>
+        {/* React 19 hoists these into <head> — no hand-written <head> needed
+            (and Next.js discourages one in a root layout). */}
+        {PRECONNECT_ORIGINS.map((origin) => (
+          <link key={origin} rel="preconnect" href={origin} crossOrigin="anonymous" />
+        ))}
         <script
           type="application/ld+json"
           nonce={nonce}

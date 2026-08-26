@@ -53,7 +53,7 @@ export default function AppNav({
     <header className="sticky top-0 z-40 px-4 sm:px-8 py-4 sm:py-5 bg-bg-primary/90 backdrop-blur-md border-b border-border-subtle">
       <div className="max-w-[1200px] mx-auto flex items-center justify-between gap-3">
         <Link href={homeHref} className="no-underline shrink-0" onClick={() => setMobileOpen(false)}>
-          <BrandLogo size="sm" />
+          <BrandLogo size="sm" priority />
         </Link>
 
         {/* Desktop nav (≥lg — tablets use the hamburger sheet, which has

@@ -778,7 +778,7 @@ function CodeEntryPanel({
           onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
           placeholder="000000"
           autoFocus
-          className="w-full px-4 py-3 bg-white/[0.03] border border-border rounded-lg text-center text-[1.4rem] tracking-[0.4em] font-medium text-text-primary placeholder:text-text-muted placeholder:tracking-[0.4em] outline-none transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]"
+          className="w-full px-4 py-3 bg-white/[0.03] border border-border rounded-lg text-center text-[1.4rem] tracking-[0.4em] font-medium text-text-primary placeholder:text-text-muted placeholder:tracking-[0.4em] transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]"
         />
 
         {verifyError && (
@@ -846,7 +846,7 @@ function StudentMagicLinkFlow({
   onBack: () => void;
 }) {
   const inputCls =
-    "w-full px-4 py-3 bg-white/[0.03] border border-border rounded-lg text-[0.85rem] text-text-primary placeholder:text-text-muted outline-none transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]";
+    "w-full px-4 py-3 bg-white/[0.03] border border-border rounded-lg text-[0.85rem] text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]";
 
   if (emailSent) {
     return (
@@ -970,7 +970,7 @@ function AlumForm({
   const [forgotView, setForgotView] = useState(false);
 
   const inputCls =
-    "w-full px-4 py-3 bg-white/[0.03] border border-border rounded-lg text-[0.85rem] text-text-primary placeholder:text-text-muted outline-none transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]";
+    "w-full px-4 py-3 bg-white/[0.03] border border-border rounded-lg text-[0.85rem] text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]";
 
   // After signup, "Confirm email" requires the alum to verify before they have
   // a session. Show the shared code-entry panel; the resend re-sends the signup
