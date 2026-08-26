@@ -1,0 +1,96 @@
+import "server-only";
+import { revalidatePath } from "next/cache";
+import { requireAdmin } from "@/lib/auth/actionAuth";
+import { sendListingRejectionEmail } from "@/lib/email";
+import { describeSupabaseError } from "@/lib/supabaseErrors";
+import { ok, err, type Result } from "@/lib/result";
+import type { BulkResult } from "@/app/admin/bulkTypes";
+import { runBulk } from "@/lib/admin/bulk";
+import { LISTINGS, type ListingKind, type RejectedPoster } from "./registry";
+
+// ════════════════════════════════════════════════════════════════════
+// Foundry · Admin review actions, once instead of three times
+//
+// Everything here was written out in each of the three
+// app/admin/*/actions.ts files with a noun changed. Those files now hold
+// only the thin "use server" exports the review cards import by name —
+// which have to stay, because a "use server" module's exports *are* the
+// action endpoints.
+// ════════════════════════════════════════════════════════════════════
+
+export async function approveListing(kind: ListingKind, id: string): Promise<Result> {
+  const def = LISTINGS[kind];
+  const auth = await requireAdmin();
+  if (!auth.ok) return err(auth.error);
+
+  const { error } = await def.approve(auth.supabase, id);
+  if (error) return err(describeSupabaseError(error));
+
+  revalidatePath(def.revalidate.admin);
+  revalidatePath(def.revalidate.public);
+  return ok();
+}
+
+export async function rejectListing(
+  kind: ListingKind,
+  id: string,
+  reason: string,
+): Promise<Result> {
+  const def = LISTINGS[kind];
+  const trimmed = reason.trim();
+  if (!trimmed) return err("Rejection reason is required.");
+
+  const auth = await requireAdmin();
+  if (!auth.ok) return err(auth.error);
+
+  const { data, error } = await def.reject(auth.supabase, id, trimmed);
+  if (error) return err(describeSupabaseError(error));
+
+  // The rejection itself has already committed at this point. Everything
+  // below is the notification, so a failure there is reported without
+  // pretending the rejection didn't happen — hence the revalidate on
+  // every path out of here.
+  const row: RejectedPoster | null = Array.isArray(data) ? data[0] ?? null : data;
+  if (!row?.email) {
+    console.warn(`reject ${kind}: RPC returned no poster email for`, id);
+    revalidatePath(def.revalidate.admin);
+    return ok();
+  }
+
+  try {
+    await sendListingRejectionEmail({
+      to:           row.email,
+      firstName:    row.first_name ?? null,
+      listingKind:  def.emailKind,
+      listingTitle: row.title,
+      reason:       trimmed,
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    revalidatePath(def.revalidate.admin);
+    return err(`${def.label} rejected, but email failed to send: ${msg}`);
+  }
+
+  revalidatePath(def.revalidate.admin);
+  return ok();
+}
+
+// The admin gate runs here as well as inside each per-item call: it turns
+// "not an admin" into one clean message instead of N identical failures,
+// and it means an empty selection can't look like a success.
+export async function bulkApproveListings(kind: ListingKind, ids: string[]): Promise<BulkResult> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { ok: false, error: auth.error };
+  return runBulk(ids, (id) => approveListing(kind, id));
+}
+
+export async function bulkRejectListings(
+  kind: ListingKind,
+  ids: string[],
+  reason: string,
+): Promise<BulkResult> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { ok: false, error: auth.error };
+  if (!reason.trim()) return { ok: false, error: "Rejection reason is required." };
+  return runBulk(ids, (id) => rejectListing(kind, id, reason));
+}
