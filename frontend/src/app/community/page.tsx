@@ -6,6 +6,7 @@ import { Skeleton, FilterBarSkeleton, CardGridSkeleton } from "@/components/ui/S
 import type { Database } from "@/lib/database.overrides";
 import { cached } from "@/lib/cache";
 import CommunityClient from "./CommunityClient";
+import { reportIfCapped } from "@/lib/supabase/rowCap";
 
 // One screen of cards. Also the ceiling PostgREST would have imposed at
 // 1000 whether we asked for it or not — see migration 20260826000003.
@@ -165,7 +166,7 @@ async function loadDirectory(
       .eq("status", "approved")
       .in("posted_by", ids);
     if (rolesRes.error) console.error("Failed to load open roles:", rolesRes.error);
-    for (const r of rolesRes.data ?? []) {
+    for (const r of reportIfCapped("opportunities (open roles)", rolesRes.data ?? [])) {
       const list = lookingForByUser.get(r.posted_by) ?? [];
       list.push({ id: r.id, role: r.position_name });
       lookingForByUser.set(r.posted_by, list);

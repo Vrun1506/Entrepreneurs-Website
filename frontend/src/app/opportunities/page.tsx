@@ -7,6 +7,7 @@ import type { Database } from "@/lib/database.overrides";
 import { requireApprovedUser } from "@/lib/auth/guard";
 import { markedListingIds } from "@/lib/listings/actionRow";
 import OpportunitiesClient from "./OpportunitiesClient";
+import { reportIfCapped } from "@/lib/supabase/rowCap";
 
 export default async function OpportunitiesPage({
   searchParams,
@@ -78,8 +79,8 @@ async function loadOpportunities(
   if (actionsRes.error) console.error("Failed to load listing actions:", actionsRes.error);
 
   return {
-    items: ((oppsRes.data ?? []) as RpcRow[]).map(toOpportunity),
-    bookmarkedIds: (bookmarksRes.data ?? []).map((r) => r.opportunity_id as string),
+    items: reportIfCapped("list_approved_opportunities", (oppsRes.data ?? []) as RpcRow[]).map(toOpportunity),
+    bookmarkedIds: reportIfCapped("opportunity_bookmarks", bookmarksRes.data ?? []).map((r) => r.opportunity_id as string),
     appliedIds: markedListingIds(actionsRes.data, "opportunity", "applied"),
   };
 }

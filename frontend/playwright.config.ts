@@ -64,7 +64,18 @@ export default defineConfig({
   webServer: {
     command: "pnpm start",
     url: BASE_URL,
-    reuseExistingServer: !process.env.CI,
+    // Never reuse. `reuseExistingServer: !CI` looks like a local convenience
+    // and is a trap: a server already on this port was built against whatever
+    // env it was built with, and Playwright cannot tell. That happened —
+    // a stale `next-server` pointed at PRODUCTION Supabase was silently reused
+    // while global-setup seeded the local stack, so every authed test failed
+    // on a JWT the prod project could not verify. 35 failures, none of them
+    // real, and 14 minutes to find out.
+    //
+    // With this false, an occupied port is an immediate, obvious error instead
+    // of a suite that runs against the wrong database. Stop your dev server
+    // first, or set E2E_PORT.
+    reuseExistingServer: false,
     timeout: 120_000,
   },
 });

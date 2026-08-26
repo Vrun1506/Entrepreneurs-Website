@@ -1,12 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import SearchableMultiSelect from "@/components/forms/SearchableMultiSelect";
 import { useUrlFilters, useSearchDraft } from "@/lib/filters/useUrlFilters";
 import { SearchInput, FilterPanel, ChipGroup, RangeFilter } from "@/components/filters/FilterBar";
+import { Pager } from "@/components/ui/Pager";
 import { adminDeleteUser } from "./actions";
 import type { UserStatus } from "@/lib/database.overrides";
+import type { AdminFilters } from "./page";
 
 type Status = UserStatus;
 type Role   = "alum" | "student";
@@ -25,6 +27,15 @@ type Member = {
   sectors: string[];
 };
 
+type Facets = {
+  courses: string[];
+  sectors: string[];
+  skills: string[];
+  grad_min: number | null;
+  grad_max: number | null;
+  total: number;
+};
+
 const STATUS_LABEL: Record<Status, string> = {
   pending_onboarding: "Onboarding",
   pending_review:     "Awaiting review",
@@ -32,73 +43,42 @@ const STATUS_LABEL: Record<Status, string> = {
   rejected:           "Rejected",
 };
 
-export default function CommunityAdminClient({ members }: { members: Member[] }) {
-  // Client-side navigation: this view is already the whole member table,
-  // so filtering is local. Putting it in the URL is what lets an admin send
-  // "these are the alumni still awaiting review" as a link.
-  const filters = useUrlFilters();
-  const [query, setQuery] = useSearchDraft(filters);
+const FILTER_KEYS = ["role", "status", "course", "sector", "skill", "gradMin", "gradMax"];
+
+export default function CommunityAdminClient({
+  members, facets, filters, matching, pageSize,
+}: {
+  /** One page of members, already filtered and sorted by Postgres. */
+  members: Member[];
+  facets: Facets;
+  filters: AdminFilters;
+  /** Members matching the current filters, across every page. */
+  matching: number;
+  pageSize: number;
+}) {
+  // Server navigation, unlike the other list pages: this client only ever
+  // holds one page, so a filter is an argument to the query rather than
+  // something it can apply itself. Changing any filter resets to page 1 —
+  // page 4 of the old result set means nothing in the new one.
+  const url = useUrlFilters({ navigate: "server", resetKey: "page" });
+  const [query, setQuery] = useSearchDraft(url);
   const [selected, setSelected] = useState<Member | null>(null);
 
-  const selectedRoles    = filters.getSet("role");
-  const selectedStatuses = filters.getSet("status");
-  const selectedCourses  = filters.getSet("course");
-  const selectedSectors  = filters.getSet("sector");
-  const selectedSkills   = filters.getSet("skill");
-  const gradYearMin      = filters.get("gradMin");
-  const gradYearMax      = filters.get("gradMax");
+  const selectedRoles    = new Set(filters.roles);
+  const selectedStatuses = new Set(filters.statuses);
+  const selectedCourses  = new Set(filters.courses);
+  const selectedSectors  = new Set(filters.sectors);
+  const selectedSkills   = new Set(filters.skills);
 
-  const { availableCourses, availableSectors, availableSkills, gradYearBounds } = useMemo(() => {
-    const courses = new Set<string>();
-    const sectors = new Set<string>();
-    const skills  = new Set<string>();
-    let minY = Infinity, maxY = -Infinity;
-    for (const m of members) {
-      if (m.course && m.course.trim().length > 0) courses.add(m.course);
-      m.sectors.forEach((s) => sectors.add(s));
-      m.skills.forEach((s) => skills.add(s));
-      if (m.gradYear != null) {
-        if (m.gradYear < minY) minY = m.gradYear;
-        if (m.gradYear > maxY) maxY = m.gradYear;
-      }
-    }
-    return {
-      availableCourses: [...courses].sort((a, b) => a.localeCompare(b)),
-      availableSectors: [...sectors].sort((a, b) => a.localeCompare(b)),
-      availableSkills:  [...skills].sort((a, b) => a.localeCompare(b)),
-      gradYearBounds:   Number.isFinite(minY) ? { min: minY, max: maxY } : null,
-    };
-  }, [members]);
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const minY = gradYearMin ? parseInt(gradYearMin, 10) : null;
-    const maxY = gradYearMax ? parseInt(gradYearMax, 10) : null;
-    return members.filter((m) => {
-      if (selectedRoles.size    > 0 && !selectedRoles.has(m.role))       return false;
-      if (selectedStatuses.size > 0 && !selectedStatuses.has(m.status))  return false;
-      if (selectedCourses.size  > 0 && (!m.course || !selectedCourses.has(m.course))) return false;
-      if (selectedSectors.size  > 0 && !m.sectors.some((s) => selectedSectors.has(s))) return false;
-      if (selectedSkills.size   > 0 && !m.skills.some((s)  => selectedSkills.has(s)))  return false;
-      if (minY != null && (m.gradYear == null || m.gradYear < minY))     return false;
-      if (maxY != null && (m.gradYear == null || m.gradYear > maxY))     return false;
-      if (q) {
-        const hay = [
-          m.firstName, m.surname, `${m.firstName} ${m.surname}`,
-          m.email ?? "", m.course ?? "",
-          ...m.skills, ...m.sectors,
-        ].join(" ").toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      return true;
-    });
-  }, [members, query, selectedRoles, selectedStatuses, selectedCourses, selectedSectors, selectedSkills, gradYearMin, gradYearMax]);
+  const gradYearBounds =
+    facets.grad_min != null && facets.grad_max != null
+      ? { min: facets.grad_min, max: facets.grad_max }
+      : null;
 
   const activeFilterCount =
     selectedRoles.size + selectedStatuses.size + selectedCourses.size +
     selectedSectors.size + selectedSkills.size +
-    (gradYearMin ? 1 : 0) + (gradYearMax ? 1 : 0);
-
+    (filters.gradMin ? 1 : 0) + (filters.gradMax ? 1 : 0);
 
   return (
     <>
@@ -111,10 +91,10 @@ export default function CommunityAdminClient({ members }: { members: Member[] })
 
       <FilterPanel
         activeCount={activeFilterCount}
-        onClear={() => filters.clear("role", "status", "course", "sector", "skill", "gradMin", "gradMax")}
+        onClear={() => url.clear(...FILTER_KEYS)}
         resultCount={
           <>
-            {filtered.length} of {members.length}
+            {matching === facets.total ? `${facets.total}` : `${matching} of ${facets.total}`}
             <span className="sr-only"> members shown</span>
           </>
         }
@@ -126,7 +106,7 @@ export default function CommunityAdminClient({ members }: { members: Member[] })
             { value: "alum",    label: "Alumni" },
           ]}
           selected={selectedRoles}
-          onToggle={(v) => filters.toggle("role", v)}
+          onToggle={(v) => url.toggle("role", v)}
         />
 
         <ChipGroup
@@ -138,35 +118,35 @@ export default function CommunityAdminClient({ members }: { members: Member[] })
             { value: "rejected",           label: "Rejected" },
           ]}
           selected={selectedStatuses}
-          onToggle={(v) => filters.toggle("status", v)}
+          onToggle={(v) => url.toggle("status", v)}
         />
 
-        {availableCourses.length > 0 && (
+        {facets.courses.length > 0 && (
           <SearchableMultiSelect
             label="Course"
-            options={availableCourses}
+            options={facets.courses}
             selected={selectedCourses}
-            onChange={(next) => filters.apply({ course: [...next] })}
+            onChange={(next) => url.apply({ course: [...next] })}
             placeholder="Filter by course — search or pick"
             emptyText="No course matches that search."
           />
         )}
 
-        {availableSectors.length > 0 && (
+        {facets.sectors.length > 0 && (
           <ChipGroup
             label="Interests"
-            options={availableSectors.map((s) => ({ value: s, label: s }))}
+            options={facets.sectors.map((s) => ({ value: s, label: s }))}
             selected={selectedSectors}
-            onToggle={(v) => filters.toggle("sector", v)}
+            onToggle={(v) => url.toggle("sector", v)}
           />
         )}
 
-        {availableSkills.length > 0 && (
+        {facets.skills.length > 0 && (
           <ChipGroup
             label="Skills"
-            options={availableSkills.map((s) => ({ value: s, label: s }))}
+            options={facets.skills.map((s) => ({ value: s, label: s }))}
             selected={selectedSkills}
-            onToggle={(v) => filters.toggle("skill", v)}
+            onToggle={(v) => url.toggle("skill", v)}
           />
         )}
 
@@ -176,60 +156,73 @@ export default function CommunityAdminClient({ members }: { members: Member[] })
             hint={` — range ${gradYearBounds.min}–${gradYearBounds.max}`}
             type="number"
             bounds={gradYearBounds}
-            from={gradYearMin}
-            to={gradYearMax}
+            commitOn="blur"
+            from={filters.gradMin}
+            to={filters.gradMax}
             fromLabel="Graduation year from"
             toLabel="Graduation year to"
             fromPlaceholder={`From ${gradYearBounds.min}`}
             toPlaceholder={`To ${gradYearBounds.max}`}
-            onFromChange={(v) => filters.apply({ gradMin: v })}
-            onToChange={(v) => filters.apply({ gradMax: v })}
+            onFromChange={(v) => url.apply({ gradMin: v })}
+            onToChange={(v) => url.apply({ gradMax: v })}
           />
         )}
       </FilterPanel>
 
-      {filtered.length === 0 ? (
-        <div className="text-center py-16 text-text-muted text-[0.85rem]">
-          {members.length === 0 ? "No members yet." : "No members match your search or filters."}
-        </div>
-      ) : (
-        <div className="rounded-2xl bg-bg-card border border-border-subtle overflow-hidden">
-          <table className="w-full text-[0.825rem]">
-            <thead>
-              <tr className="border-b border-border-subtle text-[0.7rem] text-text-muted uppercase tracking-wider">
-                <th className="text-left px-4 py-3 font-normal">Name</th>
-                <th className="text-left px-4 py-3 font-normal">Email</th>
-                <th className="text-left px-4 py-3 font-normal">Role</th>
-                <th className="text-left px-4 py-3 font-normal">Status</th>
-                <th className="text-left px-4 py-3 font-normal">Course</th>
-                <th className="text-left px-4 py-3 font-normal">Year</th>
-                <th className="px-4 py-3" />
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((m) => (
-                <tr key={m.id} className="border-b border-border-subtle last:border-0 hover:bg-white/[0.02]">
-                  <td className="px-4 py-3 text-text-primary">{m.firstName} {m.surname}</td>
-                  <td className="px-4 py-3 text-text-secondary">{m.email ?? "—"}</td>
-                  <td className="px-4 py-3 text-text-muted">{m.role}</td>
-                  <td className="px-4 py-3 text-text-muted">{STATUS_LABEL[m.status]}</td>
-                  <td className="px-4 py-3 text-text-muted truncate max-w-[200px]">{m.course ?? "—"}</td>
-                  <td className="px-4 py-3 text-text-muted">{m.gradYear ?? "—"}</td>
-                  <td className="px-4 py-3 text-right">
-                    <button
-                      type="button"
-                      onClick={() => setSelected(m)}
-                      className="px-3 py-1.5 rounded-lg bg-transparent border border-[#ff4d4d]/30 text-[#ff6b6b] text-[0.75rem] cursor-pointer transition-colors hover:bg-[#ff4d4d]/10"
-                    >
-                      Delete
-                    </button>
-                  </td>
+      {/* A pending navigation dims the table rather than replacing it with a
+          skeleton: these rows are still valid, just about to change. */}
+      <div className={url.pending ? "opacity-60 transition-opacity duration-150" : undefined}>
+        {members.length === 0 ? (
+          <div className="text-center py-16 text-text-muted text-[0.85rem]">
+            {facets.total === 0 ? "No members yet." : "No members match your search or filters."}
+          </div>
+        ) : (
+          <div className="rounded-2xl bg-bg-card border border-border-subtle overflow-hidden">
+            <table className="w-full text-[0.825rem]">
+              <thead>
+                <tr className="border-b border-border-subtle text-[0.7rem] text-text-muted uppercase tracking-wider">
+                  <th className="text-left px-4 py-3 font-normal">Name</th>
+                  <th className="text-left px-4 py-3 font-normal">Email</th>
+                  <th className="text-left px-4 py-3 font-normal">Role</th>
+                  <th className="text-left px-4 py-3 font-normal">Status</th>
+                  <th className="text-left px-4 py-3 font-normal">Course</th>
+                  <th className="text-left px-4 py-3 font-normal">Year</th>
+                  <th className="px-4 py-3" />
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+              </thead>
+              <tbody>
+                {members.map((m) => (
+                  <tr key={m.id} className="border-b border-border-subtle last:border-0 hover:bg-white/[0.02]">
+                    <td className="px-4 py-3 text-text-primary">{m.firstName} {m.surname}</td>
+                    <td className="px-4 py-3 text-text-secondary">{m.email ?? "—"}</td>
+                    <td className="px-4 py-3 text-text-muted">{m.role}</td>
+                    <td className="px-4 py-3 text-text-muted">{STATUS_LABEL[m.status]}</td>
+                    <td className="px-4 py-3 text-text-muted truncate max-w-[200px]">{m.course ?? "—"}</td>
+                    <td className="px-4 py-3 text-text-muted">{m.gradYear ?? "—"}</td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        type="button"
+                        onClick={() => setSelected(m)}
+                        className="px-3 py-1.5 rounded-lg bg-transparent border border-[#ff4d4d]/30 text-[#ff6b6b] text-[0.75rem] cursor-pointer transition-colors hover:bg-[#ff4d4d]/10"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <Pager
+        url={url}
+        page={filters.page}
+        total={matching}
+        pageSize={pageSize}
+        label="Member pages"
+      />
 
       {selected && (
         <DeleteUserModal member={selected} onClose={() => setSelected(null)} />

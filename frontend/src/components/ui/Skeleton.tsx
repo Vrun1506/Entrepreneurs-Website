@@ -95,3 +95,20 @@ export function FilterBarSkeleton() {
     </SkeletonRegion>
   );
 }
+
+/** Table placeholder, for the admin list views. */
+export function TableSkeleton({ rows = 8, className = "" }: { rows?: number; className?: string }) {
+  return (
+    <SkeletonRegion className={`rounded-2xl bg-bg-card border border-border-subtle overflow-hidden ${className}`}>
+      {Array.from({ length: rows }, (_, i) => (
+        <div key={i} className="flex items-center gap-4 px-4 py-3 border-b border-border-subtle last:border-0">
+          <Skeleton className="h-3 w-40" />
+          <Skeleton className="h-3 w-56" />
+          <Skeleton className="h-3 w-16" />
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className="h-7 w-16 rounded-lg ml-auto" />
+        </div>
+      ))}
+    </SkeletonRegion>
+  );
+}

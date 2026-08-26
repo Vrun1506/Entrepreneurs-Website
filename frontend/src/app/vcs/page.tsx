@@ -7,6 +7,7 @@ import { cached } from "@/lib/cache";
 import { Skeleton, FilterBarSkeleton, RowListSkeleton } from "@/components/ui/Skeleton";
 import type { Database } from "@/lib/database.overrides";
 import VcsClient from "./VcsClient";
+import { reportIfCapped } from "@/lib/supabase/rowCap";
 
 export default async function VcsPage({
   searchParams,
@@ -84,7 +85,7 @@ async function loadVcs(
           .eq("status", "approved")
           .order("created_at", { ascending: false });
         if (res.error) console.error("Failed to load vcs_grants:", res.error);
-        return ((res.data ?? []) as unknown as RawRow[]).map(toVc);
+        return reportIfCapped("vcs_grants (approved)", (res.data ?? []) as unknown as RawRow[]).map(toVc);
       },
       // Don't cache an empty result: the loader falls back to [] on a
       // Supabase error, and pinning that would blank the page for the TTL.

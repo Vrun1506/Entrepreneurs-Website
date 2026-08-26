@@ -715,6 +715,55 @@ export type Database = {
           user_id: string
         }[]
       }
+      admin_list_pending_profiles: {
+        Args: { p_limit?: number; p_offset?: number }
+        Returns: {
+          bio: string
+          course: string
+          created_at: string
+          email: string
+          first_name: string
+          github_url: string
+          grad_year: number
+          id: string
+          linkedin_url: string
+          portfolio_url: string
+          role: Database["public"]["Enums"]["user_role"]
+          sector_names: string[]
+          skill_names: string[]
+          surname: string
+          total_count: number
+          working_on: string
+        }[]
+      }
+      admin_list_profiles: {
+        Args: {
+          p_courses?: string[]
+          p_grad_max?: number
+          p_grad_min?: number
+          p_limit?: number
+          p_offset?: number
+          p_query?: string
+          p_roles?: string[]
+          p_sectors?: string[]
+          p_skills?: string[]
+          p_statuses?: string[]
+        }
+        Returns: {
+          course: string
+          created_at: string
+          email: string
+          first_name: string
+          grad_year: number
+          id: string
+          role: Database["public"]["Enums"]["user_role"]
+          sector_names: string[]
+          skill_names: string[]
+          status: Database["public"]["Enums"]["user_status"]
+          surname: string
+          total_count: number
+        }[]
+      }
       admin_outbound_email_stats: {
         Args: never
         Returns: {
@@ -722,6 +771,17 @@ export type Database = {
           oldest_pending_age_seconds: number
           pending: number
           sent_today: number
+        }[]
+      }
+      admin_profile_facets: {
+        Args: never
+        Returns: {
+          courses: string[]
+          grad_max: number
+          grad_min: number
+          sectors: string[]
+          skills: string[]
+          total: number
         }[]
       }
       approve_event: {
