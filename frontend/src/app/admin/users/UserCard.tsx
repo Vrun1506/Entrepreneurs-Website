@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { approveUser, rejectUser } from "./actions";
 import SocialLinks from "@/components/SocialLinks";
 import { formatDate } from "@/lib/dates";
+import { Button } from "@/components/ui/Button";
 
 type Member = {
   id: string;
@@ -116,42 +117,46 @@ export default function UserCard({ member }: { member: Member }) {
             className="w-full px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.8rem] text-text-primary placeholder:text-text-muted focus:border-gold/50 resize-none"
           />
           <div className="flex gap-2">
-            <button
+            <Button
               type="button"
               onClick={handleReject}
               disabled={pending || !reason.trim()}
-              className="px-4 py-2 rounded-lg bg-[#ff4d4d]/15 border border-[#ff4d4d]/30 text-[#ff6b6b] text-[0.8rem] font-medium cursor-pointer transition-colors hover:bg-[#ff4d4d]/25 disabled:opacity-50 disabled:cursor-not-allowed"
+              variant="danger"
+              size="sm"
             >
               {pending ? "Rejecting…" : "Confirm rejection + send email"}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
               onClick={() => { setShowReject(false); setReason(""); setError(""); }}
               disabled={pending}
-              className="px-4 py-2 rounded-lg bg-transparent border border-border text-text-muted text-[0.8rem] cursor-pointer transition-colors hover:text-text-primary disabled:opacity-50"
+              variant="ghost"
+              size="sm"
             >
               Cancel
-            </button>
+            </Button>
           </div>
         </div>
       ) : (
         <div className="flex gap-2 pt-3 border-t border-border-subtle">
-          <button
+          <Button
             type="button"
             onClick={handleApprove}
             disabled={pending}
-            className="px-4 py-2 rounded-lg bg-gold text-bg-primary text-[0.8rem] font-medium cursor-pointer transition-colors hover:bg-gold-light disabled:opacity-50 disabled:cursor-not-allowed"
+            variant="primary"
+            size="sm"
           >
             {pending ? "Approving…" : "Approve"}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
             onClick={() => setShowReject(true)}
             disabled={pending}
-            className="px-4 py-2 rounded-lg bg-transparent border border-border text-text-secondary text-[0.8rem] cursor-pointer transition-colors hover:text-[#ff6b6b] hover:border-[#ff4d4d]/30 disabled:opacity-50"
+            variant="dangerGhost"
+            size="sm"
           >
             Reject
-          </button>
+          </Button>
         </div>
       )}
     </article>

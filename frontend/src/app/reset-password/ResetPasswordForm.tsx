@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { clearRecoveryMarker } from "./actions";
+import { Button } from "@/components/ui/Button";
 
 export default function ResetPasswordForm() {
   const router = useRouter();
@@ -55,13 +56,15 @@ export default function ResetPasswordForm() {
         <p className="text-[0.8rem] text-text-secondary leading-relaxed">
           You can now sign in with your new password.
         </p>
-        <button
+        <Button
           type="button"
           onClick={() => { router.replace("/login"); router.refresh(); }}
-          className="w-full mt-1 flex items-center justify-center px-6 py-3.5 rounded-xl bg-gold text-bg-primary text-[0.9rem] font-medium tracking-wide border-0 cursor-pointer transition-all duration-200 hover:bg-gold-light hover:-translate-y-px"
+          variant="primary"
+          size="lg"
+          className="w-full mt-1"
         >
           Continue to sign in
-        </button>
+        </Button>
       </div>
     );
   }
@@ -100,17 +103,15 @@ export default function ResetPasswordForm() {
         />
       </div>
 
-      <button
+      <Button
         type="submit"
-        disabled={isLoading}
-        className="w-full mt-1 flex items-center justify-center px-6 py-3.5 rounded-xl bg-gold text-bg-primary text-[0.9rem] font-medium tracking-wide border-0 cursor-pointer transition-all duration-200 hover:bg-gold-light hover:-translate-y-px disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+        loading={isLoading}
+        variant="primary"
+        size="lg"
+        className="w-full mt-1"
       >
-        {isLoading ? (
-          <div className="w-[18px] h-[18px] border-2 border-[#0c0c0b]/30 border-t-[#0c0c0b] rounded-full animate-spin" />
-        ) : (
-          "Update password"
-        )}
-      </button>
+        Update password
+      </Button>
     </form>
   );
 }

@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { submitContactTicket } from "./actions";
 import { TurnstileWidget, turnstileConfigured } from "@/components/forms/TurnstileWidget";
+import { Button } from "@/components/ui/Button";
 
 export default function ContactForm({
   defaultName = "",
@@ -124,17 +125,14 @@ export default function ContactForm({
 
       {turnstileConfigured && <TurnstileWidget onToken={setTurnstileToken} />}
 
-      <button
+      <Button
         type="submit"
-        disabled={pending}
-        className="flex items-center justify-center px-6 py-3 rounded-xl bg-gold text-bg-primary text-[0.85rem] font-medium tracking-wide border-0 cursor-pointer transition-all duration-200 hover:bg-gold-light hover:-translate-y-px disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+        loading={pending}
+        variant="primary"
+        size="md"
       >
-        {pending ? (
-          <div className="w-[18px] h-[18px] border-2 border-[#0c0c0b]/30 border-t-[#0c0c0b] rounded-full animate-spin" />
-        ) : (
-          "Send message"
-        )}
-      </button>
+        Send message
+      </Button>
     </form>
   );
 }

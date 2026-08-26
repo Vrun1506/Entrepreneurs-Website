@@ -8,6 +8,7 @@ import { ErrorBanner } from "@/components/forms/Banners";
 import { inputCls } from "@/components/forms/styles";
 import { TurnstileWidget, turnstileConfigured } from "@/components/forms/TurnstileWidget";
 import { submitOpportunity, updateOwnOpportunity } from "@/app/opportunities/actions";
+import { Button } from "@/components/ui/Button";
 
 type Lookup = ChipItem;
 type Mode = "user" | "admin";
@@ -269,21 +270,21 @@ export default function OpportunityForm({ signupEmail, skills, sectors, mode, ed
 
       {showTurnstile && <TurnstileWidget onToken={setTurnstileToken} />}
 
-      <button
+      <Button
         type="submit"
-        disabled={isLoading}
-        className="w-full mt-3 flex items-center justify-center px-6 py-3.5 rounded-xl bg-gold text-bg-primary text-[0.9rem] font-medium tracking-wide border-0 cursor-pointer transition-all duration-200 hover:bg-gold-light hover:-translate-y-px disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+        loading={isLoading}
+        variant="primary"
+        size="lg"
+        className="w-full mt-3"
       >
-        {isLoading ? (
-          <div className="w-[18px] h-[18px] border-2 border-[#0c0c0b]/30 border-t-[#0c0c0b] rounded-full animate-spin" />
-        ) : editingId ? (
+        {editingId ? (
           "Save changes"
         ) : mode === "admin" ? (
           "Publish opportunity"
         ) : (
           "Submit for review"
         )}
-      </button>
+      </Button>
     </form>
   );
 }

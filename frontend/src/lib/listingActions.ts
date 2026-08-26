@@ -1,4 +1,5 @@
-import { createClient } from "@/lib/supabase/client";
+import { browserClient } from "@/lib/supabase/browser";
+import { err, ok, type Result } from "@/lib/result";
 
 // ════════════════════════════════════════════════════════════════════
 // Foundry · "Mark as applied / going" client helpers
@@ -16,16 +17,6 @@ import { createClient } from "@/lib/supabase/client";
 export type ListingKind = "opportunity" | "event" | "vc_grant";
 export type ListingActionType = "applied" | "going";
 
-type Ok  = { ok: true };
-type Err = { ok: false; error: string };
-export type Result = Ok | Err;
-
-let cachedClient: ReturnType<typeof createClient> | null = null;
-function client() {
-  if (!cachedClient) cachedClient = createClient();
-  return cachedClient;
-}
-
 export function actionFor(kind: ListingKind): ListingActionType {
   return kind === "event" ? "going" : "applied";
 }
@@ -36,21 +27,21 @@ export function actionLabel(kind: ListingKind, marked: boolean): string {
 }
 
 export async function markAction(kind: ListingKind, id: string): Promise<Result> {
-  const { error } = await client().rpc("mark_listing_action", {
+  const { error } = await browserClient().rpc("mark_listing_action", {
     p_kind:   kind,
     p_id:     id,
     p_action: actionFor(kind),
   });
-  if (error) return { ok: false, error: error.message };
-  return { ok: true };
+  if (error) return err(error.message);
+  return ok();
 }
 
 export async function unmarkAction(kind: ListingKind, id: string): Promise<Result> {
-  const { error } = await client().rpc("unmark_listing_action", {
+  const { error } = await browserClient().rpc("unmark_listing_action", {
     p_kind:   kind,
     p_id:     id,
     p_action: actionFor(kind),
   });
-  if (error) return { ok: false, error: error.message };
-  return { ok: true };
+  if (error) return err(error.message);
+  return ok();
 }

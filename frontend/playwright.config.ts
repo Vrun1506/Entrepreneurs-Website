@@ -42,7 +42,7 @@ export default defineConfig({
     // Approved student session (from global-setup).
     {
       name: "member",
-      testMatch: /member\.spec\.ts|workflow\.spec\.ts/,
+      testMatch: /member\.spec\.ts|workflow\.spec\.ts|dialog\.spec\.ts/,
       use: { ...devices["Desktop Chrome"], storageState: storageStatePath("student") },
     },
     // Admin session.
