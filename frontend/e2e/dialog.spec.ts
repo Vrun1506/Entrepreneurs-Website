@@ -63,3 +63,26 @@ test("clicking the backdrop closes the dialog", async ({ page }) => {
   await page.mouse.click(5, 5);
   await expect(page.locator("dialog")).toHaveCount(0);
 });
+
+test("the dialog loads the full profile the list deliberately doesn't carry", async ({ page }) => {
+  // The directory ships a truncated bio and no profile links (see migration
+  // 20260826000002); the dialog fetches the rest when it opens. This asserts
+  // the second half of that bargain actually happens.
+  const long = `Bio ${Date.now()} ` + "z".repeat(400);
+  await page.goto("/profile");
+  await page.getByLabel(/^Short bio/).fill(long);
+  await page.getByRole("button", { name: "Save changes" }).click();
+  // The save is a client-side RPC followed by a router.refresh(), so wait for
+  // the value to have actually round-tripped rather than for a banner.
+  await expect(page.getByLabel(/^Short bio/)).toHaveValue(long, { timeout: 15_000 });
+
+  await page.goto("/community");
+  const card = page.locator('[role="button"][tabindex="0"]').filter({ hasText: "Bio " }).first();
+  await card.click();
+
+  const dialog = page.locator("dialog");
+  await expect(dialog).toBeVisible();
+  // The card only carries the first 160 characters; the dialog must end up
+  // with all 400+.
+  await expect(dialog.getByText(long, { exact: false })).toBeVisible({ timeout: 10_000 });
+});

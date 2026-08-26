@@ -1,10 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import SocialLinks from "@/components/SocialLinks";
 import SearchableMultiSelect from "@/components/forms/SearchableMultiSelect";
 import { Dialog, closeDialog } from "@/components/ui/Dialog";
+import { browserClient } from "@/lib/supabase/browser";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 type Member = {
   id: string;
@@ -13,11 +15,11 @@ type Member = {
   role: "alum" | "student";
   course: string | null;
   gradYear: number | null;
-  bio: string | null;
-  workingOn: string | null;
-  linkedinUrl: string | null;
-  githubUrl: string | null;
-  portfolioUrl: string | null;
+  // Truncated by list_directory_cards to what the card renders. The full
+  // text and the profile links are fetched when the dialog opens — they are
+  // most of the payload and almost none of the page.
+  bioPreview: string | null;
+  workingOnPreview: string | null;
   skills: string[];
   sectors: string[];
   lookingFor: { id: string; role: string }[];
@@ -79,9 +81,13 @@ export default function CommunityClient({
       if (minY != null && (m.gradYear == null || m.gradYear < minY)) return false;
       if (maxY != null && (m.gradYear == null || m.gradYear > maxY)) return false;
       if (q) {
+        // Matches what the search box advertises: "name, course, skill,
+        // sector, or what they're working on". Bio was silently in here too,
+        // which is why the full text used to have to be shipped to every
+        // member on every navigation.
         const hay = [
           m.firstName, m.surname, `${m.firstName} ${m.surname}`,
-          m.course ?? "", m.bio ?? "", m.workingOn ?? "",
+          m.course ?? "", m.workingOnPreview ?? "",
           ...m.skills, ...m.sectors,
         ].join(" ").toLowerCase();
         if (!hay.includes(q)) return false;
@@ -357,15 +363,15 @@ function MemberCard({ member: m, onClick }: { member: Member; onClick: () => voi
         </div>
       </header>
 
-      {m.bio && (
+      {m.bioPreview && (
         <p className="text-[0.8rem] text-text-secondary leading-relaxed mt-3 line-clamp-2">
-          {m.bio}
+          {m.bioPreview}
         </p>
       )}
 
-      {m.workingOn && (
+      {m.workingOnPreview && (
         <div className="text-[0.75rem] text-text-muted mt-2 leading-relaxed line-clamp-1">
-          <span className="text-gold/80">Working on:</span> {m.workingOn}
+          <span className="text-gold/80">Working on:</span> {m.workingOnPreview}
         </div>
       )}
 
@@ -388,7 +394,41 @@ function MemberCard({ member: m, onClick }: { member: Member; onClick: () => voi
   );
 }
 
+// The fields the list deliberately doesn't carry.
+type FullProfile = {
+  bio: string | null;
+  working_on: string | null;
+  linkedin_url: string | null;
+  github_url: string | null;
+  portfolio_url: string | null;
+};
+
 function MemberDialog({ member: m, onClose }: { member: Member; onClose: () => void }) {
+  // Fetched on open rather than shipped with the list. A plain select, not
+  // an RPC: the profiles RLS policies already restrict reads to approved
+  // members, so there is nothing extra to enforce here.
+  const [full, setFull] = useState<FullProfile | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    browserClient()
+      .from("profiles")
+      .select("bio, working_on, linkedin_url, github_url, portfolio_url")
+      .eq("id", m.id)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error || !data) {
+          console.error("Failed to load profile details:", error);
+          setLoadFailed(true);
+          return;
+        }
+        setFull(data as FullProfile);
+      });
+    return () => { cancelled = true; };
+  }, [m.id]);
+
   return (
     <Dialog
       onClose={onClose}
@@ -418,17 +458,25 @@ function MemberDialog({ member: m, onClose }: { member: Member; onClose: () => v
       </header>
 
       <div className="px-7 py-5 space-y-5">
-        {m.bio && (
+        {/* While the full text loads, show the preview the card already has
+            rather than an empty box — the dialog opens with content, and the
+            untruncated version replaces it in place. */}
+        {(full?.bio ?? m.bioPreview) && (
           <section>
             <div className="text-[0.7rem] text-text-muted uppercase tracking-wider mb-1.5">Bio</div>
-            <p className="text-[0.85rem] text-text-secondary leading-relaxed whitespace-pre-wrap">{m.bio}</p>
+            <p className="text-[0.85rem] text-text-secondary leading-relaxed whitespace-pre-wrap">
+              {full?.bio ?? m.bioPreview}
+            </p>
+            {!full && !loadFailed && <Skeleton className="h-3 w-2/3 mt-2" />}
           </section>
         )}
 
-        {m.workingOn && (
+        {(full?.working_on ?? m.workingOnPreview) && (
           <section>
             <div className="text-[0.7rem] text-text-muted uppercase tracking-wider mb-1.5">Working on</div>
-            <p className="text-[0.85rem] text-text-secondary leading-relaxed whitespace-pre-wrap">{m.workingOn}</p>
+            <p className="text-[0.85rem] text-text-secondary leading-relaxed whitespace-pre-wrap">
+              {full?.working_on ?? m.workingOnPreview}
+            </p>
           </section>
         )}
 
@@ -475,15 +523,21 @@ function MemberDialog({ member: m, onClose }: { member: Member; onClose: () => v
           </section>
         )}
 
-        {(m.linkedinUrl || m.githubUrl || m.portfolioUrl) && (
+        {full && (full.linkedin_url || full.github_url || full.portfolio_url) && (
           <section className="pt-3 border-t border-border-subtle">
             <div className="text-[0.7rem] text-text-muted uppercase tracking-wider mb-2">Links</div>
-            <SocialLinks linkedinUrl={m.linkedinUrl} githubUrl={m.githubUrl} portfolioUrl={m.portfolioUrl} />
+            <SocialLinks
+              linkedinUrl={full.linkedin_url}
+              githubUrl={full.github_url}
+              portfolioUrl={full.portfolio_url}
+            />
           </section>
         )}
 
-        {!m.bio && !m.workingOn && m.sectors.length === 0 && m.skills.length === 0
-          && m.lookingFor.length === 0 && !m.linkedinUrl && !m.githubUrl && !m.portfolioUrl && (
+        {/* Only claim the profile is empty once we know: the links and the
+            full text arrive after the dialog opens. */}
+        {full && !full.bio && !full.working_on && m.sectors.length === 0 && m.skills.length === 0
+          && m.lookingFor.length === 0 && !full.linkedin_url && !full.github_url && !full.portfolio_url && (
           <p className="text-[0.85rem] text-text-muted italic">
             No additional details on this profile yet.
           </p>

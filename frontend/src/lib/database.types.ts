@@ -890,6 +890,22 @@ export type Database = {
           start_year: number
         }[]
       }
+      list_directory_cards: {
+        Args: never
+        Returns: {
+          bio: string
+          course: string
+          created_at: string
+          first_name: string
+          grad_year: number
+          id: string
+          role: Database["public"]["Enums"]["user_role"]
+          sector_names: string[]
+          skill_names: string[]
+          surname: string
+          working_on: string
+        }[]
+      }
       list_my_bookmarked_opportunities: {
         Args: never
         Returns: {
