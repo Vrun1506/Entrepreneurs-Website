@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
+import type { Database } from "@/lib/database.overrides";
 import type { UserStatus } from "@/lib/database.overrides";
 
 // Auth context for server *actions* (not pages). Pages use guard.ts's
@@ -11,7 +12,7 @@ import type { UserStatus } from "@/lib/database.overrides";
 // needs (signed-in vs approved vs admin) and return a clean error.
 
 export type ActionAuth = {
-  supabase: SupabaseClient;
+  supabase: SupabaseClient<Database>;
   user: User | null;
   isAdmin: boolean;
   status: UserStatus | null;
@@ -40,7 +41,7 @@ export async function getActionAuth(): Promise<ActionAuth> {
 // depth + a clean error message instead of a raw RPC exception leaking
 // to a non-admin caller.
 export async function requireAdmin(): Promise<
-  { ok: true; supabase: SupabaseClient } | { ok: false; error: string }
+  { ok: true; supabase: SupabaseClient<Database> } | { ok: false; error: string }
 > {
   const { user, isAdmin, supabase } = await getActionAuth();
   if (!user) return { ok: false, error: "You must be signed in." };

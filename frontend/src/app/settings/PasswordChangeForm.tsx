@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { Button } from "@/components/ui/Button";
 
 export default function PasswordChangeForm({ hasPassword, email }: { hasPassword: boolean; email: string }) {
   const supabase = createClient();
@@ -133,17 +134,14 @@ export default function PasswordChangeForm({ hasPassword, email }: { hasPassword
         />
       </div>
 
-      <button
+      <Button
         type="submit"
-        disabled={isLoading}
-        className="flex items-center justify-center px-6 py-3 rounded-xl bg-gold text-bg-primary text-[0.85rem] font-medium tracking-wide border-0 cursor-pointer transition-all duration-200 hover:bg-gold-light hover:-translate-y-px disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+        loading={isLoading}
+        variant="primary"
+        size="md"
       >
-        {isLoading ? (
-          <div className="w-[18px] h-[18px] border-2 border-[#0c0c0b]/30 border-t-[#0c0c0b] rounded-full animate-spin" />
-        ) : (
-          "Update password"
-        )}
-      </button>
+        Update password
+      </Button>
     </form>
   );
 }

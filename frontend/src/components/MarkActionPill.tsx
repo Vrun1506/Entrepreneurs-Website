@@ -62,7 +62,7 @@ export function MarkActionPill({ kind, id, initial, onChange }: Props) {
         {label}
       </button>
       {error && (
-        <span className="text-[0.7rem] text-[#ff8b8b]">{error}</span>
+        <span role="alert" className="text-[0.7rem] text-[#ff8b8b]">{error}</span>
       )}
     </div>
   );

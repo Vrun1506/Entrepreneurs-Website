@@ -82,6 +82,13 @@ button, a, [role="button"], summary {
   border-radius: 2px;
 }
 
+/* The skip link focuses <main> so the next Tab continues from there rather
+   than jumping back to the top of the document. That focus shouldn't paint a
+   ring around the entire page — the ring belongs on the control you tabbed to. */
+main:focus-visible {
+  outline: none;
+}
+
 /* ─────────────────────────────────────────────
    SCROLLBAR
    ───────────────────────────────────────────── */
@@ -94,6 +101,13 @@ button, a, [role="button"], summary {
    ───────────────────────────────────────────── */
 .font-display {
   font-family: theme(--font-display);
+}
+
+/* Headings are short enough that the browser can even out the line lengths
+   instead of leaving one orphaned word on the last line. Only applies under
+   a handful of lines, so body copy is unaffected. */
+h1, h2, h3 {
+  text-wrap: balance;
 }
 
 /* ─────────────────────────────────────────────

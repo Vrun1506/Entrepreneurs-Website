@@ -99,7 +99,7 @@ export default async function CalendarPage() {
   return (
     <div className="min-h-screen bg-bg-primary flex flex-col">
       <AppNav active="calendar" isApproved={true} isAdmin={isAdmin} />
-      <main className="flex-1 px-6 sm:px-8 py-12">
+      <main id="main-content" tabIndex={-1} className="flex-1 px-6 sm:px-8 py-12">
         <div className="max-w-[1080px] mx-auto">
           <div className="mb-8">
             <div className="text-[0.7rem] text-gold tracking-[0.18em] uppercase mb-2">Your calendar</div>

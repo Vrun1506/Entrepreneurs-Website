@@ -1,7 +1,9 @@
 import Link from "next/link";
 import AppNav from "@/components/AppNav";
 import { requireApprovedUser } from "@/lib/auth/guard";
+import { markedListingIds } from "@/lib/listings/actionRow";
 import OpportunitiesClient from "../opportunities/OpportunitiesClient";
+import { reportIfCapped } from "@/lib/supabase/rowCap";
 
 export default async function MyBookmarksPage() {
   const { supabase, isAdmin } = await requireApprovedUser();
@@ -16,16 +18,14 @@ export default async function MyBookmarksPage() {
   if (bookmarkRes.error) console.error("Failed to load bookmarked opportunities:", bookmarkRes.error);
   if (actionsRes.error) console.error("Failed to load listing actions:", actionsRes.error);
 
-  const items = ((bookmarkRes.data ?? []) as RpcRow[]).map(toOpportunity);
+  const items = reportIfCapped("list_my_bookmarked_opportunities", (bookmarkRes.data ?? []) as RpcRow[]).map(toOpportunity);
   const bookmarkedIds = items.map((i) => i.id);
-  const appliedIds = ((actionsRes.data ?? []) as ActionRow[])
-    .filter((a) => a.listing_kind === "opportunity" && a.action_type === "applied")
-    .map((a) => a.listing_id);
+  const appliedIds = markedListingIds(actionsRes.data, "opportunity", "applied");
 
   return (
     <div className="min-h-screen bg-bg-primary flex flex-col">
       <AppNav active="opportunities" isApproved={true} isAdmin={isAdmin} />
-      <main className="flex-1 px-4 sm:px-8 py-10 sm:py-12">
+      <main id="main-content" tabIndex={-1} className="flex-1 px-4 sm:px-8 py-10 sm:py-12">
         <div className="max-w-[1200px] mx-auto">
           <div className="mb-8 flex items-start justify-between gap-4 flex-wrap">
             <div>
@@ -67,13 +67,6 @@ export default async function MyBookmarksPage() {
     </div>
   );
 }
-
-type ActionRow = {
-  listing_kind: "opportunity" | "event" | "vc_grant";
-  listing_id:   string;
-  action_type:  "applied" | "going";
-  created_at:   string;
-};
 
 type RpcRow = {
   id: string;

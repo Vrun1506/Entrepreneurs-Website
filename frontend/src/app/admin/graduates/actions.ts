@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { invalidate } from "@/lib/cache";
 import { requireAdmin } from "@/lib/auth/actionAuth";
 import { enqueueEmailsBulk, renderGraduationEmail } from "@/lib/email";
 import { emailBaseUrl } from "@/lib/siteUrl";
@@ -88,6 +89,8 @@ export async function deleteGraduates(cutoffYear: number): Promise<DeleteResult>
       // event. Surface the error to the admin so they can investigate,
       // but report the deletion count accurately.
       const msg = e instanceof Error ? e.message : String(e);
+      // Membership changed, so the cached directory is stale.
+      await invalidate("directoryFacets");
       revalidatePath("/admin");
       revalidatePath("/admin/community");
       revalidatePath("/community");
@@ -97,7 +100,8 @@ export async function deleteGraduates(cutoffYear: number): Promise<DeleteResult>
       };
     }
   }
-
+  // Membership changed, so the cached directory is stale.
+  await invalidate("directoryFacets");
   revalidatePath("/admin");
   revalidatePath("/admin/community");
   revalidatePath("/community");

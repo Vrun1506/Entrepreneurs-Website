@@ -18,7 +18,7 @@ export default async function ResetPasswordPage() {
   if (!user || !hasMarker) redirect("/login");
 
   return (
-    <div className="min-h-screen bg-bg-primary flex items-center justify-center px-4 py-10">
+    <main id="main-content" tabIndex={-1} className="min-h-screen bg-bg-primary flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-[400px]">
         <div className="rounded-2xl bg-bg-card border border-border-subtle p-8">
           <div className="mb-6">
@@ -31,6 +31,6 @@ export default async function ResetPasswordPage() {
           <ResetPasswordForm />
         </div>
       </div>
-    </div>
+    </main>
   );
 }

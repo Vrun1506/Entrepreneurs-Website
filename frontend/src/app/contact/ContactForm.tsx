@@ -1,8 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { submitContactTicket } from "./actions";
 import { TurnstileWidget, turnstileConfigured } from "@/components/forms/TurnstileWidget";
+import { ErrorBanner, SuccessBanner } from "@/components/forms/Banners";
+import { FieldError } from "@/components/forms/Field";
+import { contactSchema } from "@/lib/validation/contact";
+import { collectFieldErrors, showFieldErrors, FORM_ERROR, type FieldErrors } from "@/lib/validation/fields";
+import { Button } from "@/components/ui/Button";
 
 export default function ContactForm({
   defaultName = "",
@@ -23,6 +28,8 @@ export default function ContactForm({
   const [error, setError] = useState("");
   const [sent, setSent] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const formRef = useRef<HTMLFormElement>(null);
 
   const inputCls =
     "w-full px-4 py-3 bg-white/[0.03] border border-border rounded-lg text-[0.85rem] text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]";
@@ -30,11 +37,26 @@ export default function ContactForm({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setFieldErrors({});
     setSent(false);
     if (turnstileConfigured && !turnstileToken) {
       setError("Please complete the verification challenge below.");
       return;
     }
+
+    // The action validates with this same schema; running it here first means
+    // a typo is caught beside the field instead of round-tripping and coming
+    // back as a single banner.
+    const parsed = collectFieldErrors(contactSchema, { name, email, subject, message });
+    if (!parsed.ok) {
+      // With lockEmail the name/email inputs aren't rendered, so an error on
+      // them would have nowhere to show. Send it to the banner instead.
+      const hidden = lockEmail ? parsed.errors.email ?? parsed.errors.name : undefined;
+      setError(parsed.errors[FORM_ERROR] ?? hidden ?? "");
+      showFieldErrors(parsed.errors, setFieldErrors, formRef.current);
+      return;
+    }
+
     startTransition(async () => {
       const res = await submitContactTicket({ name, email, subject, message, turnstileToken });
       if (!res.ok) {
@@ -48,21 +70,15 @@ export default function ContactForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5 rounded-2xl bg-bg-card border border-border-subtle p-8">
-      {error && (
-        <div className="px-4 py-3 rounded-lg bg-[#ff4d4d]/8 border border-[#ff4d4d]/20 text-[0.8rem] text-[#ff6b6b] leading-relaxed">
-          {error}
-        </div>
-      )}
+    <form ref={formRef} onSubmit={handleSubmit} className="space-y-5 rounded-2xl bg-bg-card border border-border-subtle p-8">
+      {error && <ErrorBanner>{error}</ErrorBanner>}
       {sent && !error && (
-        <div className="px-4 py-3 rounded-lg bg-gold-muted border border-gold/30 text-[0.8rem] text-gold-light leading-relaxed">
-          Thanks — we&apos;ve received your message and will be in touch.
-        </div>
+        <SuccessBanner>Thanks — we&apos;ve received your message and will be in touch.</SuccessBanner>
       )}
 
       {!lockEmail && (
         <>
-          <div>
+          <div data-invalid={fieldErrors.name ? "" : undefined}>
             <label htmlFor="name" className="block text-[0.75rem] text-text-muted mb-1.5">
               Name <span className="text-text-muted/70 ml-2">optional</span>
             </label>
@@ -75,9 +91,10 @@ export default function ContactForm({
               maxLength={120}
               autoComplete="name"
             />
+            <FieldError>{fieldErrors.name}</FieldError>
           </div>
 
-          <div>
+          <div data-invalid={fieldErrors.email ? "" : undefined}>
             <label htmlFor="email" className="block text-[0.75rem] text-text-muted mb-1.5">Email</label>
             <input
               id="email"
@@ -90,11 +107,12 @@ export default function ContactForm({
               placeholder="you@example.com"
               required
             />
+            <FieldError>{fieldErrors.email}</FieldError>
           </div>
         </>
       )}
 
-      <div>
+      <div data-invalid={fieldErrors.subject ? "" : undefined}>
         <label htmlFor="subject" className="block text-[0.75rem] text-text-muted mb-1.5">Subject</label>
         <input
           id="subject"
@@ -105,9 +123,10 @@ export default function ContactForm({
           maxLength={150}
           required
         />
+        <FieldError>{fieldErrors.subject}</FieldError>
       </div>
 
-      <div>
+      <div data-invalid={fieldErrors.message ? "" : undefined}>
         <label htmlFor="message" className="block text-[0.75rem] text-text-muted mb-1.5">
           Message <span className="text-text-muted/70 ml-2">{message.length}/4000</span>
         </label>
@@ -120,21 +139,19 @@ export default function ContactForm({
           maxLength={4000}
           required
         />
+        <FieldError>{fieldErrors.message}</FieldError>
       </div>
 
       {turnstileConfigured && <TurnstileWidget onToken={setTurnstileToken} />}
 
-      <button
+      <Button
         type="submit"
-        disabled={pending}
-        className="flex items-center justify-center px-6 py-3 rounded-xl bg-gold text-bg-primary text-[0.85rem] font-medium tracking-wide border-0 cursor-pointer transition-all duration-200 hover:bg-gold-light hover:-translate-y-px disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+        loading={pending}
+        variant="primary"
+        size="md"
       >
-        {pending ? (
-          <div className="w-[18px] h-[18px] border-2 border-[#0c0c0b]/30 border-t-[#0c0c0b] rounded-full animate-spin" />
-        ) : (
-          "Send message"
-        )}
-      </button>
+        Send message
+      </Button>
     </form>
   );
 }

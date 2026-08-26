@@ -123,6 +123,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en" className={`${dmSerifDisplay.variable} ${dmSans.variable}`} data-scroll-behavior="smooth">
       <body suppressHydrationWarning>
+        {/* First thing in the tab order on every page: lets a keyboard or
+            screen-reader user jump the nav instead of tabbing through it on
+            each navigation. Hidden until it takes focus. */}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-100 focus:px-4 focus:py-2 focus:rounded-lg focus:bg-gold focus:text-bg-primary focus:text-[0.85rem] focus:font-medium focus:no-underline"
+        >
+          Skip to content
+        </a>
         {/* React 19 hoists these into <head> — no hand-written <head> needed
             (and Next.js discourages one in a root layout). */}
         {PRECONNECT_ORIGINS.map((origin) => (

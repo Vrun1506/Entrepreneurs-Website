@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import OpportunitiesReview from "./OpportunitiesReview";
+import { reportIfCapped } from "@/lib/supabase/rowCap";
 
 export default async function AdminOpportunitiesPage() {
   const supabase = await createClient();
@@ -13,7 +14,7 @@ export default async function AdminOpportunitiesPage() {
 
   if (error) console.error("Failed to load pending opportunities:", error);
 
-  const rawRows = (rows ?? []) as RawRow[];
+  const rawRows = reportIfCapped("list_pending_opportunities_admin", (rows ?? []) as RawRow[]);
 
   // auth.users isn't exposed via PostgREST; fetch signup emails via the
   // admin_get_signup_emails RPC (SECURITY DEFINER, gated to is_admin()).
@@ -31,7 +32,7 @@ export default async function AdminOpportunitiesPage() {
   const pending = rawRows.map((r) => toReviewItem(r, signupEmailById.get(r.posted_by) ?? null));
 
   return (
-    <div className="min-h-screen bg-bg-primary text-text-primary px-8 py-12">
+    <main id="main-content" tabIndex={-1} className="min-h-screen bg-bg-primary text-text-primary px-8 py-12">
       <div className="max-w-[1200px] mx-auto">
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -61,7 +62,7 @@ export default async function AdminOpportunitiesPage() {
           <OpportunitiesReview items={pending} />
         )}
       </div>
-    </div>
+    </main>
   );
 }
 

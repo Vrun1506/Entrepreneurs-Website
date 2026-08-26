@@ -9,6 +9,8 @@ import { inputCls } from "@/components/forms/styles";
 import { cleanName, cleanText, isValidName } from "@/lib/text";
 import { gradYearOptions, validateGradYear } from "@/lib/gradYears";
 import { describeSupabaseError } from "@/lib/supabaseErrors";
+import { Button } from "@/components/ui/Button";
+import { invalidateDirectoryCache } from "@/app/profile/actions";
 
 type Lookup = ChipItem;
 
@@ -145,6 +147,9 @@ export default function ProfileForm(props: Props) {
 
     setSaved(true);
     setIsLoading(false);
+    // The RPC above ran client-side, so nothing on the server knows the
+    // directory changed. Tell it before refreshing.
+    await invalidateDirectoryCache();
     router.refresh();
   };
 
@@ -255,17 +260,15 @@ export default function ProfileForm(props: Props) {
       <ChipGroup label="Sectors" items={props.sectors} selected={sectorIds} onToggle={(id) => toggle(sectorIds, id, setSectorIds)} />
       <ChipGroup label="Skills"  items={props.skills}  selected={skillIds}  onToggle={(id) => toggle(skillIds, id, setSkillIds)} />
 
-      <button
+      <Button
         type="submit"
-        disabled={isLoading}
-        className="w-full mt-3 flex items-center justify-center px-6 py-3.5 rounded-xl bg-gold text-bg-primary text-[0.9rem] font-medium tracking-wide border-0 cursor-pointer transition-all duration-200 hover:bg-gold-light hover:-translate-y-px disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+        loading={isLoading}
+        variant="primary"
+        size="lg"
+        className="w-full mt-3"
       >
-        {isLoading ? (
-          <div className="w-[18px] h-[18px] border-2 border-[#0c0c0b]/30 border-t-[#0c0c0b] rounded-full animate-spin" />
-        ) : (
-          "Save changes"
-        )}
-      </button>
+        Save changes
+      </Button>
     </form>
   );
 }
