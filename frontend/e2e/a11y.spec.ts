@@ -39,6 +39,12 @@ for (const path of PAGES) {
 
 test("the skip link is first in the tab order and moves focus into <main>", async ({ page }) => {
   await page.goto("/community");
+  // goto resolves while the route's loading.tsx fallback is still on screen
+  // (see the note in community/loading.tsx). Tab then lands on the skeleton's
+  // skip link, and focus is lost when the real page streams in and replaces
+  // it. Wait for the fallback to clear — Skeleton marks itself aria-busy —
+  // so the keyboard is driven against the settled page.
+  await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
   await page.keyboard.press("Tab");
   const link = page.getByRole("link", { name: "Skip to content" });
   await expect(link).toBeFocused();
