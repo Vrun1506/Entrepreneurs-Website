@@ -2,10 +2,44 @@
 # builds; the rest are intentionally skipped. @sentry/cli's postinstall only
 # fetches the CLI used for source-map upload, which we don't run; core-js and
 # protobufjs ship usable prebuilt artifacts.
-# Force next's bundled postcss past the CSS-stringify XSS advisory
-# (GHSA-qx2v-qp2m-jg93, fixed in 8.5.10). Patch-level bump within 8.5.x.
+# Transitive advisories, forced to their patched versions. None of these
+# packages is a direct dependency — every one arrives through next, sentry,
+# eslint or posthog — so an override is the only lever short of waiting for
+# each parent to bump.
+#
+# EVERY REPLACEMENT IS A CARET, AND THAT IS LOAD-BEARING. `>=3.3.18` is not
+# "the patched 3.x", it is "anything at least that new" — pnpm resolves it to
+# the newest version in the registry, across majors. Written that way this
+# block silently pulled nanoid 3 -> 6, js-yaml 4 -> 5, fast-uri 3 -> 4,
+# protobufjs 7 -> 8 and brace-expansion 1 -> 5. The last one broke eslint
+# outright (`expand is not a function`: minimatch 3 wants 1.x's
+# `module.exports = expand`); the other four were sitting there waiting for
+# something to notice. A caret bounds the upper end at the next major, which
+# is what "apply the security patch" actually means.
+#
+# Note also that the selector matches the dependent's DECLARED RANGE, not the
+# resolved version — `vite@<8.0.16` never fired because vitest declares
+# `^8.0.0`, which is not a subset of `<8.0.16`. vite could not be fixed here
+# at all: it arrives as vitest's peer dependency, which overrides do not
+# rewrite. It is a direct devDependency instead.
 overrides:
-  postcss@<8.5.10: '>=8.5.10'
+  # CSS-stringify XSS (GHSA-qx2v-qp2m-jg93) plus later 8.5.x advisories.
+  postcss@<8.5.23: '^8.5.23'
+  # Ships in production via next's image optimisation — the only entry here
+  # not confined to build or test tooling. libvips CVE-2026-33327, -33328,
+  # -35590, -35591. ^0.35.0 pins to 0.35.x: a caret on a 0.x version bounds
+  # at the minor, which is the correct read for sharp's native bindings.
+  sharp@<0.35.0: '^0.35.0'
+  nanoid@<3.3.18: '^3.3.18'
+  # Two majors of minimatch are in the tree and each needs its own line.
+  # minimatch 3 cannot take brace-expansion 5 — different export shape.
+  brace-expansion@<2: '^1.1.18'
+  brace-expansion@>=5: '^5.0.9'
+  fast-uri@<3.1.5: '^3.1.5'
+  js-yaml@<4.3.1: '^4.3.1'
+  dompurify@<3.4.13: '^3.4.13'
+  protobufjs@<7.6.5: '^7.6.5'
+  '@opentelemetry/core@<2.8.0': '^2.8.0'
 allowBuilds:
   '@sentry/cli': false
   core-js: false
@@ -13,17 +47,17 @@ allowBuilds:
   sharp: true
   unrs-resolver: true
 minimumReleaseAgeExclude:
-  - '@next/env@16.2.7'
-  - '@next/eslint-plugin-next@16.2.7'
-  - '@next/swc-darwin-arm64@16.2.7'
-  - '@next/swc-darwin-x64@16.2.7'
-  - '@next/swc-linux-arm64-gnu@16.2.7'
-  - '@next/swc-linux-arm64-musl@16.2.7'
-  - '@next/swc-linux-x64-gnu@16.2.7'
-  - '@next/swc-linux-x64-musl@16.2.7'
-  - '@next/swc-win32-arm64-msvc@16.2.7'
-  - '@next/swc-win32-x64-msvc@16.2.7'
-  - eslint-config-next@16.2.7
-  - next@16.2.7
+  - '@next/env@16.2.12'
+  - '@next/eslint-plugin-next@16.2.12'
+  - '@next/swc-darwin-arm64@16.2.12'
+  - '@next/swc-darwin-x64@16.2.12'
+  - '@next/swc-linux-arm64-gnu@16.2.12'
+  - '@next/swc-linux-arm64-musl@16.2.12'
+  - '@next/swc-linux-x64-gnu@16.2.12'
+  - '@next/swc-linux-x64-musl@16.2.12'
+  - '@next/swc-win32-arm64-msvc@16.2.12'
+  - '@next/swc-win32-x64-msvc@16.2.12'
+  - eslint-config-next@16.2.12
+  - next@16.2.12
   - react-dom@19.2.7
   - react@19.2.7
