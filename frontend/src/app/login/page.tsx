@@ -9,6 +9,7 @@ import { SignupDisclosures } from "@/components/forms/SignupDisclosures";
 import { TurnstileWidget, turnstileConfigured } from "@/components/forms/TurnstileWidget";
 import { BrandLogo } from "@/components/BrandLogo";
 import { destinationForStatus } from "@/lib/auth/status";
+import { Button } from "@/components/ui/Button";
 
 // Auth error text reaches us partly via ?error= in the URL, which is
 // attacker-controllable — rendering it verbatim is a phishing/content-spoof
@@ -780,17 +781,16 @@ function CodeEntryPanel({
           <p className="text-[0.78rem] text-[#ff6b6b] leading-relaxed">{verifyError}</p>
         )}
 
-        <button
+        <Button
           type="submit"
+          loading={verifying}
           disabled={code.length !== 6 || verifying}
-          className="w-full flex items-center justify-center px-6 py-3.5 rounded-xl bg-gold text-bg-primary text-[0.9rem] font-medium tracking-wide border-0 cursor-pointer transition-all duration-200 hover:bg-gold-light hover:-translate-y-px disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+          variant="primary"
+          size="lg"
+          className="w-full"
         >
-          {verifying ? (
-            <div className="w-[18px] h-[18px] border-2 border-[#0c0c0b]/30 border-t-[#0c0c0b] rounded-full animate-spin" />
-          ) : (
-            "Verify"
-          )}
-        </button>
+          Verify
+        </Button>
 
         <p className="text-[0.7rem] text-text-muted leading-relaxed">
           The code expires in 30 minutes. Check your spam folder if it doesn&apos;t arrive within a minute.
@@ -911,17 +911,16 @@ function StudentMagicLinkFlow({
         <SignupDisclosures agreed={tcAgreed} onChange={setTcAgreed} />
       )}
 
-      <button
+      <Button
         type="submit"
+        loading={isLoading}
         disabled={isLoading || (mode === "signup" && !tcAgreed)}
-        className="w-full mt-2 flex items-center justify-center px-6 py-3.5 rounded-xl bg-gold text-bg-primary text-[0.9rem] font-medium tracking-wide border-0 cursor-pointer transition-all duration-200 hover:bg-gold-light hover:-translate-y-px disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+        variant="primary"
+        size="lg"
+        className="w-full mt-2"
       >
-        {isLoading ? (
-          <div className="w-[18px] h-[18px] border-2 border-[#0c0c0b]/30 border-t-[#0c0c0b] rounded-full animate-spin" />
-        ) : (
-          mode === "signup" ? "Send verification code" : "Send sign-in code"
-        )}
-      </button>
+        {mode === "signup" ? "Send verification code" : "Send sign-in code"}
+      </Button>
     </form>
   );
 }
@@ -1047,19 +1046,20 @@ function AlumForm({
             className={inputCls}
           />
         </div>
-        <button
+        <Button
           type="submit"
+          loading={isLoading}
           disabled={resendCooldown > 0 || isLoading}
-          className="w-full mt-1 flex items-center justify-center px-6 py-3.5 rounded-xl bg-gold text-bg-primary text-[0.9rem] font-medium tracking-wide border-0 cursor-pointer transition-all duration-200 hover:bg-gold-light hover:-translate-y-px disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+          variant="primary"
+          size="lg"
+          className="w-full mt-1"
         >
-          {isLoading ? (
-            <div className="w-[18px] h-[18px] border-2 border-[#0c0c0b]/30 border-t-[#0c0c0b] rounded-full animate-spin" />
-          ) : resendCooldown > 0 ? (
+          {resendCooldown > 0 ? (
             `Resend in ${resendCooldown}s`
           ) : (
             "Send reset link"
           )}
-        </button>
+        </Button>
         <p className="text-[0.72rem] text-text-muted leading-relaxed text-center px-2">
           Signed up with Google? Use <span className="text-text-secondary">Continue with Google</span> instead.
         </p>
@@ -1191,17 +1191,16 @@ function AlumForm({
         <SignupDisclosures agreed={tcAgreed} onChange={setTcAgreed} />
       )}
 
-      <button
+      <Button
         type="submit"
+        loading={isLoading}
         disabled={isLoading || (mode === "signup" && !tcAgreed)}
-        className="w-full mt-2 flex items-center justify-center px-6 py-3.5 rounded-xl bg-gold text-bg-primary text-[0.9rem] font-medium tracking-wide border-0 cursor-pointer transition-all duration-200 hover:bg-gold-light hover:-translate-y-px disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+        variant="primary"
+        size="lg"
+        className="w-full mt-2"
       >
-        {isLoading ? (
-          <div className="w-[18px] h-[18px] border-2 border-[#0c0c0b]/30 border-t-[#0c0c0b] rounded-full animate-spin" />
-        ) : (
-          mode === "signup" ? "Create account" : "Sign in"
-        )}
-      </button>
+        {mode === "signup" ? "Create account" : "Sign in"}
+      </Button>
     </form>
   );
 }

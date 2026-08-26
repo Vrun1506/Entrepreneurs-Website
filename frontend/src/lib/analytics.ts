@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/client";
+import { browserClient } from "@/lib/supabase/browser";
 
 // ════════════════════════════════════════════════════════════════════
 // Foundry · Lightweight engagement tracking
@@ -22,12 +22,6 @@ export type ListingEventType =
   | "contact_click"
   | "external_click";
 
-let cachedClient: ReturnType<typeof createClient> | null = null;
-function client() {
-  if (!cachedClient) cachedClient = createClient();
-  return cachedClient;
-}
-
 export function recordListingEvent(
   kind:      ListingKind,
   id:        string,
@@ -43,7 +37,7 @@ export function recordListingEvent(
   // it WITHOUT firing — so the event was never recorded. The no-op
   // handlers fire the request and swallow both outcomes (keeping it
   // fire-and-forget, no unhandled rejection).
-  client()
+  browserClient()
     .rpc("record_listing_event", {
       p_kind:       kind,
       p_id:         id,

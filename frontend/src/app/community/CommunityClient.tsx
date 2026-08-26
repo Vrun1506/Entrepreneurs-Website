@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import SocialLinks from "@/components/SocialLinks";
 import SearchableMultiSelect from "@/components/forms/SearchableMultiSelect";
+import { Dialog, closeDialog } from "@/components/ui/Dialog";
 
 type Member = {
   id: string;
@@ -379,126 +380,107 @@ function MemberCard({ member: m, onClick }: { member: Member; onClick: () => voi
 }
 
 function MemberDialog({ member: m, onClose }: { member: Member; onClose: () => void }) {
-  // Esc closes; lock body scroll while open.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", onKey);
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prevOverflow;
-    };
-  }, [onClose]);
-
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={`Profile of ${m.firstName} ${m.surname}`}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4 py-8 overflow-y-auto"
-      onClick={onClose}
+    <Dialog
+      onClose={onClose}
+      label={`Profile of ${m.firstName} ${m.surname}`}
+      className="w-full max-w-[600px] rounded-2xl bg-bg-card border border-border-subtle shadow-2xl my-auto"
     >
-      <div
-        className="w-full max-w-[600px] rounded-2xl bg-bg-card border border-border-subtle shadow-2xl my-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <header className="flex items-start justify-between gap-4 px-7 pt-6 pb-4 border-b border-border-subtle">
-          <div className="min-w-0 flex-1">
-            <h2 className="font-display text-[1.4rem] text-text-primary tracking-tight truncate">
-              {m.firstName} {m.surname}
-            </h2>
-            <div className="text-[0.75rem] text-text-muted mt-1">{memberSubtitle(m)}</div>
-            {m.course && (
-              <div className="text-[0.8rem] text-text-secondary mt-1">{m.course}</div>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="shrink-0 w-8 h-8 rounded-full bg-white/[0.04] hover:bg-white/[0.08] text-text-secondary hover:text-text-primary flex items-center justify-center transition-colors cursor-pointer border-0"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
-          </button>
-        </header>
-
-        <div className="px-7 py-5 space-y-5">
-          {m.bio && (
-            <section>
-              <div className="text-[0.7rem] text-text-muted uppercase tracking-wider mb-1.5">Bio</div>
-              <p className="text-[0.85rem] text-text-secondary leading-relaxed whitespace-pre-wrap">{m.bio}</p>
-            </section>
-          )}
-
-          {m.workingOn && (
-            <section>
-              <div className="text-[0.7rem] text-text-muted uppercase tracking-wider mb-1.5">Working on</div>
-              <p className="text-[0.85rem] text-text-secondary leading-relaxed whitespace-pre-wrap">{m.workingOn}</p>
-            </section>
-          )}
-
-          {m.lookingFor.length > 0 && (
-            <section>
-              <div className="text-[0.7rem] text-text-muted uppercase tracking-wider mb-2">Looking for</div>
-              <div className="flex flex-wrap gap-1.5">
-                {m.lookingFor.slice(0, MAX_LOOKING_FOR).map((lf) => (
-                  <Link
-                    key={lf.id}
-                    href={`/opportunities#o-${lf.id}`}
-                    className="px-2.5 py-1 rounded-full text-[0.725rem] border border-gold/30 text-gold no-underline hover:bg-gold/10 transition-colors"
-                  >
-                    {lf.role}
-                  </Link>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {m.sectors.length > 0 && (
-            <section>
-              <div className="text-[0.7rem] text-text-muted uppercase tracking-wider mb-2">Interests</div>
-              <div className="flex flex-wrap gap-1.5">
-                {m.sectors.map((s) => (
-                  <span key={`sec-${s}`} className="px-2.5 py-1 rounded-full text-[0.725rem] bg-gold-muted text-gold-light border border-gold/20">
-                    {s}
-                  </span>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {m.skills.length > 0 && (
-            <section>
-              <div className="text-[0.7rem] text-text-muted uppercase tracking-wider mb-2">Skills &amp; expertise</div>
-              <div className="flex flex-wrap gap-1.5">
-                {m.skills.map((s) => (
-                  <span key={`skl-${s}`} className="px-2.5 py-1 rounded-full text-[0.725rem] bg-white/[0.03] text-text-secondary border border-border">
-                    {s}
-                  </span>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {(m.linkedinUrl || m.githubUrl || m.portfolioUrl) && (
-            <section className="pt-3 border-t border-border-subtle">
-              <div className="text-[0.7rem] text-text-muted uppercase tracking-wider mb-2">Links</div>
-              <SocialLinks linkedinUrl={m.linkedinUrl} githubUrl={m.githubUrl} portfolioUrl={m.portfolioUrl} />
-            </section>
-          )}
-
-          {!m.bio && !m.workingOn && m.sectors.length === 0 && m.skills.length === 0
-            && m.lookingFor.length === 0 && !m.linkedinUrl && !m.githubUrl && !m.portfolioUrl && (
-            <p className="text-[0.85rem] text-text-muted italic">
-              No additional details on this profile yet.
-            </p>
+      <header className="flex items-start justify-between gap-4 px-7 pt-6 pb-4 border-b border-border-subtle">
+        <div className="min-w-0 flex-1">
+          <h2 className="font-display text-[1.4rem] text-text-primary tracking-tight truncate">
+            {m.firstName} {m.surname}
+          </h2>
+          <div className="text-[0.75rem] text-text-muted mt-1">{memberSubtitle(m)}</div>
+          {m.course && (
+            <div className="text-[0.8rem] text-text-secondary mt-1">{m.course}</div>
           )}
         </div>
+        <button
+          type="button"
+          onClick={closeDialog}
+          aria-label="Close"
+          className="shrink-0 w-8 h-8 rounded-full bg-white/[0.04] hover:bg-white/[0.08] text-text-secondary hover:text-text-primary flex items-center justify-center transition-colors cursor-pointer border-0"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
+        </button>
+      </header>
+
+      <div className="px-7 py-5 space-y-5">
+        {m.bio && (
+          <section>
+            <div className="text-[0.7rem] text-text-muted uppercase tracking-wider mb-1.5">Bio</div>
+            <p className="text-[0.85rem] text-text-secondary leading-relaxed whitespace-pre-wrap">{m.bio}</p>
+          </section>
+        )}
+
+        {m.workingOn && (
+          <section>
+            <div className="text-[0.7rem] text-text-muted uppercase tracking-wider mb-1.5">Working on</div>
+            <p className="text-[0.85rem] text-text-secondary leading-relaxed whitespace-pre-wrap">{m.workingOn}</p>
+          </section>
+        )}
+
+        {m.lookingFor.length > 0 && (
+          <section>
+            <div className="text-[0.7rem] text-text-muted uppercase tracking-wider mb-2">Looking for</div>
+            <div className="flex flex-wrap gap-1.5">
+              {m.lookingFor.slice(0, MAX_LOOKING_FOR).map((lf) => (
+                <Link
+                  key={lf.id}
+                  href={`/opportunities#o-${lf.id}`}
+                  className="px-2.5 py-1 rounded-full text-[0.725rem] border border-gold/30 text-gold no-underline hover:bg-gold/10 transition-colors"
+                >
+                  {lf.role}
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {m.sectors.length > 0 && (
+          <section>
+            <div className="text-[0.7rem] text-text-muted uppercase tracking-wider mb-2">Interests</div>
+            <div className="flex flex-wrap gap-1.5">
+              {m.sectors.map((s) => (
+                <span key={`sec-${s}`} className="px-2.5 py-1 rounded-full text-[0.725rem] bg-gold-muted text-gold-light border border-gold/20">
+                  {s}
+                </span>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {m.skills.length > 0 && (
+          <section>
+            <div className="text-[0.7rem] text-text-muted uppercase tracking-wider mb-2">Skills &amp; expertise</div>
+            <div className="flex flex-wrap gap-1.5">
+              {m.skills.map((s) => (
+                <span key={`skl-${s}`} className="px-2.5 py-1 rounded-full text-[0.725rem] bg-white/[0.03] text-text-secondary border border-border">
+                  {s}
+                </span>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {(m.linkedinUrl || m.githubUrl || m.portfolioUrl) && (
+          <section className="pt-3 border-t border-border-subtle">
+            <div className="text-[0.7rem] text-text-muted uppercase tracking-wider mb-2">Links</div>
+            <SocialLinks linkedinUrl={m.linkedinUrl} githubUrl={m.githubUrl} portfolioUrl={m.portfolioUrl} />
+          </section>
+        )}
+
+        {!m.bio && !m.workingOn && m.sectors.length === 0 && m.skills.length === 0
+          && m.lookingFor.length === 0 && !m.linkedinUrl && !m.githubUrl && !m.portfolioUrl && (
+          <p className="text-[0.85rem] text-text-muted italic">
+            No additional details on this profile yet.
+          </p>
+        )}
       </div>
-    </div>
+    </Dialog>
   );
 }
 
