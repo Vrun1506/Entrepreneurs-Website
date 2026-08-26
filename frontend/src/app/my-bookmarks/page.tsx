@@ -3,6 +3,7 @@ import AppNav from "@/components/AppNav";
 import { requireApprovedUser } from "@/lib/auth/guard";
 import { markedListingIds } from "@/lib/listings/actionRow";
 import OpportunitiesClient from "../opportunities/OpportunitiesClient";
+import { reportIfCapped } from "@/lib/supabase/rowCap";
 
 export default async function MyBookmarksPage() {
   const { supabase, isAdmin } = await requireApprovedUser();
@@ -17,7 +18,7 @@ export default async function MyBookmarksPage() {
   if (bookmarkRes.error) console.error("Failed to load bookmarked opportunities:", bookmarkRes.error);
   if (actionsRes.error) console.error("Failed to load listing actions:", actionsRes.error);
 
-  const items = ((bookmarkRes.data ?? []) as RpcRow[]).map(toOpportunity);
+  const items = reportIfCapped("list_my_bookmarked_opportunities", (bookmarkRes.data ?? []) as RpcRow[]).map(toOpportunity);
   const bookmarkedIds = items.map((i) => i.id);
   const appliedIds = markedListingIds(actionsRes.data, "opportunity", "applied");
 

@@ -6,6 +6,7 @@ import type { Database } from "@/lib/database.overrides";
 import { requireApprovedUser } from "@/lib/auth/guard";
 import { markedListingIds } from "@/lib/listings/actionRow";
 import EventsClient from "./EventsClient";
+import { reportIfCapped } from "@/lib/supabase/rowCap";
 
 export default async function EventsPage({
   searchParams,
@@ -67,7 +68,7 @@ async function loadEvents(supabase: SupabaseClient<Database>): Promise<EventsDat
   if (actionsRes.error) console.error("Failed to load listing actions:", actionsRes.error);
 
   return {
-    items: ((evRes.data ?? []) as RpcRow[]).map(toEvent),
+    items: reportIfCapped("list_approved_events", (evRes.data ?? []) as RpcRow[]).map(toEvent),
     goingIds: markedListingIds(actionsRes.data, "event", "going"),
   };
 }

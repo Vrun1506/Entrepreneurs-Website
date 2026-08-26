@@ -643,6 +643,28 @@ begin
   exception when sqlstate '42501' then null;
   end;
 
+  -- The paginated admin profile RPCs (migration 20260826000004). These
+  -- return every member's status and signup email, so the is_admin()
+  -- check inside them is the only thing between a member and the
+  -- directory of everyone who was ever rejected.
+  begin
+    perform * from public.admin_list_profiles();
+    raise exception 'FAIL: non-admin called admin_list_profiles without being blocked';
+  exception when sqlstate '42501' then null;
+  end;
+
+  begin
+    perform * from public.admin_profile_facets();
+    raise exception 'FAIL: non-admin called admin_profile_facets without being blocked';
+  exception when sqlstate '42501' then null;
+  end;
+
+  begin
+    perform * from public.admin_list_pending_profiles();
+    raise exception 'FAIL: non-admin called admin_list_pending_profiles without being blocked';
+  exception when sqlstate '42501' then null;
+  end;
+
   begin
     perform * from public.reject_opportunity(v_opa, 'spam');
     raise exception 'FAIL: non-admin called reject_opportunity without being blocked';
@@ -708,6 +730,7 @@ declare
     'approve_vc_grant','reject_vc_grant','approve_user','reject_user',
     'admin_delete_user','admin_delete_graduates','admin_get_signup_emails',
     'admin_outbound_email_stats',
+    'admin_list_profiles','admin_profile_facets','admin_list_pending_profiles',
     -- public / member reads
     'list_approved_opportunities','list_approved_events',
     'list_directory_cards','list_directory_facets',
@@ -1042,6 +1065,117 @@ begin
   exception when others then null;
   end;
   if v_passed then raise exception 'FAIL: update_event accepted a start time in the past'; end if;
+end;
+$$;
+
+-- ─── 27. The admin profile lists page, and count what they didn't return ──
+--     PostgREST silently truncates any response at max_rows (1000), which
+--     is how /admin/community came to show 1000 of however many members
+--     there were. The fix only works if two things hold: a page really is
+--     capped at p_limit, and total_count reports the whole match rather
+--     than the page. If total_count ever tracked the page, the pager would
+--     render "Page 1 of 1" over a truncated list — the original bug with a
+--     pager bolted on.
+set local role postgres;
+do $$
+declare
+  v_adm   uuid := (select v from _test_ctx where k='admin');
+  v_seed  uuid;
+  v_total bigint;
+  v_rows  int;
+  v_first text;
+begin
+  perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+
+  -- 60 extra members: more than one page of 50, few enough to stay fast.
+  for i in 1..60 loop
+    v_seed := gen_random_uuid();
+    insert into auth.users (id, email, raw_user_meta_data, raw_app_meta_data)
+    values (v_seed, 'page' || i || '@imperial.ac.uk',
+            '{"first_name":"Page","surname":"Member","role":"student"}'::jsonb,
+            '{"provider":"email"}'::jsonb)
+    on conflict do nothing;
+    -- Distinct created_at values, oldest first. now() is the transaction
+    -- timestamp, so without this every seeded row shares one and the
+    -- oldest-first assertion below would really be testing the uuid
+    -- tiebreak.
+    insert into public.profiles (id, role, status, first_name, surname, course, grad_year, created_at)
+    values (v_seed, 'student',
+            (case when i <= 10 then 'pending_review' else 'approved' end)::public.user_status,
+            'Page', 'Member' || i, 'MEng Paging', 2027,
+            now() - make_interval(mins => 100 - i))
+    on conflict (id) do update set
+      status = excluded.status, first_name = excluded.first_name,
+      surname = excluded.surname, course = excluded.course,
+      -- The auto-create-profile trigger has already inserted a bare row, so
+      -- this lands on DO UPDATE. grad_year has to come along:
+      -- profiles_grad_year_role_consistency rejects an approved student
+      -- without one.
+      grad_year = excluded.grad_year, created_at = excluded.created_at;
+  end loop;
+
+  perform _set_caller(v_adm);
+
+  -- (a) a page is p_limit long, and the count is of everything matching
+  select count(*), max(total_count) into v_rows, v_total
+    from public.admin_list_profiles(p_limit => 50);
+  if v_rows <> 50 then
+    raise exception 'FAIL: admin_list_profiles returned % rows for p_limit 50', v_rows;
+  end if;
+  if v_total < 63 then
+    raise exception 'FAIL: total_count reported % — it is counting the page, not the match', v_total;
+  end if;
+
+  -- (b) the offset moves the window without changing the total
+  select count(*), max(total_count) into v_rows, v_total
+    from public.admin_list_profiles(p_limit => 50, p_offset => 50);
+  if v_rows = 0 then raise exception 'FAIL: page 2 of admin_list_profiles came back empty'; end if;
+  if v_total < 63 then raise exception 'FAIL: total_count changed with the offset (got %)', v_total; end if;
+
+  -- (c) p_limit is clamped, so a crafted ?limit= can't ask for everything
+  --     and reintroduce the truncation this migration removed
+  select count(*) into v_rows from public.admin_list_profiles(p_limit => 100000);
+  if v_rows > 200 then
+    raise exception 'FAIL: admin_list_profiles honoured an unclamped p_limit (% rows)', v_rows;
+  end if;
+
+  -- (d) filters narrow the count as well as the rows. A filter that
+  --     narrowed only the page would page over the unfiltered set.
+  select count(*), max(total_count) into v_rows, v_total
+    from public.admin_list_profiles(p_statuses => array['pending_review'], p_limit => 50);
+  if v_rows <> 10 then
+    raise exception 'FAIL: status filter returned % rows, expected 10', v_rows;
+  end if;
+  if v_total <> 10 then
+    raise exception 'FAIL: status filter left total_count at % — filters are not reaching the count', v_total;
+  end if;
+
+  -- (e) the search matches the signup email, which only admins can see
+  select count(*) into v_rows from public.admin_list_profiles(p_query => 'page7@imperial.ac.uk');
+  if v_rows <> 1 then
+    raise exception 'FAIL: email search matched % rows, expected 1', v_rows;
+  end if;
+
+  -- (f) the review queue is bounded and counts its whole backlog
+  select count(*), max(total_count) into v_rows, v_total
+    from public.admin_list_pending_profiles(p_limit => 5);
+  if v_rows <> 5  then raise exception 'FAIL: pending queue returned % rows for p_limit 5', v_rows; end if;
+  if v_total <> 10 then raise exception 'FAIL: pending queue total_count is % , expected 10', v_total; end if;
+
+  -- (g) oldest first — a queue that shows newest first buries the person
+  --     who has waited longest
+  select surname into v_first from public.admin_list_pending_profiles(p_limit => 1);
+  if v_first <> 'Member1' then
+    raise exception 'FAIL: pending queue is not oldest-first (first row was %)', v_first;
+  end if;
+
+  -- (h) facets span every status, not just approved members — filtering
+  --     this page by "rejected" is the point of it
+  if not exists (
+    select 1 from public.admin_profile_facets() f where 'MEng Paging' = any(f.courses)
+  ) then
+    raise exception 'FAIL: admin_profile_facets is missing a course that exists on a profile';
+  end if;
 end;
 $$;
 

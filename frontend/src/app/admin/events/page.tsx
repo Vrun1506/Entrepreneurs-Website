@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import EventsReview from "./EventsReview";
+import { reportIfCapped } from "@/lib/supabase/rowCap";
 
 export default async function AdminEventsPage() {
   const supabase = await createClient();
@@ -12,7 +13,7 @@ export default async function AdminEventsPage() {
 
   if (error) console.error("Failed to load pending events:", error);
 
-  const rawRows = (rows ?? []) as RawRow[];
+  const rawRows = reportIfCapped("list_pending_events_admin", (rows ?? []) as RawRow[]);
 
   const posterIds = Array.from(new Set(rawRows.map((r) => r.posted_by)));
   const signupEmailById = new Map<string, string>();
