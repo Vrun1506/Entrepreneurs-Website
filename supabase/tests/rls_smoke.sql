@@ -710,7 +710,7 @@ declare
     'admin_outbound_email_stats',
     -- public / member reads
     'list_approved_opportunities','list_approved_events',
-    'list_directory_cards',
+    'list_directory_cards','list_directory_facets',
     'list_my_bookmarked_opportunities',
     'get_my_activity','get_my_listing_actions','get_my_listing_stats',
     'get_opportunity_for_edit','get_event_for_edit',

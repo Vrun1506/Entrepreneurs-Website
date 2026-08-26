@@ -26,7 +26,7 @@ import type { CacheKey } from "@/lib/cache";
 // registry here would pull the server-only listing write paths into a
 // module that only needs to delete a row.
 const CACHE_KEYS: Record<ListingType, readonly CacheKey[]> = {
-  opportunity: ["directory"],
+  opportunity: ["directoryFacets"],
   event:       [],
   vc_grant:    ["vcs"],
 };

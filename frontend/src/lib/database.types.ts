@@ -891,7 +891,18 @@ export type Database = {
         }[]
       }
       list_directory_cards: {
-        Args: never
+        Args: {
+          p_courses?: string[]
+          p_grad_max?: number
+          p_grad_min?: number
+          p_limit?: number
+          p_offset?: number
+          p_query?: string
+          p_roles?: string[]
+          p_sectors?: string[]
+          p_skills?: string[]
+          p_sort?: string
+        }
         Returns: {
           bio: string
           course: string
@@ -903,7 +914,19 @@ export type Database = {
           sector_names: string[]
           skill_names: string[]
           surname: string
+          total_count: number
           working_on: string
+        }[]
+      }
+      list_directory_facets: {
+        Args: never
+        Returns: {
+          courses: string[]
+          grad_max: number
+          grad_min: number
+          sectors: string[]
+          skills: string[]
+          total: number
         }[]
       }
       list_my_bookmarked_opportunities: {
@@ -1026,6 +1049,8 @@ export type Database = {
           title: string
         }[]
       }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       submit_event: {
         Args: {
           p_contact_email: string
