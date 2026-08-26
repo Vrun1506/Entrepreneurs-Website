@@ -25,7 +25,8 @@ import { USERS } from "./fixtures";
  * and accept input before React has attached to them. Under a loaded CI box
  * that window is wide enough to swallow a keystroke, and the assertion then
  * fails on a page that is working perfectly. Every action passed here is
- * idempotent, so replaying it is safe.
+ * idempotent, so replaying it is safe — but only until it lands, which is
+ * why the guard below checks the URL before acting rather than after.
  */
 async function untilUrl(
   page: import("@playwright/test").Page,
@@ -33,7 +34,12 @@ async function untilUrl(
   pattern: RegExp,
 ) {
   await expect(async () => {
-    await act();
+    // Only replay while the action hasn't landed. Some controls remove
+    // themselves once they've done their job — FilterBar renders "Clear all"
+    // only while a filter is active — so a blind replay waits on a button
+    // that no longer exists, and the URL assertion below is never reached.
+    // The retry then fails on a page that did exactly what it was asked.
+    if (!pattern.test(page.url())) await act();
     await expect(page).toHaveURL(pattern, { timeout: 1_000 });
   }).toPass({ timeout: 15_000 });
 }
@@ -186,7 +192,11 @@ test.describe("deep-linked opportunity", () => {
 
   test("a card nobody deep-linked stays collapsed", async ({ page }) => {
     await page.goto("/opportunities");
+    // An id must be unique. Asserting the count first turns a duplicate into
+    // "expected 1, received 2" rather than a strict-mode violation on the
+    // assertion below, which says nothing about what actually went wrong.
     const card = page.locator(`#o-${opportunityId}`);
+    await expect(card).toHaveCount(1);
     await expect(card.getByRole("button", { expanded: false })).toBeVisible();
     await expect(card).not.toContainText("Seeded so the deep-link assertion");
   });
