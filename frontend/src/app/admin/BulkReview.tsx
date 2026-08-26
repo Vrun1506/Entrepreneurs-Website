@@ -127,6 +127,7 @@ export function BulkReview<T>({ items, getId, renderCard, bulkApprove, bulkRejec
               <div className="flex items-center gap-2 flex-wrap w-full">
                 <input
                   type="text"
+                  aria-label="Rejection reason"
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   placeholder={`Reason — sent to all ${selected.size}`}

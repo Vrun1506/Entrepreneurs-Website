@@ -137,7 +137,7 @@ export default function OnboardingForm({ role, firstName, surname, skills, secto
         </div>
       </header>
 
-      <main className="flex-1 flex items-start justify-center px-8 py-12">
+      <main id="main-content" tabIndex={-1} className="flex-1 flex items-start justify-center px-8 py-12">
         <div className="w-full max-w-[640px]">
           <div className="text-center mb-8">
             <div className="text-[0.7rem] text-gold tracking-[0.18em] uppercase mb-3">

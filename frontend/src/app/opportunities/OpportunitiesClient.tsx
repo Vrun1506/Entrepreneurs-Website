@@ -99,6 +99,9 @@ export default function OpportunitiesClient({
       <div className="mb-8">
         <input
           type="search"
+          aria-label="Search opportunities"
+          spellCheck={false}
+          autoComplete="off"
           placeholder="Search by role, company, skill, sector, or poster"
           value={query}
           onChange={(e) => setQuery(e.target.value)}

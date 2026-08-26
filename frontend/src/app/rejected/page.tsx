@@ -37,7 +37,7 @@ export default async function RejectedPage() {
         </div>
       </header>
 
-      <main className="flex-1 flex items-center justify-center px-8 py-12">
+      <main id="main-content" tabIndex={-1} className="flex-1 flex items-center justify-center px-8 py-12">
         <div className="w-full max-w-[520px] text-center">
           <h1 className="font-display text-text-primary leading-[1.1] tracking-tight mb-6 text-[clamp(2rem,4vw,2.75rem)]">
             Application not approved.

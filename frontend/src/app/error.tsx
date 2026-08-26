@@ -24,7 +24,7 @@ export default function Error({
         style={{ background: "radial-gradient(circle, rgba(201,168,76,0.05) 0%, transparent 65%)" }}
       />
 
-      <main className="relative z-10 flex-1 flex items-center justify-center px-8 py-12">
+      <main id="main-content" tabIndex={-1} className="relative z-10 flex-1 flex items-center justify-center px-8 py-12">
         <div className="w-full max-w-[560px] text-center">
           <div className="font-display text-gold text-[clamp(4rem,12vw,8rem)] leading-none mb-4">
             Oops
