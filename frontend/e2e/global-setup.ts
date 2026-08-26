@@ -23,6 +23,8 @@ export default async function globalSetup(): Promise<void> {
     );
   }
 
+  assertEphemeral(url);
+
   const admin = createClient(url, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
@@ -36,6 +38,43 @@ export default async function globalSetup(): Promise<void> {
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, JSON.stringify(storageState, null, 2));
   }
+}
+
+
+/**
+ * Refuses to run against anything but a local Supabase.
+ *
+ * This setup creates users, approves them and grants one of them admin.
+ * Against the ephemeral CI stack that is the point; against a hosted
+ * project it silently plants three accounts in a real member directory,
+ * one of them an administrator. Nothing downstream would notice — the
+ * suite passes either way, which is exactly why the check has to be here
+ * rather than in a reviewer's memory.
+ *
+ * It has happened. `.env.local` holds the *production* URL, and exporting
+ * those vars to run the suite locally is a one-line mistake that looks
+ * identical to the correct one at the shell.
+ *
+ * Allow-list, not a deny-list: a new hosted environment must fail this,
+ * not sneak past a pattern that didn't anticipate it. CI exports
+ * `supabase status` output, which is always 127.0.0.1.
+ */
+function assertEphemeral(url: string): void {
+  const host = new URL(url).hostname;
+  const local =
+    host === "127.0.0.1" ||
+    host === "localhost" ||
+    host === "::1" ||
+    host === "host.docker.internal" ||
+    host.endsWith(".local");
+  if (local) return;
+
+  throw new Error(
+    `E2E refuses to run against ${host}. This setup seeds users and grants admin, ` +
+      "so it may only ever point at a local/ephemeral Supabase — never a hosted project. " +
+      "Export NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY / " +
+      "SUPABASE_SERVICE_ROLE_KEY from `supabase status`, not from .env.local.",
+  );
 }
 
 // Create the auth user (the new-user trigger inserts a pending_onboarding

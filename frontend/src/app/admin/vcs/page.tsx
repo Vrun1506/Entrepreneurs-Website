@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import VcsReview from "./VcsReview";
+import { reportIfCapped } from "@/lib/supabase/rowCap";
 
 export default async function AdminVcsPage() {
   const supabase = await createClient();
@@ -18,7 +19,7 @@ export default async function AdminVcsPage() {
 
   if (error) console.error("Failed to load pending vcs_grants:", error);
 
-  const rawRows = (rows ?? []) as unknown as RawRow[];
+  const rawRows = reportIfCapped("vcs_grants (pending)", (rows ?? []) as unknown as RawRow[]);
 
   const posterIds = Array.from(new Set(rawRows.map((r) => r.posted_by)));
   const signupEmailById = new Map<string, string>();

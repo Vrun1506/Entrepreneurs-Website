@@ -118,7 +118,13 @@ begin
     select want from (values
       ('submit_onboarding'),('update_profile'),('approve_user'),('reject_user'),
       ('delete_my_account'),('admin_create_event'),('admin_create_opportunity'),
-      ('admin_create_vc_grant'),('enqueue_outbound_email'),('claim_outbound_email_batch')
+      ('admin_create_vc_grant'),('enqueue_outbound_email'),('claim_outbound_email_batch'),
+      -- Paginated list RPCs (20260826000003/4). These are how the directory
+      -- and the two admin profile pages avoid PostgREST's silent 1000-row
+      -- truncation; if one is missing, the page it backs is broken, and if
+      -- one lost prosecdef the auth.users join in it would fail outright.
+      ('list_directory_cards'),('list_directory_facets'),
+      ('admin_list_profiles'),('admin_profile_facets'),('admin_list_pending_profiles')
     ) as x(want)
     where not exists (
       select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace

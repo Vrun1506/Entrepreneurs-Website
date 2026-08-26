@@ -6,6 +6,7 @@ import SocialLinks from "@/components/SocialLinks";
 import SearchableMultiSelect from "@/components/forms/SearchableMultiSelect";
 import { useUrlFilters, useSearchDraft } from "@/lib/filters/useUrlFilters";
 import { SearchInput, FilterPanel, ChipGroup, RangeFilter } from "@/components/filters/FilterBar";
+import { Pager } from "@/components/ui/Pager";
 import { Dialog, closeDialog } from "@/components/ui/Dialog";
 import { browserClient } from "@/lib/supabase/browser";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -85,7 +86,6 @@ export default function CommunityClient({
     filters.roles.length + filters.courses.length + filters.sectors.length +
     filters.skills.length + (filters.gradMin ? 1 : 0) + (filters.gradMax ? 1 : 0);
 
-  const totalPages = Math.max(1, Math.ceil(matching / pageSize));
   const gradYearBounds =
     facets.grad_min != null && facets.grad_max != null
       ? { min: facets.grad_min, max: facets.grad_max }
@@ -200,29 +200,13 @@ export default function CommunityClient({
         )}
       </div>
 
-      {totalPages > 1 && (
-        <nav aria-label="Directory pages" className="mt-8 flex items-center justify-center gap-3">
-          <button
-            type="button"
-            disabled={filters.page <= 1 || url.pending}
-            onClick={() => url.apply({ page: String(filters.page - 1) })}
-            className="px-4 py-2 rounded-lg bg-transparent border border-border text-text-secondary text-[0.8rem] cursor-pointer transition-colors hover:text-text-primary hover:border-gold/40 disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            ← Previous
-          </button>
-          <span className="text-[0.8rem] text-text-muted tabular-nums">
-            Page {filters.page} of {totalPages}
-          </span>
-          <button
-            type="button"
-            disabled={filters.page >= totalPages || url.pending}
-            onClick={() => url.apply({ page: String(filters.page + 1) })}
-            className="px-4 py-2 rounded-lg bg-transparent border border-border text-text-secondary text-[0.8rem] cursor-pointer transition-colors hover:text-text-primary hover:border-gold/40 disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            Next →
-          </button>
-        </nav>
-      )}
+      <Pager
+        url={url}
+        page={filters.page}
+        total={matching}
+        pageSize={pageSize}
+        label="Directory pages"
+      />
 
       {openMember && (
         <MemberDialog member={openMember} onClose={() => setOpenMember(null)} />
