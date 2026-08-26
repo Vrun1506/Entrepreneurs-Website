@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { invalidate } from "@/lib/cache";
 import { describeSupabaseError } from "@/lib/supabaseErrors";
 import { getActionAuth } from "@/lib/auth/actionAuth";
 import type { Database } from "@/lib/database.overrides";
@@ -18,6 +19,17 @@ const TABLE = {
   event:       "events",
   vc_grant:    "vcs_grants",
 } as const satisfies Record<ListingType, keyof Database["public"]["Tables"]>;
+
+import type { CacheKey } from "@/lib/cache";
+
+// Mirrors LISTINGS[kind].cacheKeys. Kept local because importing the
+// registry here would pull the server-only listing write paths into a
+// module that only needs to delete a row.
+const CACHE_KEYS: Record<ListingType, readonly CacheKey[]> = {
+  opportunity: ["directory"],
+  event:       [],
+  vc_grant:    ["vcs"],
+};
 
 const REVALIDATE: Record<ListingType, string[]> = {
   opportunity: ["/opportunities", "/my-submissions"],
@@ -45,6 +57,9 @@ export async function deleteOwnListing(type: ListingType, id: string): Promise<R
   if (error) return { ok: false, error: describeSupabaseError(error) };
   if (!count) return { ok: false, error: "Listing not found — it may have already been deleted." };
 
+  // A delete can remove a row from a cached list — and deleting an
+  // opportunity also changes the open roles shown on /community.
+  await invalidate(...CACHE_KEYS[type]);
   for (const path of REVALIDATE[type]) revalidatePath(path);
   return { ok: true };
 }

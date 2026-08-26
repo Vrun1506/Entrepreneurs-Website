@@ -4,6 +4,7 @@ import type { Database } from "@/lib/database.overrides";
 import { describeSupabaseError } from "@/lib/supabaseErrors";
 import { ok, err, type Result } from "@/lib/result";
 import type { SubmissionMode } from "@/lib/actions/guardSubmission";
+import type { CacheKey } from "@/lib/cache";
 import {
   opportunitySchema, eventSchema, vcGrantSchema, validate,
   type OpportunityPayload, type EventPayload, type VcGrantPayload,
@@ -51,6 +52,12 @@ export type ListingDef = {
   emailKind: "opportunity" | "event" | "VC/grant submission";
   /** Both paths to revalidate after a state change. */
   revalidate: { admin: string; public: string };
+  /**
+   * Cache entries a write of this type makes stale. Declared here so the
+   * generic write paths invalidate without each having to remember, and
+   * so a fourth listing type has one place to get this right.
+   */
+  cacheKeys: readonly CacheKey[];
   approve: (db: Db, id: string) => Promise<{ error: { message?: string; code?: string } | null }>;
   reject: (db: Db, id: string, reason: string) => Promise<{
     data: RejectedPoster[] | RejectedPoster | null;
@@ -74,6 +81,9 @@ export const LISTINGS = {
     submitNoun: "an opportunity",
     emailKind: "opportunity",
     revalidate: { admin: "/admin/opportunities", public: "/opportunities" },
+    // The directory shows each member's open roles, sourced from approved
+    // opportunities — so approving or editing one changes /community too.
+    cacheKeys: ["directory"],
     approve: async (db, id) => await db.rpc("approve_opportunity", { p_opportunity_id: id, p_notes: null }),
     reject: async (db, id, reason) =>
       await db.rpc("reject_opportunity", { p_opportunity_id: id, p_reason: reason }),
@@ -98,6 +108,9 @@ export const LISTINGS = {
     submitNoun: "an event",
     emailKind: "event",
     revalidate: { admin: "/admin/events", public: "/events" },
+    // Events aren't cached (contact_email is masked per caller), and
+    // nothing else derives from them.
+    cacheKeys: [],
     approve: async (db, id) => await db.rpc("approve_event", { p_event_id: id, p_notes: null }),
     reject: async (db, id, reason) => await db.rpc("reject_event", { p_event_id: id, p_reason: reason }),
     create: async (db, mode, payload) => {
@@ -125,6 +138,7 @@ export const LISTINGS = {
     submitNoun: "a listing",
     emailKind: "VC/grant submission",
     revalidate: { admin: "/admin/vcs", public: "/vcs" },
+    cacheKeys: ["vcs"],
     approve: async (db, id) => await db.rpc("approve_vc_grant", { p_id: id, p_notes: null }),
     reject: async (db, id, reason) => await db.rpc("reject_vc_grant", { p_id: id, p_reason: reason }),
     create: async (db, mode, payload) => {

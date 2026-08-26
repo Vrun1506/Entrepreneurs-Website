@@ -12,6 +12,7 @@ import { cleanText } from "@/lib/text";
 import { gradYearOptions, validateGradYear } from "@/lib/gradYears";
 import { describeSupabaseError } from "@/lib/supabaseErrors";
 import { Button } from "@/components/ui/Button";
+import { invalidateDirectoryCache } from "@/app/profile/actions";
 
 type Lookup = ChipItem;
 
@@ -121,6 +122,9 @@ export default function OnboardingForm({ role, firstName, surname, skills, secto
       return;
     }
     router.replace(role === "alum" ? "/pending" : "/community");
+    // The RPC above ran client-side, so nothing on the server knows the
+    // directory changed. Tell it before refreshing.
+    await invalidateDirectoryCache();
     router.refresh();
   };
 

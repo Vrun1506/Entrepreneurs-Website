@@ -4,6 +4,7 @@ import { getActionAuth } from "@/lib/auth/actionAuth";
 import { guardSubmission, type SubmissionMode } from "@/lib/actions/guardSubmission";
 import { ok, err, type Result } from "@/lib/result";
 import { LISTINGS, type ListingKind } from "./registry";
+import { invalidate } from "@/lib/cache";
 
 // ════════════════════════════════════════════════════════════════════
 // Foundry · Member-facing listing writes, once instead of three times
@@ -29,6 +30,10 @@ export async function submitListing(
   const res = await def.create(guard.data.supabase, args.mode, args.payload);
   if (!res.ok) return res;
 
+  // An admin-mode create publishes immediately, so it can land in a cached
+  // list. A user-mode create only enqueues something pending, which no
+  // cached list contains — invalidating anyway keeps this one code path.
+  await invalidate(...def.cacheKeys);
   revalidatePath(def.revalidate.public);
   if (args.mode === "admin") revalidatePath(def.revalidate.admin);
   return ok();
@@ -50,6 +55,7 @@ export async function updateOwnListing(
   const res = await def.update(supabase, id, payload);
   if (!res.ok) return res;
 
+  await invalidate(...def.cacheKeys);
   revalidatePath("/my-submissions");
   revalidatePath(def.revalidate.public);
   return ok();

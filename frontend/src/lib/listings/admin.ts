@@ -7,6 +7,7 @@ import { ok, err, type Result } from "@/lib/result";
 import type { BulkResult } from "@/app/admin/bulkTypes";
 import { runBulk } from "@/lib/admin/bulk";
 import { LISTINGS, type ListingKind, type RejectedPoster } from "./registry";
+import { invalidate } from "@/lib/cache";
 
 // ════════════════════════════════════════════════════════════════════
 // Foundry · Admin review actions, once instead of three times
@@ -26,6 +27,10 @@ export async function approveListing(kind: ListingKind, id: string): Promise<Res
   const { error } = await def.approve(auth.supabase, id);
   if (error) return err(describeSupabaseError(error));
 
+  // Cache first, then Next's path revalidation: a re-render triggered by
+  // revalidatePath must not be able to read the stale entry and put it
+  // straight back.
+  await invalidate(...def.cacheKeys);
   revalidatePath(def.revalidate.admin);
   revalidatePath(def.revalidate.public);
   return ok();
@@ -50,6 +55,8 @@ export async function rejectListing(
   // below is the notification, so a failure there is reported without
   // pretending the rejection didn't happen — hence the revalidate on
   // every path out of here.
+  await invalidate(...def.cacheKeys);
+
   const row: RejectedPoster | null = Array.isArray(data) ? data[0] ?? null : data;
   if (!row?.email) {
     console.warn(`reject ${kind}: RPC returned no poster email for`, id);
