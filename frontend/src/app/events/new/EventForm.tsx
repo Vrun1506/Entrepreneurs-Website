@@ -1,12 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { Field } from "@/components/forms/Field";
+import { useRef, useState } from "react";
+import { Field, FieldError } from "@/components/forms/Field";
 import { ErrorBanner } from "@/components/forms/Banners";
 import { inputCls } from "@/components/forms/styles";
 import { TurnstileWidget, turnstileConfigured } from "@/components/forms/TurnstileWidget";
 import { submitEvent, updateOwnEvent } from "@/app/events/actions";
+import { eventSchema } from "@/lib/validation/listings";
+import { collectFieldErrors, showFieldErrors, FORM_ERROR, type FieldErrors } from "@/lib/validation/fields";
 import { Button } from "@/components/ui/Button";
 
 type Mode = "user" | "admin";
@@ -55,56 +57,44 @@ export default function EventForm({ signupEmail, defaultOrganiser, mode, editing
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [turnstileToken, setTurnstileToken] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const formRef = useRef<HTMLFormElement>(null);
 
   const showTurnstile = mode === "user" && !editingId && turnstileConfigured;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setFieldErrors({});
 
-    if (title.trim().length < 2) {
-      setError("Title is required."); return;
-    }
-    if (description.trim().length < 20) {
-      setError("Description must be at least 20 characters."); return;
-    }
-    if (!/^https?:\/\//i.test(lumaLink.trim())) {
-      setError("Luma link must be a valid URL."); return;
-    }
-    if (!eventAt) {
-      setError("Date and time are required."); return;
-    }
-    if (new Date(eventAt) < new Date()) {
-      setError("Event must start in the future."); return;
-    }
-    if (!location.trim()) {
-      setError("Location is required."); return;
-    }
-    if (!organiserName.trim()) {
-      setError("Organiser name is required."); return;
-    }
-
-    const contactEmail = useCustomContact ? customContactEmail.trim() : signupEmail;
-    if (!/^[^@]+@[^@]+\.[^@]+$/.test(contactEmail)) {
-      setError("Contact email is invalid."); return;
-    }
     if (showTurnstile && !turnstileToken) {
       setError("Please complete the verification challenge below."); return;
     }
 
+    // Same schema the server action runs, so every failing field is
+    // reported at once and the two definitions can't drift apart.
+    const parsed = collectFieldErrors(eventSchema, {
+      title:                 title.trim(),
+      description:           description.trim(),
+      lumaLink:              lumaLink.trim(),
+      eventAtIso:            eventAt ? new Date(eventAt).toISOString() : "",
+      location:              location.trim(),
+      organiserName:         organiserName.trim(),
+      contactEmail:          useCustomContact ? customContactEmail.trim() : signupEmail,
+      contactEmailVisible,
+      isSocietyEvent:        showSocietyToggle ? isSocietyEvent : undefined,
+    });
+    if (!parsed.ok) {
+      if (parsed.errors[FORM_ERROR]) setError(parsed.errors[FORM_ERROR]);
+      showFieldErrors(parsed.errors, setFieldErrors, formRef.current);
+      return;
+    }
+    const payload = parsed.data;
+
     setIsLoading(true);
 
     if (editingId) {
-      const res = await updateOwnEvent(editingId, {
-        title:                 title.trim(),
-        description:           description.trim(),
-        lumaLink:              lumaLink.trim(),
-        eventAtIso:            new Date(eventAt).toISOString(),
-        location:              location.trim(),
-        organiserName:         organiserName.trim(),
-        contactEmail,
-        contactEmailVisible,
-      });
+      const res = await updateOwnEvent(editingId, payload);
       if (!res.ok) {
         setError(res.error);
         setIsLoading(false);
@@ -115,21 +105,7 @@ export default function EventForm({ signupEmail, defaultOrganiser, mode, editing
       return;
     }
 
-    const res = await submitEvent({
-      mode,
-      turnstileToken,
-      payload: {
-        title:                 title.trim(),
-        description:           description.trim(),
-        lumaLink:              lumaLink.trim(),
-        eventAtIso:            new Date(eventAt).toISOString(),
-        location:              location.trim(),
-        organiserName:         organiserName.trim(),
-        contactEmail,
-        contactEmailVisible,
-        isSocietyEvent:        showSocietyToggle ? isSocietyEvent : undefined,
-      },
-    });
+    const res = await submitEvent({ mode, turnstileToken, payload });
 
     if (!res.ok) {
       setError(res.error);
@@ -142,11 +118,11 @@ export default function EventForm({ signupEmail, defaultOrganiser, mode, editing
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5 rounded-2xl bg-bg-card border border-border-subtle p-8">
+    <form ref={formRef} onSubmit={handleSubmit} className="space-y-5 rounded-2xl bg-bg-card border border-border-subtle p-8">
       {error && <ErrorBanner>{error}</ErrorBanner>}
 
       {showSocietyToggle && (
-        <Field label="Event type" required hint="Society events are highlighted in gold in the directory.">
+        <Field label="Event type" required hint="Society events are highlighted in gold in the directory." error={fieldErrors.isSocietyEvent}>
           <select
             value={isSocietyEvent ? "society" : "external"}
             onChange={(e) => setIsSocietyEvent(e.target.value === "society")}
@@ -158,28 +134,28 @@ export default function EventForm({ signupEmail, defaultOrganiser, mode, editing
         </Field>
       )}
 
-      <Field label="Title" required>
+      <Field label="Title" required error={fieldErrors.title}>
         <input type="text" maxLength={200} value={title} onChange={(e) => setTitle(e.target.value)} className={inputCls} required />
       </Field>
 
-      <Field label="Description" required hint={`${description.length}/5000`}>
+      <Field label="Description" required hint={`${description.length}/5000`} error={fieldErrors.description}>
         <textarea rows={5} maxLength={5000} value={description} onChange={(e) => setDescription(e.target.value)} className={`${inputCls} resize-none`} required />
       </Field>
 
-      <Field label="Luma link" required>
+      <Field label="Luma link" required error={fieldErrors.lumaLink}>
         <input type="url" maxLength={512} placeholder="https://lu.ma/your-event" value={lumaLink} onChange={(e) => setLumaLink(e.target.value)} className={inputCls} required />
       </Field>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Field label="Date & time" required>
+        <Field label="Date & time" required error={fieldErrors.eventAtIso}>
           <input type="datetime-local" value={eventAt} onChange={(e) => setEventAt(e.target.value)} className={inputCls} required />
         </Field>
-        <Field label="Location" required hint="e.g. Imperial Business School, or 'Online'">
+        <Field label="Location" required hint="e.g. Imperial Business School, or 'Online'" error={fieldErrors.location}>
           <input type="text" maxLength={200} value={location} onChange={(e) => setLocation(e.target.value)} className={inputCls} required />
         </Field>
       </div>
 
-      <Field label="Organiser name" required>
+      <Field label="Organiser name" required error={fieldErrors.organiserName}>
         <input type="text" maxLength={200} value={organiserName} onChange={(e) => setOrganiserName(e.target.value)} className={inputCls} required />
       </Field>
 
@@ -192,13 +168,16 @@ export default function EventForm({ signupEmail, defaultOrganiser, mode, editing
           <input type="checkbox" checked={useCustomContact} onChange={(e) => setUseCustomContact(e.target.checked)} />
           Use a different contact email
         </label>
-        {useCustomContact ? (
-          <input type="email" placeholder="contact@example.com" value={customContactEmail} onChange={(e) => setCustomContactEmail(e.target.value)} className={inputCls} required />
-        ) : (
-          <div className="px-4 py-3 bg-white/[0.02] border border-border-subtle rounded-lg text-[0.8rem] text-text-muted">
-            {signupEmail}
-          </div>
-        )}
+        <div data-invalid={fieldErrors.contactEmail ? "" : undefined}>
+          {useCustomContact ? (
+            <input type="email" aria-label="Contact email" placeholder="contact@example.com" value={customContactEmail} onChange={(e) => setCustomContactEmail(e.target.value)} className={inputCls} required />
+          ) : (
+            <div className="px-4 py-3 bg-white/[0.02] border border-border-subtle rounded-lg text-[0.8rem] text-text-muted">
+              {signupEmail}
+            </div>
+          )}
+          <FieldError>{fieldErrors.contactEmail}</FieldError>
+        </div>
         <label className="flex items-start gap-2 text-[0.8rem] text-text-secondary mt-3 cursor-pointer">
           <input type="checkbox" className="mt-0.5" checked={contactEmailVisible} onChange={(e) => setContactEmailVisible(e.target.checked)} />
           <span>
