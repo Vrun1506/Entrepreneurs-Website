@@ -5,31 +5,17 @@ import { describeSupabaseError } from "@/lib/supabaseErrors";
 import type { Result } from "@/lib/result";
 import { ok, err } from "@/lib/result";
 import { getActionAuth } from "@/lib/auth/actionAuth";
-import { allow } from "@/lib/ratelimit";
-import { verifyTurnstile } from "@/lib/turnstile";
+import { guardSubmission, type SubmissionMode } from "@/lib/actions/guardSubmission";
 import { vcGrantSchema, validate } from "@/lib/validation/listings";
 
 // User-facing actions for VCs / grants. Admin actions live in
 // /admin/vcs/actions.ts.
 
-type Mode = "user" | "admin";
-
 // Create a VC / grant listing. Auth → Zod → SECURITY DEFINER RPC.
-export async function submitVcGrant(args: { mode: Mode; payload: unknown; turnstileToken?: string }): Promise<Result> {
-  const { user, isAdmin, status, supabase } = await getActionAuth();
-  if (!user) return err("You must be signed in to post a listing.");
-  if (args.mode === "admin" && !isAdmin) return err("Admin access required.");
-  if (args.mode === "user" && !isAdmin && status !== "approved") {
-    return err("Your membership must be approved before you can post.");
-  }
-  if (args.mode === "user") {
-    if (!(await verifyTurnstile(args.turnstileToken))) {
-      return err("Verification failed. Please complete the challenge and try again.");
-    }
-    if (!(await allow("submit", user.id))) {
-      return err("You're posting too frequently. Please try again later.");
-    }
-  }
+export async function submitVcGrant(args: { mode: SubmissionMode; payload: unknown; turnstileToken?: string }): Promise<Result> {
+  const guard = await guardSubmission({ mode: args.mode, noun: "a listing", turnstileToken: args.turnstileToken });
+  if (!guard.ok) return guard;
+  const { supabase } = guard.data;
 
   const parsed = validate(vcGrantSchema, args.payload);
   if (!parsed.ok) return parsed;

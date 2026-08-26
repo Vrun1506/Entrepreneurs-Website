@@ -1,15 +1,7 @@
-import Link from "next/link";
-import AppNav from "@/components/AppNav";
-import SubmittedBanner from "@/components/SubmittedBanner";
+import ListingPageShell from "@/components/ListingPageShell";
 import { requireApprovedUser } from "@/lib/auth/guard";
+import { markedListingIds } from "@/lib/listings/actionRow";
 import EventsClient from "./EventsClient";
-
-type ActionRow = {
-  listing_kind: "opportunity" | "event" | "vc_grant";
-  listing_id:   string;
-  action_type:  "applied" | "going";
-  created_at:   string;
-};
 
 export default async function EventsPage({
   searchParams,
@@ -30,37 +22,21 @@ export default async function EventsPage({
   if (actionsRes.error) console.error("Failed to load listing actions:", actionsRes.error);
 
   const items = ((evRes.data ?? []) as RpcRow[]).map(toEvent);
-  const goingIds = ((actionsRes.data ?? []) as ActionRow[])
-    .filter((a) => a.listing_kind === "event" && a.action_type === "going")
-    .map((a) => a.listing_id);
+  const goingIds = markedListingIds(actionsRes.data, "event", "going");
 
   return (
-    <div className="min-h-screen bg-bg-primary flex flex-col">
-      <AppNav active="events" isApproved={true} isAdmin={isAdmin} />
-      <main id="main-content" tabIndex={-1} className="flex-1 px-4 sm:px-8 py-10 sm:py-12">
-        <div className="max-w-[1200px] mx-auto">
-          {justSubmitted && <SubmittedBanner kind="event" />}
-          <div className="mb-8 flex items-start justify-between gap-4 flex-wrap">
-            <div>
-              <div className="text-[0.7rem] text-gold tracking-[0.18em] uppercase mb-2">Events</div>
-              <h1 className="font-display text-text-primary leading-[1.1] tracking-tight text-[clamp(1.75rem,3.5vw,2.5rem)]">
-                Upcoming Foundry events
-              </h1>
-              <p className="text-[0.875rem] text-text-muted mt-3 leading-relaxed">
-                {items.length} upcoming event{items.length === 1 ? "" : "s"}.
-              </p>
-            </div>
-            <Link
-              href="/events/new"
-              className="px-4 py-2 rounded-full bg-gold text-bg-primary text-[0.825rem] font-medium no-underline transition-colors duration-150 hover:bg-gold-light"
-            >
-              Post an event →
-            </Link>
-          </div>
-          <EventsClient items={items} goingIds={goingIds} />
-        </div>
-      </main>
-    </div>
+    <ListingPageShell
+      active="events"
+      isAdmin={isAdmin}
+      justSubmitted={justSubmitted}
+      submittedKind="event"
+      eyebrow="Events"
+      title="Upcoming Foundry events"
+      summary={`${items.length} upcoming event${items.length === 1 ? "" : "s"}.`}
+      cta={{ href: "/events/new", label: "Post an event →" }}
+    >
+      <EventsClient items={items} goingIds={goingIds} />
+    </ListingPageShell>
   );
 }
 

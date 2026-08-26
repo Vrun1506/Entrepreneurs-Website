@@ -1,15 +1,7 @@
-import Link from "next/link";
-import AppNav from "@/components/AppNav";
-import SubmittedBanner from "@/components/SubmittedBanner";
+import ListingPageShell from "@/components/ListingPageShell";
 import { requireApprovedUser } from "@/lib/auth/guard";
+import { markedListingIds } from "@/lib/listings/actionRow";
 import VcsClient from "./VcsClient";
-
-type ActionRow = {
-  listing_kind: "opportunity" | "event" | "vc_grant";
-  listing_id:   string;
-  action_type:  "applied" | "going";
-  created_at:   string;
-};
 
 export default async function VcsPage({
   searchParams,
@@ -44,37 +36,21 @@ export default async function VcsPage({
   // serve this list from a flat RPC like list_approved_opportunities/_events
   // already do; /vcs is the last listing page still selecting with a join.
   const items = ((vcsRes.data ?? []) as unknown as RawRow[]).map(toVc);
-  const appliedIds = ((actionsRes.data ?? []) as ActionRow[])
-    .filter((a) => a.listing_kind === "vc_grant" && a.action_type === "applied")
-    .map((a) => a.listing_id);
+  const appliedIds = markedListingIds(actionsRes.data, "vc_grant", "applied");
 
   return (
-    <div className="min-h-screen bg-bg-primary flex flex-col">
-      <AppNav active="vcs" isApproved={true} isAdmin={isAdmin} />
-      <main id="main-content" tabIndex={-1} className="flex-1 px-4 sm:px-8 py-10 sm:py-12">
-        <div className="max-w-[1200px] mx-auto">
-          {justSubmitted && <SubmittedBanner kind="VC/grant" />}
-          <div className="mb-8 flex items-start justify-between gap-4 flex-wrap">
-            <div>
-              <div className="text-[0.7rem] text-gold tracking-[0.18em] uppercase mb-2">Grants & VCs</div>
-              <h1 className="font-display text-text-primary leading-[1.1] tracking-tight text-[clamp(1.75rem,3.5vw,2.5rem)]">
-                Funding for Foundry founders
-              </h1>
-              <p className="text-[0.875rem] text-text-muted mt-3 leading-relaxed">
-                {items.length} active listing{items.length === 1 ? "" : "s"}.
-              </p>
-            </div>
-            <Link
-              href="/vcs/new"
-              className="px-4 py-2 rounded-full bg-gold text-bg-primary text-[0.825rem] font-medium no-underline transition-colors duration-150 hover:bg-gold-light"
-            >
-              Suggest a VC or grant →
-            </Link>
-          </div>
-          <VcsClient items={items} appliedIds={appliedIds} />
-        </div>
-      </main>
-    </div>
+    <ListingPageShell
+      active="vcs"
+      isAdmin={isAdmin}
+      justSubmitted={justSubmitted}
+      submittedKind="VC/grant"
+      eyebrow="Grants & VCs"
+      title="Funding for Foundry founders"
+      summary={`${items.length} active listing${items.length === 1 ? "" : "s"}.`}
+      cta={{ href: "/vcs/new", label: "Suggest a VC or grant →" }}
+    >
+      <VcsClient items={items} appliedIds={appliedIds} />
+    </ListingPageShell>
   );
 }
 

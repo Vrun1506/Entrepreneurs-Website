@@ -1,6 +1,7 @@
 import Link from "next/link";
 import AppNav from "@/components/AppNav";
 import { requireApprovedUser } from "@/lib/auth/guard";
+import { markedListingIds } from "@/lib/listings/actionRow";
 import OpportunitiesClient from "../opportunities/OpportunitiesClient";
 
 export default async function MyBookmarksPage() {
@@ -18,9 +19,7 @@ export default async function MyBookmarksPage() {
 
   const items = ((bookmarkRes.data ?? []) as RpcRow[]).map(toOpportunity);
   const bookmarkedIds = items.map((i) => i.id);
-  const appliedIds = ((actionsRes.data ?? []) as ActionRow[])
-    .filter((a) => a.listing_kind === "opportunity" && a.action_type === "applied")
-    .map((a) => a.listing_id);
+  const appliedIds = markedListingIds(actionsRes.data, "opportunity", "applied");
 
   return (
     <div className="min-h-screen bg-bg-primary flex flex-col">
@@ -67,13 +66,6 @@ export default async function MyBookmarksPage() {
     </div>
   );
 }
-
-type ActionRow = {
-  listing_kind: "opportunity" | "event" | "vc_grant";
-  listing_id:   string;
-  action_type:  "applied" | "going";
-  created_at:   string;
-};
 
 type RpcRow = {
   id: string;

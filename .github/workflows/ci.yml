@@ -31,7 +31,10 @@ jobs:
             db:
               - 'supabase/**'
               - 'frontend/src/app/**/actions.ts'
-              - 'frontend/src/lib/database.types.ts'
+              # Shared action logic lives here now (guardSubmission, admin/bulk,
+              # validation schemas). Without this line, moving code out of an
+              # actions.ts file would silently stop triggering these jobs.
+              - 'frontend/src/lib/**'
               - 'frontend/e2e/**'
               - '.github/workflows/ci.yml'
 

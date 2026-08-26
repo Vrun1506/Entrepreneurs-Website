@@ -4,12 +4,9 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { describeSupabaseError } from "@/lib/supabaseErrors";
 import { getActionAuth } from "@/lib/auth/actionAuth";
-import { allow } from "@/lib/ratelimit";
-import { verifyTurnstile } from "@/lib/turnstile";
+import { guardSubmission, type SubmissionMode } from "@/lib/actions/guardSubmission";
 import { opportunitySchema, validate, type OpportunityPayload } from "@/lib/validation/listings";
 import { ok, err, type Result } from "@/lib/result";
-
-type Mode = "user" | "admin";
 
 function toRpcParams(p: OpportunityPayload) {
   return {
@@ -34,21 +31,10 @@ function toRpcParams(p: OpportunityPayload) {
 // Create an opportunity. mode="user" enqueues for review (status=pending);
 // mode="admin" publishes immediately. Auth, then Zod, then the RPC — the
 // SECURITY DEFINER RPC re-checks the caller as the last line of defence.
-export async function submitOpportunity(args: { mode: Mode; payload: unknown; turnstileToken?: string }): Promise<Result> {
-  const { user, isAdmin, status, supabase } = await getActionAuth();
-  if (!user) return err("You must be signed in to post an opportunity.");
-  if (args.mode === "admin" && !isAdmin) return err("Admin access required.");
-  if (args.mode === "user" && !isAdmin && status !== "approved") {
-    return err("Your membership must be approved before you can post.");
-  }
-  if (args.mode === "user") {
-    if (!(await verifyTurnstile(args.turnstileToken))) {
-      return err("Verification failed. Please complete the challenge and try again.");
-    }
-    if (!(await allow("submit", user.id))) {
-      return err("You're posting too frequently. Please try again later.");
-    }
-  }
+export async function submitOpportunity(args: { mode: SubmissionMode; payload: unknown; turnstileToken?: string }): Promise<Result> {
+  const guard = await guardSubmission({ mode: args.mode, noun: "an opportunity", turnstileToken: args.turnstileToken });
+  if (!guard.ok) return guard;
+  const { supabase } = guard.data;
 
   const parsed = validate(opportunitySchema, args.payload);
   if (!parsed.ok) return parsed;
