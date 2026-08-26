@@ -83,7 +83,7 @@ export const LISTINGS = {
     revalidate: { admin: "/admin/opportunities", public: "/opportunities" },
     // The directory shows each member's open roles, sourced from approved
     // opportunities — so approving or editing one changes /community too.
-    cacheKeys: ["directory"],
+    cacheKeys: ["directoryFacets"],
     approve: async (db, id) => await db.rpc("approve_opportunity", { p_opportunity_id: id, p_notes: null }),
     reject: async (db, id, reason) =>
       await db.rpc("reject_opportunity", { p_opportunity_id: id, p_reason: reason }),

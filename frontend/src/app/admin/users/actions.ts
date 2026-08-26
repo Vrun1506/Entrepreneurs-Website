@@ -40,7 +40,7 @@ export async function approveUser(userId: string): Promise<Result> {
   if (!row?.email) {
     console.warn("approve_user returned no email for user:", userId);
     // Membership changed, so the cached directory is stale.
-    await invalidate("directory");
+    await invalidate("directoryFacets");
     revalidatePath("/admin/users");
     return { ok: true };
   }
@@ -60,12 +60,12 @@ export async function approveUser(userId: string): Promise<Result> {
     // can follow up but don't reverse the approval.
     const msg = e instanceof Error ? e.message : String(e);
     // Membership changed, so the cached directory is stale.
-    await invalidate("directory");
+    await invalidate("directoryFacets");
     revalidatePath("/admin/users");
     return { ok: false, error: `User approved, but welcome email failed to queue: ${msg}` };
   }
   // Membership changed, so the cached directory is stale.
-  await invalidate("directory");
+  await invalidate("directoryFacets");
   revalidatePath("/admin/users");
   return { ok: true };
 }
@@ -90,7 +90,7 @@ export async function rejectUser(userId: string, reason: string): Promise<Result
     // whole action — the admin's intent is recorded; just log.
     console.warn("reject_user returned no email for user:", userId);
     // Membership changed, so the cached directory is stale.
-    await invalidate("directory");
+    await invalidate("directoryFacets");
     revalidatePath("/admin/users");
     return { ok: true };
   }
@@ -102,12 +102,12 @@ export async function rejectUser(userId: string, reason: string): Promise<Result
     // so they know to follow up manually, but don't revert the rejection.
     const msg = e instanceof Error ? e.message : String(e);
     // Membership changed, so the cached directory is stale.
-    await invalidate("directory");
+    await invalidate("directoryFacets");
     revalidatePath("/admin/users");
     return { ok: false, error: `User rejected, but email failed to send: ${msg}` };
   }
   // Membership changed, so the cached directory is stale.
-  await invalidate("directory");
+  await invalidate("directoryFacets");
   revalidatePath("/admin/users");
   return { ok: true };
 }

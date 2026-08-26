@@ -125,7 +125,7 @@ async function withDeadline<T>(work: Promise<T>, ms: number): Promise<T> {
  */
 const VERSION = 1;
 
-export type CacheKey = "directory" | "vcs" | "lookups";
+export type CacheKey = "directoryFacets" | "vcs" | "lookups";
 
 const key = (k: CacheKey) => `cache:v${VERSION}:${k}`;
 
@@ -137,7 +137,12 @@ const key = (k: CacheKey) => `cache:v${VERSION}:${k}`;
  * the RPC, with no server action able to bust the key.
  */
 const TTL_SECONDS: Record<CacheKey, number> = {
-  directory: 60,
+  // Facets are the distinct courses / sectors / skills and the graduation-year
+  // bounds — a couple of hundred bytes that change only when someone joins,
+  // leaves or edits their profile. The paginated result pages themselves are
+  // not cached: with search and six filters the key space is effectively
+  // unbounded, and each page is now a ~3ms indexed query anyway.
+  directoryFacets: 300,
   vcs: 300,
   lookups: 3600,
 };

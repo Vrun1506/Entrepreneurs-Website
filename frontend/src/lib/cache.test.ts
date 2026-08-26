@@ -58,7 +58,7 @@ describe("cached()", () => {
 
   it("skip bypasses both the read and the write, so an admin can't populate a shared key", async () => {
     const { cached } = await load();
-    await cached("directory", async () => "admin-view", { skip: true });
+    await cached("directoryFacets", async () => "admin-view", { skip: true });
     expect(redis.get).not.toHaveBeenCalled();
     expect(redis.set).not.toHaveBeenCalled();
   });
@@ -101,10 +101,10 @@ describe("invalidate()", () => {
     const dir = vi.fn(async () => "dir");
     const vcs = vi.fn(async () => "vcs");
 
-    await cached("directory", dir);
+    await cached("directoryFacets", dir);
     await cached("vcs", vcs);
     await invalidate("vcs");
-    await cached("directory", dir);
+    await cached("directoryFacets", dir);
     await cached("vcs", vcs);
 
     expect(dir).toHaveBeenCalledTimes(1);
