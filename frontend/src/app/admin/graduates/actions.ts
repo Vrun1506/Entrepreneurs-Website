@@ -90,7 +90,7 @@ export async function deleteGraduates(cutoffYear: number): Promise<DeleteResult>
       // but report the deletion count accurately.
       const msg = e instanceof Error ? e.message : String(e);
       // Membership changed, so the cached directory is stale.
-      await invalidate("directory");
+      await invalidate("directoryFacets");
       revalidatePath("/admin");
       revalidatePath("/admin/community");
       revalidatePath("/community");
@@ -101,7 +101,7 @@ export async function deleteGraduates(cutoffYear: number): Promise<DeleteResult>
     }
   }
   // Membership changed, so the cached directory is stale.
-  await invalidate("directory");
+  await invalidate("directoryFacets");
   revalidatePath("/admin");
   revalidatePath("/admin/community");
   revalidatePath("/community");

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import SocialLinks from "@/components/SocialLinks";
 import SearchableMultiSelect from "@/components/forms/SearchableMultiSelect";
@@ -25,89 +26,108 @@ type Member = {
   lookingFor: { id: string; role: string }[];
 };
 
-// At most this many "Looking for" buttons render on a profile (card + dialog).
+type Facets = {
+  courses: string[];
+  sectors: string[];
+  skills: string[];
+  grad_min: number | null;
+  grad_max: number | null;
+  total: number;
+};
+
+type Filters = {
+  q: string;
+  roles: string[];
+  courses: string[];
+  sectors: string[];
+  skills: string[];
+  gradMin: string;
+  gradMax: string;
+  page: number;
+};
+
 const MAX_LOOKING_FOR = 3;
 
+// ════════════════════════════════════════════════════════════════════
+// Filtering and paging happen on the server; this component's job is to
+// keep the URL in step with the controls.
+//
+// That is not a stylistic choice. The directory used to load every member
+// and filter in memory, which meant PostgREST's 1000-row cap silently hid
+// everyone past the thousandth, and every navigation shipped the whole
+// membership. Neither is fixable while the filter logic lives here.
+//
+// The upside is that a filtered view is now a shareable URL, and the back
+// button steps through filter history.
+// ════════════════════════════════════════════════════════════════════
 export default function CommunityClient({
-  members, newest,
+  members, newest, facets, filters, matching, pageSize,
 }: {
   members: Member[];
   newest: Member[];
+  facets: Facets;
+  filters: Filters;
+  matching: number;
+  pageSize: number;
 }) {
-  const [query, setQuery] = useState("");
-  const [selectedRoles, setSelectedRoles] = useState<Set<"alum" | "student">>(new Set());
-  const [selectedCourses, setSelectedCourses] = useState<Set<string>>(new Set());
-  const [selectedSectors, setSelectedSectors] = useState<Set<string>>(new Set());
-  const [selectedSkills, setSelectedSkills] = useState<Set<string>>(new Set());
-  const [gradYearMin, setGradYearMin] = useState<string>("");
-  const [gradYearMax, setGradYearMax] = useState<string>("");
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [pending, startTransition] = useTransition();
+
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [openMember, setOpenMember] = useState<Member | null>(null);
 
-  // Derive the available chips from what members actually have, sorted
-  // alphabetically. Avoids the chip row showing options that match
-  // nobody.
-  const { availableCourses, availableSectors, availableSkills, gradYearBounds } = useMemo(() => {
-    const courses = new Set<string>();
-    const sectors = new Set<string>();
-    const skills  = new Set<string>();
-    let minY = Infinity, maxY = -Infinity;
-    for (const m of members) {
-      if (m.course && m.course.trim().length > 0) courses.add(m.course);
-      m.sectors.forEach((s) => sectors.add(s));
-      m.skills.forEach((s) => skills.add(s));
-      if (m.gradYear != null) {
-        if (m.gradYear < minY) minY = m.gradYear;
-        if (m.gradYear > maxY) maxY = m.gradYear;
-      }
-    }
-    return {
-      availableCourses: [...courses].sort((a, b) => a.localeCompare(b)),
-      availableSectors: [...sectors].sort((a, b) => a.localeCompare(b)),
-      availableSkills:  [...skills].sort((a, b) => a.localeCompare(b)),
-      gradYearBounds:   Number.isFinite(minY) ? { min: minY, max: maxY } : null,
-    };
-  }, [members]);
+  // The search box stays locally controlled so typing is never gated on a
+  // round trip; the URL catches up on a debounce.
+  const [queryDraft, setQueryDraft] = useState(filters.q);
+  // Resync when the URL's q changes from outside the box — the back button,
+  // or "Clear all". Adjusted during render rather than in an effect, which
+  // is React's documented pattern for reacting to a changed prop and avoids
+  // rendering one frame with the stale value.
+  const [lastAppliedQuery, setLastAppliedQuery] = useState(filters.q);
+  if (lastAppliedQuery !== filters.q) {
+    setLastAppliedQuery(filters.q);
+    setQueryDraft(filters.q);
+  }
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const minY = gradYearMin ? parseInt(gradYearMin, 10) : null;
-    const maxY = gradYearMax ? parseInt(gradYearMax, 10) : null;
-    return members.filter((m) => {
-      if (selectedRoles.size > 0 && !selectedRoles.has(m.role)) return false;
-      if (selectedCourses.size > 0 && (!m.course || !selectedCourses.has(m.course))) return false;
-      if (selectedSectors.size > 0 && !m.sectors.some((s) => selectedSectors.has(s))) return false;
-      if (selectedSkills.size  > 0 && !m.skills.some((s)  => selectedSkills.has(s)))  return false;
-      if (minY != null && (m.gradYear == null || m.gradYear < minY)) return false;
-      if (maxY != null && (m.gradYear == null || m.gradYear > maxY)) return false;
-      if (q) {
-        // Matches what the search box advertises: "name, course, skill,
-        // sector, or what they're working on". Bio was silently in here too,
-        // which is why the full text used to have to be shipped to every
-        // member on every navigation.
-        const hay = [
-          m.firstName, m.surname, `${m.firstName} ${m.surname}`,
-          m.course ?? "", m.workingOnPreview ?? "",
-          ...m.skills, ...m.sectors,
-        ].join(" ").toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      return true;
+  const apply = useCallback((next: Record<string, string | string[] | null>) => {
+    const params = new URLSearchParams(searchParams.toString());
+    for (const [k, v] of Object.entries(next)) {
+      const empty = v == null || v === "" || (Array.isArray(v) && v.length === 0);
+      if (empty) params.delete(k);
+      else params.set(k, Array.isArray(v) ? v.join(",") : v);
+    }
+    // Any change other than paging returns to page 1. Staying on page 7 of a
+    // result set that now has two pages shows an empty grid.
+    if (!("page" in next)) params.delete("page");
+    startTransition(() => {
+      router.push(params.size ? `${pathname}?${params}` : pathname, { scroll: false });
     });
-  }, [members, query, selectedRoles, selectedCourses, selectedSectors, selectedSkills, gradYearMin, gradYearMax]);
+  }, [router, pathname, searchParams]);
+
+  // Debounced so a search is one request per pause, not one per keystroke.
+  useEffect(() => {
+    if (queryDraft === filters.q) return;
+    const t = setTimeout(() => apply({ q: queryDraft }), 300);
+    return () => clearTimeout(t);
+  }, [queryDraft, filters.q, apply]);
+
+  const toggleValue = (key: string, current: string[], value: string) =>
+    apply({ [key]: current.includes(value) ? current.filter((v) => v !== value) : [...current, value] });
 
   const activeFilterCount =
-    selectedRoles.size + selectedCourses.size + selectedSectors.size + selectedSkills.size +
-    (gradYearMin ? 1 : 0) + (gradYearMax ? 1 : 0);
+    filters.roles.length + filters.courses.length + filters.sectors.length +
+    filters.skills.length + (filters.gradMin ? 1 : 0) + (filters.gradMax ? 1 : 0);
 
-  const clearFilters = () => {
-    setSelectedRoles(new Set());
-    setSelectedCourses(new Set());
-    setSelectedSectors(new Set());
-    setSelectedSkills(new Set());
-    setGradYearMin("");
-    setGradYearMax("");
-  };
+  const totalPages = Math.max(1, Math.ceil(matching / pageSize));
+  const gradYearBounds =
+    facets.grad_min != null && facets.grad_max != null
+      ? { min: facets.grad_min, max: facets.grad_max }
+      : null;
+
+  const clearFilters = () =>
+    apply({ role: null, course: null, sector: null, skill: null, gradMin: null, gradMax: null });
 
   return (
     <>
@@ -132,8 +152,8 @@ export default function CommunityClient({
           spellCheck={false}
           autoComplete="off"
           placeholder="Search by name, course, skill, sector, or what they're working on"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          value={queryDraft}
+          onChange={(e) => setQueryDraft(e.target.value)}
           className="w-full px-4 py-3 bg-white/[0.03] border border-border rounded-xl text-[0.875rem] text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]"
         />
       </div>
@@ -167,8 +187,10 @@ export default function CommunityClient({
               result count without having to go hunting for it. tabular-nums
               stops the row shifting as the digits change width. */}
           <span role="status" className="ml-auto text-[0.8rem] text-text-muted tabular-nums">
-            {filtered.length} of {members.length}
-            <span className="sr-only"> members shown</span>
+            {matching === facets.total
+              ? `${facets.total}`
+              : `${matching} of ${facets.total}`}
+            <span className="sr-only"> members match</span>
           </span>
         </div>
 
@@ -180,36 +202,36 @@ export default function CommunityClient({
                 { value: "student", label: "Students" },
                 { value: "alum",    label: "Alumni" },
               ]}
-              selected={selectedRoles}
-              onToggle={(v) => toggleSet(selectedRoles, v as "alum" | "student", setSelectedRoles)}
+              selected={new Set(filters.roles)}
+              onToggle={(v) => toggleValue("role", filters.roles, v)}
             />
 
-            {availableCourses.length > 0 && (
+            {facets.courses.length > 0 && (
               <SearchableMultiSelect
                 label="Course"
-                options={availableCourses}
-                selected={selectedCourses}
-                onChange={setSelectedCourses}
+                options={facets.courses}
+                selected={new Set(filters.courses)}
+                onChange={(next) => apply({ course: [...next] })}
                 placeholder="Filter by course — search or pick"
                 emptyText="No course matches that search."
               />
             )}
 
-            {availableSectors.length > 0 && (
+            {facets.sectors.length > 0 && (
               <FilterGroup
                 label="Sectors"
-                options={availableSectors.map((s) => ({ value: s, label: s }))}
-                selected={selectedSectors}
-                onToggle={(v) => toggleSet(selectedSectors, v, setSelectedSectors)}
+                options={facets.sectors.map((s) => ({ value: s, label: s }))}
+                selected={new Set(filters.sectors)}
+                onToggle={(v) => toggleValue("sector", filters.sectors, v)}
               />
             )}
 
-            {availableSkills.length > 0 && (
+            {facets.skills.length > 0 && (
               <FilterGroup
                 label="Skills"
-                options={availableSkills.map((s) => ({ value: s, label: s }))}
-                selected={selectedSkills}
-                onToggle={(v) => toggleSet(selectedSkills, v, setSelectedSkills)}
+                options={facets.skills.map((s) => ({ value: s, label: s }))}
+                selected={new Set(filters.skills)}
+                onToggle={(v) => toggleValue("skill", filters.skills, v)}
               />
             )}
 
@@ -223,8 +245,8 @@ export default function CommunityClient({
                     type="number"
                     placeholder={`From ${gradYearBounds.min}`}
                     aria-label="Graduation year from"
-                    value={gradYearMin}
-                    onChange={(e) => setGradYearMin(e.target.value)}
+                    defaultValue={filters.gradMin}
+                    onBlur={(e) => apply({ gradMin: e.target.value })}
                     min={gradYearBounds.min}
                     max={gradYearBounds.max}
                     className="w-[140px] px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.8rem] text-text-primary placeholder:text-text-muted focus:border-gold/50"
@@ -234,8 +256,8 @@ export default function CommunityClient({
                     type="number"
                     placeholder={`To ${gradYearBounds.max}`}
                     aria-label="Graduation year to"
-                    value={gradYearMax}
-                    onChange={(e) => setGradYearMax(e.target.value)}
+                    defaultValue={filters.gradMax}
+                    onBlur={(e) => apply({ gradMax: e.target.value })}
                     min={gradYearBounds.min}
                     max={gradYearBounds.max}
                     className="w-[140px] px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.8rem] text-text-primary placeholder:text-text-muted focus:border-gold/50"
@@ -247,14 +269,43 @@ export default function CommunityClient({
         )}
       </div>
 
-      {filtered.length === 0 ? (
-        <div className="text-center py-16 text-text-muted text-[0.85rem]">
-          {members.length === 0 ? "No members yet." : "No members match your search or filters."}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((m) => <MemberCard key={m.id} member={m} onClick={() => setOpenMember(m)} />)}
-        </div>
+      {/* A pending navigation dims the current page rather than replacing it
+          with a skeleton: the results are still valid, just about to change,
+          and swapping them for placeholders on every keystroke would flash. */}
+      <div className={pending ? "opacity-60 transition-opacity duration-150" : undefined}>
+        {members.length === 0 ? (
+          <div className="text-center py-16 text-text-muted text-[0.85rem]">
+            {facets.total === 0 ? "No members yet." : "No members match your search or filters."}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {members.map((m) => <MemberCard key={m.id} member={m} onClick={() => setOpenMember(m)} />)}
+          </div>
+        )}
+      </div>
+
+      {totalPages > 1 && (
+        <nav aria-label="Directory pages" className="mt-8 flex items-center justify-center gap-3">
+          <button
+            type="button"
+            disabled={filters.page <= 1 || pending}
+            onClick={() => apply({ page: String(filters.page - 1) })}
+            className="px-4 py-2 rounded-lg bg-transparent border border-border text-text-secondary text-[0.8rem] cursor-pointer transition-colors hover:text-text-primary hover:border-gold/40 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            ← Previous
+          </button>
+          <span className="text-[0.8rem] text-text-muted tabular-nums">
+            Page {filters.page} of {totalPages}
+          </span>
+          <button
+            type="button"
+            disabled={filters.page >= totalPages || pending}
+            onClick={() => apply({ page: String(filters.page + 1) })}
+            className="px-4 py-2 rounded-lg bg-transparent border border-border text-text-secondary text-[0.8rem] cursor-pointer transition-colors hover:text-text-primary hover:border-gold/40 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Next →
+          </button>
+        </nav>
       )}
 
       {openMember && (
@@ -264,11 +315,6 @@ export default function CommunityClient({
   );
 }
 
-function toggleSet<T>(set: Set<T>, value: T, setter: (s: Set<T>) => void) {
-  const next = new Set(set);
-  if (next.has(value)) next.delete(value); else next.add(value);
-  setter(next);
-}
 
 function FilterGroup<T extends string>({
   label, options, selected, onToggle,

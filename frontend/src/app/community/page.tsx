@@ -7,14 +7,55 @@ import type { Database } from "@/lib/database.overrides";
 import { cached } from "@/lib/cache";
 import CommunityClient from "./CommunityClient";
 
-export default async function CommunityPage() {
-  const { supabase, isAdmin } = await requireApprovedUser();
+// One screen of cards. Also the ceiling PostgREST would have imposed at
+// 1000 whether we asked for it or not — see migration 20260826000003.
+export const PAGE_SIZE = 48;
 
-  // Started, not awaited — see the note in app/vcs/page.tsx. This is the
-  // heaviest query in the app (it grows with the membership rather than
-  // with what's currently live), so it is the one that benefits most from
-  // the nav and heading not waiting on it.
-  const data = loadDirectory(supabase, isAdmin);
+type SearchParams = {
+  q?: string; role?: string; course?: string; sector?: string;
+  skill?: string; gradMin?: string; gradMax?: string; page?: string;
+};
+
+export type DirectoryFilters = {
+  q: string;
+  roles: string[];
+  courses: string[];
+  sectors: string[];
+  skills: string[];
+  gradMin: string;
+  gradMax: string;
+  page: number;
+};
+
+// Multi-value filters travel as comma-separated params so a filtered view
+// is a URL you can send someone.
+const list = (v: string | undefined): string[] =>
+  (v ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+
+function parseFilters(sp: SearchParams): DirectoryFilters {
+  const page = Number.parseInt(sp.page ?? "1", 10);
+  return {
+    q: sp.q ?? "",
+    roles: list(sp.role).filter((r) => r === "student" || r === "alum"),
+    courses: list(sp.course),
+    sectors: list(sp.sector),
+    skills: list(sp.skill),
+    gradMin: sp.gradMin ?? "",
+    gradMax: sp.gradMax ?? "",
+    page: Number.isFinite(page) && page > 0 ? page : 1,
+  };
+}
+
+export default async function CommunityPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  const { supabase, isAdmin } = await requireApprovedUser();
+  const filters = parseFilters(await searchParams);
+
+  // Started, not awaited — see the note in app/vcs/page.tsx.
+  const data = loadDirectory(supabase, filters, isAdmin);
 
   return (
     <div className="min-h-screen bg-bg-primary flex flex-col">
@@ -40,7 +81,7 @@ export default async function CommunityPage() {
               </>
             }
           >
-            <Directory data={data} />
+            <Directory data={data} filters={filters} />
           </Suspense>
         </div>
       </main>
@@ -48,83 +89,121 @@ export default async function CommunityPage() {
   );
 }
 
-type DirectoryData = {
-  directory: ReturnType<typeof toMember>[];
-  newest: ReturnType<typeof toMember>[];
+type Facets = {
+  courses: string[];
+  sectors: string[];
+  skills: string[];
+  grad_min: number | null;
+  grad_max: number | null;
   total: number;
+};
+
+type DirectoryData = {
+  members: ReturnType<typeof toMember>[];
+  newest: ReturnType<typeof toMember>[];
+  facets: Facets;
+  /** Members matching the current filters, not members overall. */
+  matching: number;
 };
 
 async function loadDirectory(
   supabase: SupabaseClient<Database>,
+  filters: DirectoryFilters,
   isAdmin: boolean,
 ): Promise<DirectoryData> {
-  // Cacheable in full: unlike opportunities and events, nothing here is
-  // masked per caller, and both queries filter by status='approved'
-  // explicitly, so every approved member gets identical rows.
-  //
-  // Worth being clear about what this does and doesn't buy. Measured at
-  // 1,203 members, the query takes ~22ms and the payload is ~1.4MB. The
-  // cache removes the 22ms; it does nothing about the 1.4MB, which still
-  // has to be serialised into the RSC payload on every navigation. The
-  // fix for *that* is trimming the card to the fields it actually shows
-  // and paginating — a page of 48 card-only rows measures 13kB.
-  return cached("directory", () => fetchDirectory(supabase), { skip: isAdmin });
-}
-
-async function fetchDirectory(supabase: SupabaseClient<Database>): Promise<DirectoryData> {
-  // Member directory + the roles each member is actively hiring for (the
-  // position_name of any opportunity they've posted that's live/approved).
-  // Approved opportunities are readable by approved members, so no RPC needed.
-  //
-  // Two queries in parallel, not one per member: the roles are fetched in
-  // bulk and grouped in memory below.
-  // list_directory_cards truncates bio/working_on to what the card renders
-  // and omits the three profile URLs entirely — the dialog fetches those on
-  // open. Measured at 1,203 members: 2,261 kB of full profiles becomes
-  // 752 kB. Truncating here rather than in the mapper below means the bytes
-  // never leave Postgres.
-  const [{ data: members, error }, { data: openRoles, error: rolesError }] = await Promise.all([
-    supabase.rpc("list_directory_cards"),
-    supabase
-      .from("opportunities")
-      .select("id, posted_by, position_name")
-      .eq("status", "approved"),
+  // Filtering and paging happen in Postgres. They have to: the client used
+  // to derive its chips and its search from the full member array, which
+  // stopped being possible the moment it only holds one page — and holding
+  // the full array is what PostgREST's 1000-row cap silently truncated.
+  const [cardsRes, newestRes, facets] = await Promise.all([
+    supabase.rpc("list_directory_cards", {
+      p_query:    filters.q || undefined,
+      p_roles:    filters.roles.length ? filters.roles : undefined,
+      p_courses:  filters.courses.length ? filters.courses : undefined,
+      p_sectors:  filters.sectors.length ? filters.sectors : undefined,
+      p_skills:   filters.skills.length ? filters.skills : undefined,
+      p_grad_min: filters.gradMin ? Number.parseInt(filters.gradMin, 10) : undefined,
+      p_grad_max: filters.gradMax ? Number.parseInt(filters.gradMax, 10) : undefined,
+      p_limit:    PAGE_SIZE,
+      p_offset:   (filters.page - 1) * PAGE_SIZE,
+      p_sort:     "name",
+    }),
+    // The "newest members" strip is always the five most recent overall,
+    // independent of the filters — the client can no longer slice it out of
+    // an array it doesn't have.
+    supabase.rpc("list_directory_cards", { p_limit: 5, p_sort: "recent" }),
+    // Facets are identical for every member and a couple of hundred bytes,
+    // so unlike the result pages they are worth caching.
+    cached(
+      "directoryFacets",
+      async () => {
+        const res = await supabase.rpc("list_directory_facets");
+        if (res.error) console.error("Failed to load directory facets:", res.error);
+        const row = (Array.isArray(res.data) ? res.data[0] : res.data) as Facets | null;
+        return row ?? { courses: [], sectors: [], skills: [], grad_min: null, grad_max: null, total: 0 };
+      },
+      { skip: isAdmin, isCacheable: (f) => f.total > 0 },
+    ),
   ]);
 
-  if (error) console.error("Failed to load community:", error);
-  if (rolesError) console.error("Failed to load open roles:", rolesError);
+  if (cardsRes.error) console.error("Failed to load community:", cardsRes.error);
+  if (newestRes.error) console.error("Failed to load newest members:", newestRes.error);
 
-  // posted_by → the roles they're looking for, each carrying the listing id
-  // so the profile card can deep-link to that opportunity.
+  const rows = (cardsRes.data ?? []) as CardRow[];
+  const newestRows = (newestRes.data ?? []) as CardRow[];
+
+  // The roles each member on screen is hiring for. Scoped to the ids we are
+  // actually rendering rather than fetching every approved opportunity —
+  // that query was previously unbounded too, and it only exists to decorate
+  // at most 53 cards.
+  const ids = [...new Set([...rows, ...newestRows].map((r) => r.id))];
   const lookingForByUser = new Map<string, { id: string; role: string }[]>();
-  for (const r of (openRoles ?? []) as { id: string; posted_by: string; position_name: string }[]) {
-    const list = lookingForByUser.get(r.posted_by) ?? [];
-    list.push({ id: r.id, role: r.position_name });
-    lookingForByUser.set(r.posted_by, list);
+  if (ids.length > 0) {
+    const rolesRes = await supabase
+      .from("opportunities")
+      .select("id, posted_by, position_name")
+      .eq("status", "approved")
+      .in("posted_by", ids);
+    if (rolesRes.error) console.error("Failed to load open roles:", rolesRes.error);
+    for (const r of rolesRes.data ?? []) {
+      const list = lookingForByUser.get(r.posted_by) ?? [];
+      list.push({ id: r.id, role: r.position_name });
+      lookingForByUser.set(r.posted_by, list);
+    }
   }
 
-  const memberRows = (members ?? []) as CardRow[];
-  const mapped = memberRows.map((r) => toMember(r, lookingForByUser.get(r.id) ?? []));
-
-  // Newest = first N by created_at desc (the server already returns this order).
-  // Directory list = alphabetical for predictable browsing.
   return {
-    newest: mapped.slice(0, 5),
-    directory: [...mapped].sort((a, b) =>
-      `${a.firstName} ${a.surname}`.localeCompare(`${b.firstName} ${b.surname}`)
-    ),
-    total: mapped.length,
+    members: rows.map((r) => toMember(r, lookingForByUser.get(r.id) ?? [])),
+    newest: newestRows.map((r) => toMember(r, lookingForByUser.get(r.id) ?? [])),
+    facets,
+    // total_count is a window function, so it's on every row and absent when
+    // the page is empty.
+    matching: rows[0]?.total_count ?? 0,
   };
 }
 
 async function MemberCount({ data }: { data: Promise<DirectoryData> }) {
-  const { total } = await data;
-  return <>{total} member{total === 1 ? "" : "s"}.</>;
+  const { facets } = await data;
+  return <>{facets.total} member{facets.total === 1 ? "" : "s"}.</>;
 }
 
-async function Directory({ data }: { data: Promise<DirectoryData> }) {
-  const { directory, newest } = await data;
-  return <CommunityClient members={directory} newest={newest} />;
+async function Directory({
+  data, filters,
+}: {
+  data: Promise<DirectoryData>;
+  filters: DirectoryFilters;
+}) {
+  const { members, newest, facets, matching } = await data;
+  return (
+    <CommunityClient
+      members={members}
+      newest={newest}
+      facets={facets}
+      filters={filters}
+      matching={matching}
+      pageSize={PAGE_SIZE}
+    />
+  );
 }
 
 // One row of list_directory_cards. bio and working_on are previews, not
@@ -141,6 +220,7 @@ type CardRow = {
   created_at: string;
   skill_names: string[];
   sector_names: string[];
+  total_count: number;
 };
 
 function toMember(r: CardRow, lookingFor: { id: string; role: string }[]) {
