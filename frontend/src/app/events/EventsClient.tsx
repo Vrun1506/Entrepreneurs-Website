@@ -80,7 +80,7 @@ export default function EventsClient({
           placeholder="Search events"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="w-full px-4 py-3 bg-white/[0.03] border border-border rounded-xl text-[0.875rem] text-text-primary placeholder:text-text-muted outline-none transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]"
+          className="w-full px-4 py-3 bg-white/[0.03] border border-border rounded-xl text-[0.875rem] text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]"
         />
       </div>
 
@@ -133,7 +133,7 @@ export default function EventsClient({
                   value={from}
                   onChange={(e) => setFrom(e.target.value)}
                   max={to || undefined}
-                  className="px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.8rem] text-text-primary outline-none focus:border-gold/50"
+                  className="px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.8rem] text-text-primary focus:border-gold/50"
                 />
                 <span className="text-text-muted text-[0.8rem]">to</span>
                 <input
@@ -141,7 +141,7 @@ export default function EventsClient({
                   value={to}
                   onChange={(e) => setTo(e.target.value)}
                   min={from || undefined}
-                  className="px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.8rem] text-text-primary outline-none focus:border-gold/50"
+                  className="px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.8rem] text-text-primary focus:border-gold/50"
                 />
               </div>
             </div>

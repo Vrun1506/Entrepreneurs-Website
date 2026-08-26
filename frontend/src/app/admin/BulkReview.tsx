@@ -130,7 +130,7 @@ export function BulkReview<T>({ items, getId, renderCard, bulkApprove, bulkRejec
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   placeholder={`Reason — sent to all ${selected.size}`}
-                  className="flex-1 min-w-[200px] px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.8rem] text-text-primary outline-none focus:border-gold/50"
+                  className="flex-1 min-w-[200px] px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.8rem] text-text-primary focus:border-gold/50"
                 />
                 <button
                   type="button"

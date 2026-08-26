@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { allow, clientIp } from "@/lib/ratelimit";
 import { buildCsp, generateNonce } from "@/lib/csp";
+import type { Database } from "@/lib/database.overrides";
 
 export async function updateSession(request: NextRequest) {
   // Per-request CSP nonce. Carried on the *request* headers so Next.js stamps
@@ -16,7 +17,7 @@ export async function updateSession(request: NextRequest) {
 
   let response = NextResponse.next({ request: { headers: requestHeaders } });
 
-  const supabase = createServerClient(
+  const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {

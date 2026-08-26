@@ -23,11 +23,18 @@ export function BrandLogo({
   size = "sm",
   showWordmark = true,
   showAffiliation = false,
+  priority = false,
 }: {
   size?: Size;
   showWordmark?: boolean;
   /** Append "Imperial College London" after the wordmark. Used in the footer. */
   showAffiliation?: boolean;
+  /**
+   * Preload the mark. Opt-in, because this renders in the footer of every page
+   * as well as the header — `priority` there preloaded a below-the-fold image
+   * and competed with LCP. Set it only where the logo is above the fold.
+   */
+  priority?: boolean;
 }) {
   return (
     <div className="flex items-center gap-3">
@@ -36,7 +43,8 @@ export function BrandLogo({
         alt="Imperial Entrepreneurs"
         width={4832}
         height={2540}
-        priority
+        priority={priority}
+        loading={priority ? undefined : "lazy"}
         className={`${HEIGHT[size]} w-auto`}
         style={{ mixBlendMode: "screen" }}
       />

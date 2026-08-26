@@ -68,7 +68,20 @@ test("opportunity lifecycle: submit → edit → approve → live → delete", a
 
   // 6. Student deletes it; it disappears from their submissions.
   await page.goto("/my-submissions");
-  const liveRow = page.locator("div").filter({ hasText: editedTitle }).filter({ has: page.getByRole("button", { name: "Delete" }) }).last();
+  // Scope to the row by "contains the title AND some button" rather than
+  // "…AND a Delete button". Clicking Delete swaps that button out for
+  // Confirm/Cancel, so a Delete-keyed locator stops matching its own row the
+  // moment it is used — it only ever resolved because an ancestor happened to
+  // contain a *different* row's Delete button. With the student's only
+  // submission on screen there is no such ancestor, so this timed out on a
+  // clean database and passed on a dirty one. CI's `retries: 1` hid it: the
+  // failed attempt leaves an orphaned approved listing behind, which supplies
+  // the second Delete button that makes the retry pass.
+  const liveRow = page
+    .locator("div")
+    .filter({ hasText: editedTitle })
+    .filter({ has: page.getByRole("button") })
+    .last();
   await liveRow.getByRole("button", { name: "Delete" }).click();
   await liveRow.getByRole("button", { name: "Confirm" }).click();
   await expect(page.getByText(editedTitle)).toHaveCount(0);

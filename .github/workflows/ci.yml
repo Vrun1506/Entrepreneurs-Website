@@ -31,6 +31,7 @@ jobs:
             db:
               - 'supabase/**'
               - 'frontend/src/app/**/actions.ts'
+              - 'frontend/src/lib/database.types.ts'
               - 'frontend/e2e/**'
               - '.github/workflows/ci.yml'
 
@@ -102,6 +103,18 @@ jobs:
         run: |
           DB_URL=$(supabase status -o env | grep '^DB_URL=' | cut -d= -f2- | tr -d '"')
           psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/rls_smoke.sql
+
+      # Piggybacks on the stack this job already booted rather than paying the
+      # `supabase start` cost again in a job of its own. Fails when a migration
+      # lands without regenerating types, which is the drift that silently
+      # turns every query result back into `any`.
+      - name: Check generated types are up to date
+        run: |
+          supabase gen types typescript --local > /tmp/database.types.ts
+          if ! diff -u frontend/src/lib/database.types.ts /tmp/database.types.ts; then
+            echo "::error::database.types.ts is stale. Run 'pnpm gen:types' in frontend/ and commit the result."
+            exit 1
+          fi
 
       - if: always()
         run: supabase stop || true

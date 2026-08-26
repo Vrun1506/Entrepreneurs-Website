@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import CommunityAdminClient from "./CommunityAdminClient";
+import type { UserStatus } from "@/lib/database.overrides";
 
 export default async function AdminCommunityPage() {
   const supabase = await createClient();
@@ -82,7 +83,7 @@ type RawJoinRow = {
   first_name: string;
   surname: string;
   role: "alum" | "student";
-  status: "pending_onboarding" | "pending_review" | "approved" | "rejected";
+  status: UserStatus;
   course: string | null;
   grad_year: number | null;
   created_at: string;

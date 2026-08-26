@@ -88,7 +88,7 @@ export default function SearchableMultiSelect({
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="w-full text-left px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.8rem] text-text-secondary outline-none transition-colors duration-150 hover:border-gold/30 focus:border-gold/50 cursor-pointer flex items-center justify-between gap-2"
+          className="w-full text-left px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.8rem] text-text-secondary transition-colors duration-150 hover:border-gold/30 focus:border-gold/50 cursor-pointer flex items-center justify-between gap-2"
           aria-expanded={open}
           aria-haspopup="listbox"
         >
@@ -112,7 +112,7 @@ export default function SearchableMultiSelect({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={placeholder}
-                className="w-full px-3 py-2 bg-white/[0.03] border border-border rounded-md text-[0.8rem] text-text-primary placeholder:text-text-muted outline-none focus:border-gold/50"
+                className="w-full px-3 py-2 bg-white/[0.03] border border-border rounded-md text-[0.8rem] text-text-primary placeholder:text-text-muted focus:border-gold/50"
               />
             </div>
             <div className="max-h-[260px] overflow-y-auto py-1">

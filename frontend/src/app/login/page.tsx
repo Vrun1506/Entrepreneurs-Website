@@ -8,6 +8,7 @@ import { cleanName, isValidName } from "@/lib/text";
 import { SignupDisclosures } from "@/components/forms/SignupDisclosures";
 import { TurnstileWidget, turnstileConfigured } from "@/components/forms/TurnstileWidget";
 import { BrandLogo } from "@/components/BrandLogo";
+import { destinationForStatus } from "@/lib/auth/status";
 
 // Auth error text reaches us partly via ?error= in the URL, which is
 // attacker-controllable — rendering it verbatim is a phishing/content-spoof
@@ -148,10 +149,10 @@ export default function LoginPage() {
     window.history.replaceState({}, "", url.toString());
   }, []);
 
-  // Sign-in successful — route by admin status + profile state.
-  // Mirrors /auth/callback/route.ts so email + OAuth paths land in the same
-  // place. Fail-closed: any RPC/lookup failure sends them to '/' rather than
-  // risk wrong-routing.
+  // Sign-in successful — route by admin status + profile state. Shares the
+  // status mapping with /auth/callback and /auth/confirm so email and OAuth
+  // paths can't drift apart. Fail-closed: any RPC/lookup failure sends them
+  // to '/' rather than risk wrong-routing.
   const routeAfterSignIn = async () => {
     const { data: isAdmin } = await supabase.rpc("is_admin");
     if (isAdmin) {
@@ -170,13 +171,7 @@ export default function LoginPage() {
       .select("status")
       .eq("id", user.id)
       .single();
-    const dest =
-      profile?.status === "pending_onboarding" ? "/onboarding"
-      : profile?.status === "pending_review"   ? "/pending"
-      : profile?.status === "approved"         ? "/community"
-      : profile?.status === "rejected"         ? "/rejected"
-      : "/";
-    router.replace(dest);
+    router.replace(destinationForStatus(profile?.status));
     router.refresh();
   };
 
@@ -778,7 +773,7 @@ function CodeEntryPanel({
           onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
           placeholder="000000"
           autoFocus
-          className="w-full px-4 py-3 bg-white/[0.03] border border-border rounded-lg text-center text-[1.4rem] tracking-[0.4em] font-medium text-text-primary placeholder:text-text-muted placeholder:tracking-[0.4em] outline-none transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]"
+          className="w-full px-4 py-3 bg-white/[0.03] border border-border rounded-lg text-center text-[1.4rem] tracking-[0.4em] font-medium text-text-primary placeholder:text-text-muted placeholder:tracking-[0.4em] transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]"
         />
 
         {verifyError && (
@@ -846,7 +841,7 @@ function StudentMagicLinkFlow({
   onBack: () => void;
 }) {
   const inputCls =
-    "w-full px-4 py-3 bg-white/[0.03] border border-border rounded-lg text-[0.85rem] text-text-primary placeholder:text-text-muted outline-none transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]";
+    "w-full px-4 py-3 bg-white/[0.03] border border-border rounded-lg text-[0.85rem] text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]";
 
   if (emailSent) {
     return (
@@ -970,7 +965,7 @@ function AlumForm({
   const [forgotView, setForgotView] = useState(false);
 
   const inputCls =
-    "w-full px-4 py-3 bg-white/[0.03] border border-border rounded-lg text-[0.85rem] text-text-primary placeholder:text-text-muted outline-none transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]";
+    "w-full px-4 py-3 bg-white/[0.03] border border-border rounded-lg text-[0.85rem] text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]";
 
   // After signup, "Confirm email" requires the alum to verify before they have
   // a session. Show the shared code-entry panel; the resend re-sends the signup

@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { scrollBehavior } from "@/lib/motion";
 
 export default function Hero() {
   return (
@@ -53,7 +54,7 @@ export default function Hero() {
             </a>
             <a
               href="#who-we-are"
-              onClick={(e) => { e.preventDefault(); document.getElementById("who-we-are")?.scrollIntoView({ behavior: "smooth" }); }}
+              onClick={(e) => { e.preventDefault(); document.getElementById("who-we-are")?.scrollIntoView({ behavior: scrollBehavior() }); }}
               className="inline-flex items-center gap-2 px-7 py-3 rounded-full no-underline bg-transparent text-text-secondary border border-border text-sm font-light transition-all duration-200 hover:border-gold hover:text-gold"
             >
               Learn more
