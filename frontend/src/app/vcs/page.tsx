@@ -36,6 +36,13 @@ export default async function VcsPage({
   if (vcsRes.error) console.error("Failed to load vcs_grants:", vcsRes.error);
   if (actionsRes.error) console.error("Failed to load listing actions:", actionsRes.error);
 
+  // The double-cast survives the move to generated types on purpose. supabase-js
+  // infers an embedded relation as an array, but PostgREST returns a single
+  // object for a many-to-one FK like posted_by — and the multi-line select
+  // string also defeats its type-level parser, degrading every scalar to `any`.
+  // Same discrepancy documented in app/community/page.tsx. The real fix is to
+  // serve this list from a flat RPC like list_approved_opportunities/_events
+  // already do; /vcs is the last listing page still selecting with a join.
   const items = ((vcsRes.data ?? []) as unknown as RawRow[]).map(toVc);
   const appliedIds = ((actionsRes.data ?? []) as ActionRow[])
     .filter((a) => a.listing_kind === "vc_grant" && a.action_type === "applied")
