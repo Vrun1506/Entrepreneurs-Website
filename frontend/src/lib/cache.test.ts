@@ -15,6 +15,9 @@ const redis = {
 // and an arrow function is not a constructor.
 vi.mock("@upstash/redis", () => ({ Redis: class { constructor() { return redis; } } }));
 vi.mock("server-only", () => ({}));
+// after() defers work until the response is sent; run it inline so the
+// tests can observe the write.
+vi.mock("next/server", () => ({ after: (fn: () => unknown) => { void fn(); } }));
 
 async function load(env: Record<string, string | undefined> = ENV) {
   vi.resetModules();
@@ -112,6 +115,62 @@ describe("invalidate()", () => {
     const { invalidate } = await load();
     redis.del.mockRejectedValueOnce(new Error("upstash down"));
     await expect(invalidate("vcs")).resolves.toBeUndefined();
+  });
+});
+
+describe("latency guards", () => {
+  it("gives up on a slow read and goes to the loader instead", async () => {
+    const { cached } = await load();
+    // Slower than READ_TIMEOUT_MS (100ms).
+    redis.get.mockImplementationOnce(() => new Promise((r) => setTimeout(() => r("stale"), 400)));
+
+    const started = Date.now();
+    const value = await cached("vcs", async () => "live");
+    const elapsed = Date.now() - started;
+
+    expect(value).toBe("live");
+    expect(elapsed, "must not wait out the slow read").toBeLessThan(350);
+  });
+
+  it("does not block the response on the cache write", async () => {
+    const { cached } = await load();
+    let released: () => void = () => {};
+    redis.set.mockImplementationOnce(
+      () => new Promise<string>((resolve) => { released = () => resolve("OK"); }),
+    );
+
+    // Resolves even though the write is still outstanding.
+    await expect(cached("vcs", async () => "live")).resolves.toBe("live");
+    released();
+  });
+});
+
+describe("circuit breaker", () => {
+  it("stops calling Redis after repeated failures, so the rate limiter keeps its quota", async () => {
+    const { cached } = await load();
+    redis.get.mockRejectedValue(new Error("quota exceeded"));
+
+    // Three failures trip it.
+    for (let i = 0; i < 3; i++) await cached("vcs", async () => "live");
+    const callsWhenTripped = redis.get.mock.calls.length;
+
+    // Subsequent reads skip Redis entirely and serve from the loader.
+    const loader = vi.fn(async () => "live");
+    await cached("vcs", loader);
+    await cached("vcs", loader);
+
+    expect(redis.get.mock.calls.length).toBe(callsWhenTripped);
+    expect(loader).toHaveBeenCalledTimes(2);
+  });
+
+  it("invalidation still runs while the breaker is open — a stale key matters more", async () => {
+    const { cached, invalidate } = await load();
+    redis.get.mockRejectedValue(new Error("quota exceeded"));
+    for (let i = 0; i < 3; i++) await cached("vcs", async () => "live");
+
+    redis.del.mockClear();
+    await invalidate("vcs");
+    expect(redis.del).toHaveBeenCalledTimes(1);
   });
 });
 
