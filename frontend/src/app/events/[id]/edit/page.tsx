@@ -59,7 +59,7 @@ export default async function EditEventPage({ params }: { params: Promise<Params
   return (
     <div className="min-h-screen bg-bg-primary flex flex-col">
       <AppNav active="events" isApproved={true} isAdmin={isAdmin} />
-      <main className="flex-1 px-4 sm:px-8 py-10 sm:py-12">
+      <main id="main-content" tabIndex={-1} className="flex-1 px-4 sm:px-8 py-10 sm:py-12">
         <div className="max-w-[820px] mx-auto">
           <Link href="/my-submissions" className="inline-flex items-center text-[0.8rem] text-text-muted no-underline transition-colors duration-150 hover:text-text-secondary mb-6">
             ← Your submissions

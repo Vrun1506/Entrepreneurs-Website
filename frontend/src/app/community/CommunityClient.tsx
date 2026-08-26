@@ -122,6 +122,9 @@ export default function CommunityClient({
       <div className="mb-4">
         <input
           type="search"
+          aria-label="Search members"
+          spellCheck={false}
+          autoComplete="off"
           placeholder="Search by name, course, skill, sector, or what they're working on"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -154,8 +157,12 @@ export default function CommunityClient({
               Clear all
             </button>
           )}
-          <span className="ml-auto text-[0.8rem] text-text-muted">
+          {/* Announced as filters change, so a screen-reader user hears the
+              result count without having to go hunting for it. tabular-nums
+              stops the row shifting as the digits change width. */}
+          <span role="status" className="ml-auto text-[0.8rem] text-text-muted tabular-nums">
             {filtered.length} of {members.length}
+            <span className="sr-only"> members shown</span>
           </span>
         </div>
 
@@ -209,6 +216,7 @@ export default function CommunityClient({
                   <input
                     type="number"
                     placeholder={`From ${gradYearBounds.min}`}
+                    aria-label="Graduation year from"
                     value={gradYearMin}
                     onChange={(e) => setGradYearMin(e.target.value)}
                     min={gradYearBounds.min}
@@ -219,6 +227,7 @@ export default function CommunityClient({
                   <input
                     type="number"
                     placeholder={`To ${gradYearBounds.max}`}
+                    aria-label="Graduation year to"
                     value={gradYearMax}
                     onChange={(e) => setGradYearMax(e.target.value)}
                     min={gradYearBounds.min}

@@ -9,7 +9,7 @@ import Footer from "@/components/Footer";
 
 export default function Home() {
   return (
-    <main style={{ position: "relative", zIndex: 1 }}>
+    <main id="main-content" tabIndex={-1} style={{ position: "relative", zIndex: 1 }}>
       <Navbar />
       <Hero />
       <WhoWeAre />

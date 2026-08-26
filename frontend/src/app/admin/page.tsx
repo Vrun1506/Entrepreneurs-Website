@@ -22,7 +22,7 @@ export default async function AdminPage() {
     (pendingProfiles ?? 0) + (pendingOpportunities ?? 0) + (pendingEvents ?? 0) + (pendingVcs ?? 0);
 
   return (
-    <div className="min-h-screen bg-bg-primary text-text-primary px-8 py-12">
+    <main id="main-content" tabIndex={-1} className="min-h-screen bg-bg-primary text-text-primary px-8 py-12">
       <div className="max-w-[1200px] mx-auto">
         <div className="flex items-center justify-between mb-12">
           <div>
@@ -105,7 +105,7 @@ export default async function AdminPage() {
         </div>
 
       </div>
-    </div>
+    </main>
   );
 }
 

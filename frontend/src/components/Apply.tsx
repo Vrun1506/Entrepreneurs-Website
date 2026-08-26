@@ -98,7 +98,7 @@ function FormPreview() {
 
         {/* Role chips */}
         <div>
-          <p className="text-[0.72rem] text-text-muted mb-2">I am a...</p>
+          <p className="text-[0.72rem] text-text-muted mb-2">I am a…</p>
           <div className="flex flex-wrap gap-1.5">
             {ROLE_OPTIONS.map((r) => (
               <span
