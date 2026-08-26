@@ -46,22 +46,20 @@ export async function updateOwnVcGrant(id: string, payload: unknown): Promise<Re
   if (!parsed.ok) return parsed;
   const p = parsed.data;
 
-  // RLS gates the update to posted_by=auth.uid() AND status='pending'.
-  const { error, count } = await supabase
-    .from("vcs_grants")
-    .update({
-      kind:        p.kind,
-      name:        p.name,
-      description: p.description,
-      link:        p.link,
-      amount:      p.amount,
-      deadline:    p.deadline,
-      stage:       p.stage,
-    }, { count: "exact" })
-    .eq("id", id);
-
+  // Ownership and status='pending' are re-checked inside the RPC, which
+  // raises 42501 with a message written for the user — describeSupabaseError
+  // passes those through. RLS still gates the table underneath.
+  const { error } = await supabase.rpc("update_vc_grant", {
+    p_id:          id,
+    p_kind:        p.kind,
+    p_name:        p.name,
+    p_description: p.description,
+    p_link:        p.link,
+    p_amount:      p.amount,
+    p_deadline:    p.deadline,
+    p_stage:       p.stage,
+  });
   if (error) return err(describeSupabaseError(error));
-  if (!count) return err("Listing not found, or it's already been approved (only pending listings can be edited).");
 
   revalidatePath("/my-submissions");
   revalidatePath("/vcs");

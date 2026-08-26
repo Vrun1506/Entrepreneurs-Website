@@ -28,8 +28,7 @@ export async function submitEvent(args: { mode: SubmissionMode; payload: unknown
   if (!parsed.ok) return parsed;
   const p = parsed.data;
 
-  const rpc = args.mode === "admin" ? "admin_create_event" : "submit_event";
-  const rpcArgs: Record<string, unknown> = {
+  const rpcArgs = {
     p_title:                 p.title,
     p_description:           p.description,
     p_luma_link:             p.lumaLink,
@@ -42,8 +41,17 @@ export async function submitEvent(args: { mode: SubmissionMode; payload: unknown
   // The society-event flag is admin-only: only admin_create_event accepts
   // it. submit_event (user path) has no such parameter, and the DB trigger
   // is the final backstop against a non-admin setting it.
-  if (args.mode === "admin") rpcArgs.p_is_society_event = p.isSocietyEvent ?? false;
-  const { error } = await supabase.rpc(rpc, rpcArgs);
+  //
+  // Branching here rather than bolting the extra key onto a
+  // Record<string, unknown>: the two RPCs genuinely take different
+  // arguments, and the loose record was what let this call site go
+  // unchecked against the schema.
+  const { error } = args.mode === "admin"
+    ? await supabase.rpc("admin_create_event", {
+        ...rpcArgs,
+        p_is_society_event: p.isSocietyEvent ?? false,
+      })
+    : await supabase.rpc("submit_event", rpcArgs);
   if (error) return err(describeSupabaseError(error));
 
   revalidatePath("/events");
@@ -59,25 +67,21 @@ export async function updateOwnEvent(id: string, payload: unknown): Promise<Resu
   if (!parsed.ok) return parsed;
   const p = parsed.data;
 
-  // RLS gates the update to posted_by=auth.uid() AND status='pending'.
-  // We still surface a 0-row response as "not found / no longer
-  // editable" so the caller can show a meaningful message.
-  const { error, count } = await supabase
-    .from("events")
-    .update({
-      title:                 p.title,
-      description:           p.description,
-      luma_link:             p.lumaLink,
-      event_at:              p.eventAtIso,
-      location:              p.location,
-      organiser_name:        p.organiserName,
-      contact_email:         p.contactEmail,
-      contact_email_visible: p.contactEmailVisible,
-    }, { count: "exact" })
-    .eq("id", id);
-
+  // Ownership and status='pending' are re-checked inside the RPC, which
+  // raises 42501 with a message written for the user — describeSupabaseError
+  // passes those through. RLS still gates the table underneath.
+  const { error } = await supabase.rpc("update_event", {
+    p_id:                    id,
+    p_title:                 p.title,
+    p_description:           p.description,
+    p_luma_link:             p.lumaLink,
+    p_event_at:              p.eventAtIso,
+    p_location:              p.location,
+    p_organiser_name:        p.organiserName,
+    p_contact_email:         p.contactEmail,
+    p_contact_email_visible: p.contactEmailVisible,
+  });
   if (error) return err(describeSupabaseError(error));
-  if (!count) return err("Event not found, or it's already been approved (only pending events can be edited).");
 
   revalidatePath("/my-submissions");
   revalidatePath("/events");

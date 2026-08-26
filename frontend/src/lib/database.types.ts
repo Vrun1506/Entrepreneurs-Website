@@ -1077,6 +1077,20 @@ export type Database = {
         }
         Returns: undefined
       }
+      update_event: {
+        Args: {
+          p_contact_email: string
+          p_contact_email_visible: boolean
+          p_description: string
+          p_event_at: string
+          p_id: string
+          p_location: string
+          p_luma_link: string
+          p_organiser_name: string
+          p_title: string
+        }
+        Returns: undefined
+      }
       update_opportunity: {
         Args: {
           p_application_deadline: string
@@ -1111,6 +1125,19 @@ export type Database = {
           p_skill_ids: number[]
           p_surname: string
           p_working_on: string
+        }
+        Returns: undefined
+      }
+      update_vc_grant: {
+        Args: {
+          p_amount: string
+          p_deadline: string
+          p_description: string
+          p_id: string
+          p_kind: Database["public"]["Enums"]["vc_grant_kind"]
+          p_link: string
+          p_name: string
+          p_stage: string
         }
         Returns: undefined
       }

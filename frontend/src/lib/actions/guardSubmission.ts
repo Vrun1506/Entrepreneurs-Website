@@ -4,6 +4,7 @@ import { allow } from "@/lib/ratelimit";
 import { verifyTurnstile } from "@/lib/turnstile";
 import { ok, err, type Result } from "@/lib/result";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
+import type { Database } from "@/lib/database.overrides";
 
 export type SubmissionMode = "user" | "admin";
 
@@ -24,7 +25,7 @@ export async function guardSubmission(args: {
   /** Completes "You must be signed in to post …". */
   noun: string;
   turnstileToken?: string;
-}): Promise<Result<{ supabase: SupabaseClient; user: User }>> {
+}): Promise<Result<{ supabase: SupabaseClient<Database>; user: User }>> {
   const { user, isAdmin, status, supabase } = await getActionAuth();
 
   if (!user) return err(`You must be signed in to post ${args.noun}.`);
