@@ -4,8 +4,9 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import SearchableMultiSelect from "@/components/forms/SearchableMultiSelect";
 import { adminDeleteUser } from "./actions";
+import type { UserStatus } from "@/lib/database.overrides";
 
-type Status = "pending_onboarding" | "pending_review" | "approved" | "rejected";
+type Status = UserStatus;
 type Role   = "alum" | "student";
 
 type Member = {
@@ -111,7 +112,7 @@ export default function CommunityAdminClient({ members }: { members: Member[] })
           placeholder="Search by name, email, or what they're working on"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="w-full px-4 py-3 bg-white/[0.03] border border-border rounded-xl text-[0.875rem] text-text-primary placeholder:text-text-muted outline-none transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]"
+          className="w-full px-4 py-3 bg-white/[0.03] border border-border rounded-xl text-[0.875rem] text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]"
         />
       </div>
 
@@ -211,7 +212,7 @@ export default function CommunityAdminClient({ members }: { members: Member[] })
                     onChange={(e) => setGradYearMin(e.target.value)}
                     min={gradYearBounds.min}
                     max={gradYearBounds.max}
-                    className="w-[140px] px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.8rem] text-text-primary placeholder:text-text-muted outline-none focus:border-gold/50"
+                    className="w-[140px] px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.8rem] text-text-primary placeholder:text-text-muted focus:border-gold/50"
                   />
                   <span className="text-text-muted text-[0.8rem]">to</span>
                   <input
@@ -221,7 +222,7 @@ export default function CommunityAdminClient({ members }: { members: Member[] })
                     onChange={(e) => setGradYearMax(e.target.value)}
                     min={gradYearBounds.min}
                     max={gradYearBounds.max}
-                    className="w-[140px] px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.8rem] text-text-primary placeholder:text-text-muted outline-none focus:border-gold/50"
+                    className="w-[140px] px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.8rem] text-text-primary placeholder:text-text-muted focus:border-gold/50"
                   />
                 </div>
               </div>
@@ -375,7 +376,7 @@ function DeleteUserModal({ member, onClose }: { member: Member; onClose: () => v
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           placeholder="e.g. Inappropriate listings violating community guidelines."
-          className="w-full px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.85rem] text-text-primary placeholder:text-text-muted outline-none focus:border-[#ff4d4d]/50 resize-none mb-5"
+          className="w-full px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.85rem] text-text-primary placeholder:text-text-muted focus:border-[#ff4d4d]/50 resize-none mb-5"
         />
 
         <div className="flex gap-3 justify-end">

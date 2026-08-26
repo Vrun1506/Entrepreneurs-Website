@@ -173,7 +173,7 @@ export default function OpportunityReviewCard({ opportunity: o }: { opportunity:
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="e.g. Pay missing / duplicate / unclear company"
-              className="w-full px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.8rem] text-text-primary placeholder:text-text-muted outline-none focus:border-gold/50 resize-none"
+              className="w-full px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.8rem] text-text-primary placeholder:text-text-muted focus:border-gold/50 resize-none"
             />
             <div className="flex gap-2">
               <button

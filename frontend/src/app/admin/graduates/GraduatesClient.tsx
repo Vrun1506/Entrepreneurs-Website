@@ -58,7 +58,7 @@ export default function GraduatesClient({ defaultCutoff }: { defaultCutoff: numb
             onChange={(e) => setCutoff(e.target.value)}
             min={1950}
             max={2099}
-            className="w-[200px] px-4 py-3 bg-white/[0.03] border border-border rounded-lg text-[0.85rem] text-text-primary placeholder:text-text-muted outline-none transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]"
+            className="w-[200px] px-4 py-3 bg-white/[0.03] border border-border rounded-lg text-[0.85rem] text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]"
           />
           <p className="text-[0.725rem] text-text-muted mt-1.5 leading-relaxed">
             Everyone whose graduation year is at or before this value will be removed. Default is last calendar year; raise it after results day to include this year&apos;s cohort.

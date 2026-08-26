@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import SignOutButton from "@/app/admin/SignOutButton";
 import { BrandLogo } from "@/components/BrandLogo";
+import { redirectAwayFrom } from "@/lib/auth/status";
 
 export default async function RejectedPage() {
   const supabase = await createClient();
@@ -21,9 +22,8 @@ export default async function RejectedPage() {
   if (!profile) redirect("/login");
   // Admins bypass status gates so they can preview the page for diagnostics.
   if (!isAdmin) {
-    if (profile.status === "pending_onboarding") redirect("/onboarding");
-    if (profile.status === "pending_review")     redirect("/pending");
-    if (profile.status === "approved")           redirect("/community");
+    const away = redirectAwayFrom("/rejected", profile.status);
+    if (away) redirect(away);
   }
 
   return (

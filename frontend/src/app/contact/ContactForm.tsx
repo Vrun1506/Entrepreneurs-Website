@@ -25,7 +25,7 @@ export default function ContactForm({
   const [turnstileToken, setTurnstileToken] = useState("");
 
   const inputCls =
-    "w-full px-4 py-3 bg-white/[0.03] border border-border rounded-lg text-[0.85rem] text-text-primary placeholder:text-text-muted outline-none transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]";
+    "w-full px-4 py-3 bg-white/[0.03] border border-border rounded-lg text-[0.85rem] text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]";
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

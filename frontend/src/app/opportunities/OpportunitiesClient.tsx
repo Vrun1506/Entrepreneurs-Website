@@ -6,6 +6,7 @@ import { ListingGoneNotice } from "@/components/ListingGoneNotice";
 import { MarkActionPill } from "@/components/MarkActionPill";
 import { recordListingEvent } from "@/lib/analytics";
 import { formatDate } from "@/lib/dates";
+import { scrollBehavior } from "@/lib/motion";
 import { toggleOpportunityBookmark } from "./actions";
 
 type Opportunity = {
@@ -101,7 +102,7 @@ export default function OpportunitiesClient({
           placeholder="Search by role, company, skill, sector, or poster"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="w-full px-4 py-3 bg-white/[0.03] border border-border rounded-xl text-[0.875rem] text-text-primary placeholder:text-text-muted outline-none transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]"
+          className="w-full px-4 py-3 bg-white/[0.03] border border-border rounded-xl text-[0.875rem] text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]"
         />
       </div>
 
@@ -149,7 +150,7 @@ function OpportunityCard({
       // hydration mismatch (server renders closed); set it post-mount instead.
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setOpen(true);
-      articleRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      articleRef.current?.scrollIntoView({ behavior: scrollBehavior(), block: "center" });
     }
   }, [o.id]);
 

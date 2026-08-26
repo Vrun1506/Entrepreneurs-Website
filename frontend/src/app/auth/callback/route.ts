@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { destinationForStatus } from "@/lib/auth/status";
 
 // Handles three paths, all via the same ?code= exchange:
 //   1. Google OAuth (alumni).
@@ -63,16 +64,5 @@ export async function GET(request: Request) {
     .eq("id", data.user.id)
     .single();
 
-  const dest = routeForStatus(profile?.status);
-  return NextResponse.redirect(`${origin}${dest}`);
-}
-
-function routeForStatus(status: string | null | undefined): string {
-  switch (status) {
-    case "pending_onboarding": return "/onboarding";
-    case "pending_review":     return "/pending";
-    case "approved":           return "/community";
-    case "rejected":           return "/rejected";
-    default:                   return "/";
-  }
+  return NextResponse.redirect(`${origin}${destinationForStatus(profile?.status)}`);
 }

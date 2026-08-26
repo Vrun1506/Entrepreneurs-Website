@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { type EmailOtpType } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { destinationForStatus } from "@/lib/auth/status";
 
 // Email verification via token_hash (NOT the PKCE code flow in /auth/callback).
 //
@@ -47,8 +48,6 @@ export async function GET(request: Request) {
     );
   }
 
-  // Routing below is duplicated verbatim from /auth/callback so that route
-  // stays byte-for-byte untouched (this PR is purely additive).
   // Admins always go to /admin regardless of profile status.
   const { data: isAdmin } = await supabase.rpc("is_admin");
   if (isAdmin) return NextResponse.redirect(`${origin}/admin`);
@@ -60,16 +59,5 @@ export async function GET(request: Request) {
     .eq("id", data.user.id)
     .single();
 
-  const dest = routeForStatus(profile?.status);
-  return NextResponse.redirect(`${origin}${dest}`);
-}
-
-function routeForStatus(status: string | null | undefined): string {
-  switch (status) {
-    case "pending_onboarding": return "/onboarding";
-    case "pending_review":     return "/pending";
-    case "approved":           return "/community";
-    case "rejected":           return "/rejected";
-    default:                   return "/";
-  }
+  return NextResponse.redirect(`${origin}${destinationForStatus(profile?.status)}`);
 }

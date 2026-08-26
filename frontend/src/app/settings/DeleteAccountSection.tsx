@@ -63,7 +63,7 @@ export default function DeleteAccountSection({ email }: { email: string }) {
               autoComplete="off"
               value={confirmText}
               onChange={(e) => setConfirmText(e.target.value)}
-              className="w-full px-4 py-3 bg-white/[0.03] border border-border rounded-lg text-[0.85rem] text-text-primary placeholder:text-text-muted outline-none transition-colors duration-150 focus:border-[#ff4d4d]/50"
+              className="w-full px-4 py-3 bg-white/[0.03] border border-border rounded-lg text-[0.85rem] text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:border-[#ff4d4d]/50"
             />
           </div>
           <div className="flex gap-2">

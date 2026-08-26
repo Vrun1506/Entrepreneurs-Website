@@ -119,7 +119,7 @@ export default function EventReviewCard({ ev }: { ev: Ev }) {
               rows={2}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              className="w-full px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.8rem] text-text-primary placeholder:text-text-muted outline-none focus:border-gold/50 resize-none"
+              className="w-full px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.8rem] text-text-primary placeholder:text-text-muted focus:border-gold/50 resize-none"
             />
             <div className="flex gap-2">
               <button type="button" onClick={handleReject} disabled={pending || !reason.trim()} className="px-4 py-2 rounded-lg bg-[#ff4d4d]/15 border border-[#ff4d4d]/30 text-[#ff6b6b] text-[0.8rem] font-medium cursor-pointer transition-colors hover:bg-[#ff4d4d]/25 disabled:opacity-50 disabled:cursor-not-allowed">
