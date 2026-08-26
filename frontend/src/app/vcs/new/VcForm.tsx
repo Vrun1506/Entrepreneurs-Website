@@ -107,7 +107,7 @@ export default function VcForm({
     <form ref={formRef} onSubmit={handleSubmit} className="space-y-5 rounded-2xl bg-bg-card border border-border-subtle p-8">
       {error && <ErrorBanner>{error}</ErrorBanner>}
 
-      <Field label="Kind" required error={fieldErrors.kind}>
+      <Field label="Kind" required group error={fieldErrors.kind}>
         <div className="grid grid-cols-2 gap-3">
           <label className={`px-4 py-3 rounded-lg border cursor-pointer transition-colors ${kind === "vc" ? "bg-gold-muted border-gold/50 text-gold-light" : "bg-white/[0.02] border-border text-text-secondary hover:border-gold/30"}`}>
             <input type="radio" name="kind" value="vc" checked={kind === "vc"} onChange={() => setKind("vc")} className="mr-2" />
