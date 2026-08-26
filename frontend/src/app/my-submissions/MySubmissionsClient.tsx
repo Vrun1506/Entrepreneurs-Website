@@ -121,7 +121,10 @@ function Row({ type, item }: { type: ListingType; item: Item }) {
   };
 
   return (
-    <div className="p-4">
+    // Test id so E2E can scope to one row. Filtering by "a div containing
+    // this title" instead matches every ancestor too, which is how the
+    // delete-flow locator used to pick up a *different* row's button.
+    <div className="p-4" data-testid="submission-row">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
