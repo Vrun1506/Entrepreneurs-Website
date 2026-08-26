@@ -10,10 +10,11 @@ import { Redis } from "@upstash/redis";
 // deploys behave exactly as before. It only "turns on" once the two
 // env vars are set.
 //
-// NAT caveat: Imperial students on campus share one public IP, so the
-// per-IP `mutations` bucket is deliberately generous — it's a coarse
-// backstop only. The precise, NAT-safe control is the per-user `submit`
-// bucket applied inside the submission server actions.
+// NAT: Imperial students on campus share one public IP, so an IP bucket
+// is a campus bucket. Mutations are therefore keyed on the signed-in user
+// wherever there is one — abuse belongs to an account, not to a building.
+// Only genuinely anonymous traffic falls back to IP, and it gets its own
+// far higher ceiling because that key stands for thousands of people.
 // ════════════════════════════════════════════════════════════════════
 
 const url = process.env.UPSTASH_REDIS_REST_URL;
@@ -23,15 +24,24 @@ export const rateLimitEnabled = Boolean(url && token);
 
 const redis = rateLimitEnabled ? new Redis({ url: url!, token: token! }) : null;
 
-export type RateBucket = "mutations" | "submit";
+export type RateBucket = "mutations" | "anonMutations" | "submit";
 
 // Factory per bucket. slidingWindow chosen for smooth limiting; analytics
 // off to keep the command count (and cost) down.
 const BUCKETS: Record<RateBucket, () => Ratelimit> = {
-  // Coarse per-IP backstop on all non-GET requests (server actions are
-  // POSTs). Generous because of campus NAT.
+  // Per-user backstop on all non-GET requests (server actions are POSTs).
+  // 60/min is far more than one person generates by hand, and because the
+  // key is an account it no longer collides with everyone else on campus.
   mutations: () =>
     new Ratelimit({ redis: redis!, limiter: Ratelimit.slidingWindow(60, "1 m"), prefix: "rl:mut", analytics: false }),
+  // Anonymous non-GET traffic, keyed on IP because there is no better
+  // identity. One key can stand for the whole campus — a signup wave after
+  // an announcement is the case that matters — so the ceiling is a flood
+  // guard, not a per-person limit. Cloudflare absorbs real floods at the
+  // edge; Turnstile and Supabase's own auth limits are the precise controls
+  // on the sensitive anonymous endpoints.
+  anonMutations: () =>
+    new Ratelimit({ redis: redis!, limiter: Ratelimit.slidingWindow(300, "1 m"), prefix: "rl:mut:anon", analytics: false }),
   // Precise per-user limit on listing/contact submissions.
   submit: () =>
     new Ratelimit({ redis: redis!, limiter: Ratelimit.slidingWindow(10, "1 h"), prefix: "rl:sub", analytics: false }),
