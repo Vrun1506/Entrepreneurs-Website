@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
+import type { UserStatus } from "@/lib/database.overrides";
+import { destinationForStatus } from "@/lib/auth/status";
 
 // Auth + onboarding-status gating used by every authenticated page.
 // Centralised so swapping Supabase for a different backend later (e.g.
@@ -24,7 +26,7 @@ export type GateOptions = {
 export type GateResult = {
   user: User;
   isAdmin: boolean;
-  status: "pending_onboarding" | "pending_review" | "approved" | "rejected" | null;
+  status: UserStatus | null;
   supabase: SupabaseClient;
 };
 
@@ -52,10 +54,8 @@ export async function requireApprovedUser(opts: GateOptions = {}): Promise<GateR
 
   if (!profile) redirect("/login");
 
-  if (!opts.passthrough && !isAdmin) {
-    if (profile.status === "pending_onboarding") redirect("/onboarding");
-    if (profile.status === "pending_review")     redirect("/pending");
-    if (profile.status === "rejected")           redirect("/rejected");
+  if (!opts.passthrough && !isAdmin && profile.status !== "approved") {
+    redirect(destinationForStatus(profile.status));
   }
 
   return {

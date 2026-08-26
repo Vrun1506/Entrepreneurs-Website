@@ -4,8 +4,9 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import SearchableMultiSelect from "@/components/forms/SearchableMultiSelect";
 import { adminDeleteUser } from "./actions";
+import type { UserStatus } from "@/lib/database.overrides";
 
-type Status = "pending_onboarding" | "pending_review" | "approved" | "rejected";
+type Status = UserStatus;
 type Role   = "alum" | "student";
 
 type Member = {

@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
+import type { UserStatus } from "@/lib/database.overrides";
 
 // Auth context for server *actions* (not pages). Pages use guard.ts's
 // requireApprovedUser, which redirect()s on failure — wrong for a form
@@ -13,7 +14,7 @@ export type ActionAuth = {
   supabase: SupabaseClient;
   user: User | null;
   isAdmin: boolean;
-  status: "pending_onboarding" | "pending_review" | "approved" | "rejected" | null;
+  status: UserStatus | null;
 };
 
 export async function getActionAuth(): Promise<ActionAuth> {
