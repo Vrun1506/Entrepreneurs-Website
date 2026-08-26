@@ -29,9 +29,18 @@ test("all failing fields report at once, beside themselves, focus on the first",
   await expect(page.getByLabel("Role title")).toBeFocused();
 
   // Fixing everything clears them and the submission goes through.
-  await page.getByLabel("Role title").fill(`E2E Validation ${Date.now()}`);
+  const goodTitle = `E2E Validation ${Date.now()}`;
+  await page.getByLabel("Role title").fill(goodTitle);
   await page.getByLabel("Job description").fill("A description comfortably past twenty characters.");
   await page.locator('input[type="date"]').fill(new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10));
   await page.getByRole("button", { name: "Submit for review" }).click();
-  await expect(page).toHaveURL(/\/opportunities(\?|$)/);
+  await expect(page).toHaveURL(/\/opportunities(\?submitted=1)?$/);
+
+  // Clean up: the suite runs serially against a shared database, so a test
+  // that submits has to remove what it submitted.
+  await page.goto("/my-submissions");
+  const row = () => page.getByTestId("submission-row").filter({ hasText: goodTitle });
+  await row().getByRole("button", { name: "Delete" }).click();
+  await row().getByRole("button", { name: "Confirm" }).click();
+  await expect(page.getByTestId("submission-row").filter({ hasText: goodTitle })).toHaveCount(0);
 });

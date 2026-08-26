@@ -765,6 +765,168 @@ begin
 end;
 $$;
 
+-- ─── 23. The owner/pending edit split holds for events too ──────────
+-- Tests 1-5 assert this for opportunities only. events and vcs_grants have
+-- their own ~25 policies each, written by hand in parallel, and nothing was
+-- checking that they agree. This is the same five properties against events.
+set local role postgres;
+do $$
+declare
+  v_a       uuid := (select v from _test_ctx where k='user_a');
+  v_b       uuid := (select v from _test_ctx where k='user_b');
+  v_admin   uuid := (select v from _test_ctx where k='admin');
+  v_pend_a  uuid := gen_random_uuid();
+  v_pend_b  uuid := gen_random_uuid();
+  v_appr_b  uuid := gen_random_uuid();
+  v_seen    int;
+  v_count   int;
+begin
+  perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+  insert into public.events (
+    id, posted_by, status, title, description, luma_link, event_at,
+    location, organiser_name, contact_email, approved_at, approved_by
+  ) values
+    (v_pend_a, v_a, 'pending',  'A''s pending event',
+     'Description that is at least twenty chars long.', 'https://lu.ma/a',
+     now() + interval '30 days', 'London', 'A User', 'a@imperial.ac.uk', null, null),
+    (v_pend_b, v_b, 'pending',  'B''s pending event',
+     'Description that is at least twenty chars long.', 'https://lu.ma/b',
+     now() + interval '30 days', 'London', 'B User', 'b@imperial.ac.uk', null, null),
+    (v_appr_b, v_b, 'approved', 'B''s approved event',
+     'Description that is at least twenty chars long.', 'https://lu.ma/c',
+     now() + interval '30 days', 'London', 'B User', 'b@imperial.ac.uk', now(), v_admin);
+
+  -- (a) owner reads their own pending row
+  perform _set_caller(v_a);
+  select count(*) into v_seen from public.events where id = v_pend_a;
+  if v_seen <> 1 then raise exception 'FAIL(events): owner cannot read own pending event'; end if;
+
+  -- (b) a non-owner does not
+  select count(*) into v_seen from public.events where id = v_pend_b;
+  if v_seen <> 0 then raise exception 'FAIL(events): user A could read user B''s pending event'; end if;
+
+  -- (c) a non-owner cannot edit someone else's approved row
+  update public.events set title = 'HIJACKED' where id = v_appr_b;
+  get diagnostics v_count = ROW_COUNT;
+  if v_count <> 0 then raise exception 'FAIL(events): user A edited user B''s approved event (% rows)', v_count; end if;
+
+  -- (d) nor can the owner, once it is approved (bait-and-switch)
+  perform _set_caller(v_b);
+  update public.events set title = 'HIJACKED-OWN' where id = v_appr_b;
+  get diagnostics v_count = ROW_COUNT;
+  if v_count <> 0 then raise exception 'FAIL(events): owner edited own approved event (% rows)', v_count; end if;
+
+  -- (e) but the owner can edit it while it is still pending
+  update public.events set title = 'Edited title' where id = v_pend_b;
+  get diagnostics v_count = ROW_COUNT;
+  if v_count <> 1 then raise exception 'FAIL(events): owner could not edit own pending event (% rows)', v_count; end if;
+end;
+$$;
+
+-- ─── 24. …and for vcs_grants ────────────────────────────────────────
+set local role postgres;
+do $$
+declare
+  v_a       uuid := (select v from _test_ctx where k='user_a');
+  v_b       uuid := (select v from _test_ctx where k='user_b');
+  v_admin   uuid := (select v from _test_ctx where k='admin');
+  v_pend_a  uuid := gen_random_uuid();
+  v_pend_b  uuid := gen_random_uuid();
+  v_appr_b  uuid := gen_random_uuid();
+  v_seen    int;
+  v_count   int;
+begin
+  perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+  insert into public.vcs_grants (
+    id, kind, posted_by, status, name, description, link, approved_at, approved_by
+  ) values
+    (v_pend_a, 'vc',    v_a, 'pending',
+     'A''s pending fund', 'Description that is at least twenty chars long.',
+     'https://example.com/a', null, null),
+    (v_pend_b, 'vc',    v_b, 'pending',
+     'B''s pending fund', 'Description that is at least twenty chars long.',
+     'https://example.com/b', null, null),
+    (v_appr_b, 'grant', v_b, 'approved',
+     'B''s approved grant', 'Description that is at least twenty chars long.',
+     'https://example.com/c', now(), v_admin);
+
+  perform _set_caller(v_a);
+  select count(*) into v_seen from public.vcs_grants where id = v_pend_a;
+  if v_seen <> 1 then raise exception 'FAIL(vcs): owner cannot read own pending listing'; end if;
+
+  select count(*) into v_seen from public.vcs_grants where id = v_pend_b;
+  if v_seen <> 0 then raise exception 'FAIL(vcs): user A could read user B''s pending listing'; end if;
+
+  update public.vcs_grants set name = 'HIJACKED' where id = v_appr_b;
+  get diagnostics v_count = ROW_COUNT;
+  if v_count <> 0 then raise exception 'FAIL(vcs): user A edited user B''s approved listing (% rows)', v_count; end if;
+
+  perform _set_caller(v_b);
+  update public.vcs_grants set name = 'HIJACKED-OWN' where id = v_appr_b;
+  get diagnostics v_count = ROW_COUNT;
+  if v_count <> 0 then raise exception 'FAIL(vcs): owner edited own approved listing (% rows)', v_count; end if;
+
+  update public.vcs_grants set name = 'Edited name' where id = v_pend_b;
+  get diagnostics v_count = ROW_COUNT;
+  if v_count <> 1 then raise exception 'FAIL(vcs): owner could not edit own pending listing (% rows)', v_count; end if;
+end;
+$$;
+
+-- ─── 25. Approving a listing takes it out of the owner's edit reach ──
+-- The property 6c depends on: whatever mechanism the edit path uses, an
+-- approve must close the window. Asserted for all three tables at once so a
+-- new listing type can't be added with this policy quietly missing.
+set local role postgres;
+do $$
+declare
+  v_a    uuid := (select v from _test_ctx where k='user_a');
+  v_adm  uuid := (select v from _test_ctx where k='admin');
+  v_opp  uuid := gen_random_uuid();
+  v_ev   uuid := gen_random_uuid();
+  v_vc   uuid := gen_random_uuid();
+  v_count int;
+begin
+  perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+  insert into public.opportunities (
+    id, posted_by, status, position_name, company, pay, location_type,
+    description, start_month, start_year, application_deadline,
+    contact_email, apply_method
+  ) values (v_opp, v_a, 'pending', 'Soon approved', 'Co', '£50k', 'remote',
+            'Description that is at least twenty chars long.',
+            1, 2027, current_date + 30, 'a@imperial.ac.uk', 'email');
+  insert into public.events (
+    id, posted_by, status, title, description, luma_link, event_at,
+    location, organiser_name, contact_email
+  ) values (v_ev, v_a, 'pending', 'Soon approved event',
+            'Description that is at least twenty chars long.', 'https://lu.ma/d',
+            now() + interval '30 days', 'London', 'A User', 'a@imperial.ac.uk');
+  insert into public.vcs_grants (
+    id, kind, posted_by, status, name, description, link
+  ) values (v_vc, 'vc', v_a, 'pending', 'Soon approved fund',
+            'Description that is at least twenty chars long.', 'https://example.com/d');
+
+  -- Approve all three through the real admin RPCs.
+  perform _set_caller(v_adm);
+  perform public.approve_opportunity(v_opp, null);
+  perform public.approve_event(v_ev, null);
+  perform public.approve_vc_grant(v_vc, null);
+
+  -- The owner's edit window is now shut on every one of them.
+  perform _set_caller(v_a);
+  update public.opportunities set position_name = 'TOO LATE' where id = v_opp;
+  get diagnostics v_count = ROW_COUNT;
+  if v_count <> 0 then raise exception 'FAIL: owner still edits an approved opportunity (% rows)', v_count; end if;
+
+  update public.events set title = 'TOO LATE' where id = v_ev;
+  get diagnostics v_count = ROW_COUNT;
+  if v_count <> 0 then raise exception 'FAIL: owner still edits an approved event (% rows)', v_count; end if;
+
+  update public.vcs_grants set name = 'TOO LATE' where id = v_vc;
+  get diagnostics v_count = ROW_COUNT;
+  if v_count <> 0 then raise exception 'FAIL: owner still edits an approved VC/grant (% rows)', v_count; end if;
+end;
+$$;
+
 -- ─── Cleanup ────────────────────────────────────────────────────────
 -- The test blocks leak the transaction-local 'authenticated' role (see note
 -- above), so reset to the owner role before dropping the helper function.
