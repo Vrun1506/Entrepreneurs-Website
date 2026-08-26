@@ -1,15 +1,12 @@
-import Link from "next/link";
-import AppNav from "@/components/AppNav";
-import SubmittedBanner from "@/components/SubmittedBanner";
+import { Suspense } from "react";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import ListingPageShell from "@/components/ListingPageShell";
+import { Skeleton, FilterBarSkeleton, RowListSkeleton } from "@/components/ui/Skeleton";
+import type { Database } from "@/lib/database.overrides";
 import { requireApprovedUser } from "@/lib/auth/guard";
+import { markedListingIds } from "@/lib/listings/actionRow";
 import EventsClient from "./EventsClient";
-
-type ActionRow = {
-  listing_kind: "opportunity" | "event" | "vc_grant";
-  listing_id:   string;
-  action_type:  "applied" | "going";
-  created_at:   string;
-};
+import { reportIfCapped } from "@/lib/supabase/rowCap";
 
 export default async function EventsPage({
   searchParams,
@@ -19,8 +16,49 @@ export default async function EventsPage({
   const { supabase, isAdmin } = await requireApprovedUser();
   const justSubmitted = (await searchParams)?.submitted === "1";
 
+  // Started, not awaited — see the note in app/vcs/page.tsx. One query, two
+  // awaits, both resolving in the same tick.
+  const data = loadEvents(supabase);
+
+  return (
+    <ListingPageShell
+      active="events"
+      isAdmin={isAdmin}
+      justSubmitted={justSubmitted}
+      submittedKind="event"
+      eyebrow="Events"
+      title="Upcoming Foundry events"
+      summary={
+        <Suspense fallback={<Skeleton className="h-3 w-40" />}>
+          <EventCount data={data} />
+        </Suspense>
+      }
+      cta={{ href: "/events/new", label: "Post an event →" }}
+    >
+      <Suspense
+        fallback={
+          <>
+            <FilterBarSkeleton />
+            <RowListSkeleton className="mt-8" />
+          </>
+        }
+      >
+        <EventList data={data} />
+      </Suspense>
+    </ListingPageShell>
+  );
+}
+
+type EventsData = {
+  items: ReturnType<typeof toEvent>[];
+  goingIds: string[];
+};
+
+async function loadEvents(supabase: SupabaseClient<Database>): Promise<EventsData> {
   // SECURITY DEFINER RPC masks contact_email at the DB layer rather
-  // than the application mapper (migration 20260530000002).
+  // than the application mapper (migration 20260530000002). It also
+  // filters to event_at >= now(), so this list is bounded by what is
+  // actually upcoming rather than by how many events have ever existed.
   const [evRes, actionsRes] = await Promise.all([
     supabase.rpc("list_approved_events"),
     supabase.rpc("get_my_listing_actions"),
@@ -29,39 +67,20 @@ export default async function EventsPage({
   if (evRes.error) console.error("Failed to load events:", evRes.error);
   if (actionsRes.error) console.error("Failed to load listing actions:", actionsRes.error);
 
-  const items = ((evRes.data ?? []) as RpcRow[]).map(toEvent);
-  const goingIds = ((actionsRes.data ?? []) as ActionRow[])
-    .filter((a) => a.listing_kind === "event" && a.action_type === "going")
-    .map((a) => a.listing_id);
+  return {
+    items: reportIfCapped("list_approved_events", (evRes.data ?? []) as RpcRow[]).map(toEvent),
+    goingIds: markedListingIds(actionsRes.data, "event", "going"),
+  };
+}
 
-  return (
-    <div className="min-h-screen bg-bg-primary flex flex-col">
-      <AppNav active="events" isApproved={true} isAdmin={isAdmin} />
-      <main className="flex-1 px-4 sm:px-8 py-10 sm:py-12">
-        <div className="max-w-[1200px] mx-auto">
-          {justSubmitted && <SubmittedBanner kind="event" />}
-          <div className="mb-8 flex items-start justify-between gap-4 flex-wrap">
-            <div>
-              <div className="text-[0.7rem] text-gold tracking-[0.18em] uppercase mb-2">Events</div>
-              <h1 className="font-display text-text-primary leading-[1.1] tracking-tight text-[clamp(1.75rem,3.5vw,2.5rem)]">
-                Upcoming Foundry events
-              </h1>
-              <p className="text-[0.875rem] text-text-muted mt-3 leading-relaxed">
-                {items.length} upcoming event{items.length === 1 ? "" : "s"}.
-              </p>
-            </div>
-            <Link
-              href="/events/new"
-              className="px-4 py-2 rounded-full bg-gold text-bg-primary text-[0.825rem] font-medium no-underline transition-colors duration-150 hover:bg-gold-light"
-            >
-              Post an event →
-            </Link>
-          </div>
-          <EventsClient items={items} goingIds={goingIds} />
-        </div>
-      </main>
-    </div>
-  );
+async function EventCount({ data }: { data: Promise<EventsData> }) {
+  const { items } = await data;
+  return <>{items.length} upcoming event{items.length === 1 ? "" : "s"}.</>;
+}
+
+async function EventList({ data }: { data: Promise<EventsData> }) {
+  const { items, goingIds } = await data;
+  return <EventsClient items={items} goingIds={goingIds} />;
 }
 
 type RpcRow = {

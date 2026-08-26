@@ -715,6 +715,55 @@ export type Database = {
           user_id: string
         }[]
       }
+      admin_list_pending_profiles: {
+        Args: { p_limit?: number; p_offset?: number }
+        Returns: {
+          bio: string
+          course: string
+          created_at: string
+          email: string
+          first_name: string
+          github_url: string
+          grad_year: number
+          id: string
+          linkedin_url: string
+          portfolio_url: string
+          role: Database["public"]["Enums"]["user_role"]
+          sector_names: string[]
+          skill_names: string[]
+          surname: string
+          total_count: number
+          working_on: string
+        }[]
+      }
+      admin_list_profiles: {
+        Args: {
+          p_courses?: string[]
+          p_grad_max?: number
+          p_grad_min?: number
+          p_limit?: number
+          p_offset?: number
+          p_query?: string
+          p_roles?: string[]
+          p_sectors?: string[]
+          p_skills?: string[]
+          p_statuses?: string[]
+        }
+        Returns: {
+          course: string
+          created_at: string
+          email: string
+          first_name: string
+          grad_year: number
+          id: string
+          role: Database["public"]["Enums"]["user_role"]
+          sector_names: string[]
+          skill_names: string[]
+          status: Database["public"]["Enums"]["user_status"]
+          surname: string
+          total_count: number
+        }[]
+      }
       admin_outbound_email_stats: {
         Args: never
         Returns: {
@@ -722,6 +771,17 @@ export type Database = {
           oldest_pending_age_seconds: number
           pending: number
           sent_today: number
+        }[]
+      }
+      admin_profile_facets: {
+        Args: never
+        Returns: {
+          courses: string[]
+          grad_max: number
+          grad_min: number
+          sectors: string[]
+          skills: string[]
+          total: number
         }[]
       }
       approve_event: {
@@ -890,6 +950,45 @@ export type Database = {
           start_year: number
         }[]
       }
+      list_directory_cards: {
+        Args: {
+          p_courses?: string[]
+          p_grad_max?: number
+          p_grad_min?: number
+          p_limit?: number
+          p_offset?: number
+          p_query?: string
+          p_roles?: string[]
+          p_sectors?: string[]
+          p_skills?: string[]
+          p_sort?: string
+        }
+        Returns: {
+          bio: string
+          course: string
+          created_at: string
+          first_name: string
+          grad_year: number
+          id: string
+          role: Database["public"]["Enums"]["user_role"]
+          sector_names: string[]
+          skill_names: string[]
+          surname: string
+          total_count: number
+          working_on: string
+        }[]
+      }
+      list_directory_facets: {
+        Args: never
+        Returns: {
+          courses: string[]
+          grad_max: number
+          grad_min: number
+          sectors: string[]
+          skills: string[]
+          total: number
+        }[]
+      }
       list_my_bookmarked_opportunities: {
         Args: never
         Returns: {
@@ -1010,6 +1109,8 @@ export type Database = {
           title: string
         }[]
       }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       submit_event: {
         Args: {
           p_contact_email: string
@@ -1077,6 +1178,20 @@ export type Database = {
         }
         Returns: undefined
       }
+      update_event: {
+        Args: {
+          p_contact_email: string
+          p_contact_email_visible: boolean
+          p_description: string
+          p_event_at: string
+          p_id: string
+          p_location: string
+          p_luma_link: string
+          p_organiser_name: string
+          p_title: string
+        }
+        Returns: undefined
+      }
       update_opportunity: {
         Args: {
           p_application_deadline: string
@@ -1111,6 +1226,19 @@ export type Database = {
           p_skill_ids: number[]
           p_surname: string
           p_working_on: string
+        }
+        Returns: undefined
+      }
+      update_vc_grant: {
+        Args: {
+          p_amount: string
+          p_deadline: string
+          p_description: string
+          p_id: string
+          p_kind: Database["public"]["Enums"]["vc_grant_kind"]
+          p_link: string
+          p_name: string
+          p_stage: string
         }
         Returns: undefined
       }

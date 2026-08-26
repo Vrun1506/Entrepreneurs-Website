@@ -11,6 +11,8 @@ import { inputCls } from "@/components/forms/styles";
 import { cleanText } from "@/lib/text";
 import { gradYearOptions, validateGradYear } from "@/lib/gradYears";
 import { describeSupabaseError } from "@/lib/supabaseErrors";
+import { Button } from "@/components/ui/Button";
+import { invalidateDirectoryCache } from "@/app/profile/actions";
 
 type Lookup = ChipItem;
 
@@ -120,6 +122,9 @@ export default function OnboardingForm({ role, firstName, surname, skills, secto
       return;
     }
     router.replace(role === "alum" ? "/pending" : "/community");
+    // The RPC above ran client-side, so nothing on the server knows the
+    // directory changed. Tell it before refreshing.
+    await invalidateDirectoryCache();
     router.refresh();
   };
 
@@ -136,7 +141,7 @@ export default function OnboardingForm({ role, firstName, surname, skills, secto
         </div>
       </header>
 
-      <main className="flex-1 flex items-start justify-center px-8 py-12">
+      <main id="main-content" tabIndex={-1} className="flex-1 flex items-start justify-center px-8 py-12">
         <div className="w-full max-w-[640px]">
           <div className="text-center mb-8">
             <div className="text-[0.7rem] text-gold tracking-[0.18em] uppercase mb-3">
@@ -206,25 +211,25 @@ export default function OnboardingForm({ role, firstName, surname, skills, secto
                 </button>
               )}
               {step < TOTAL_STEPS - 1 ? (
-                <button
+                <Button
                   type="button"
                   onClick={handleNext}
-                  className="flex-1 flex items-center justify-center px-6 py-3.5 rounded-xl bg-gold text-bg-primary text-[0.9rem] font-medium tracking-wide border-0 cursor-pointer transition-all duration-200 hover:bg-gold-light hover:-translate-y-px"
+                  variant="primary"
+                  size="lg"
+                  className="flex-1"
                 >
                   Continue
-                </button>
+                </Button>
               ) : (
-                <button
+                <Button
                   type="submit"
-                  disabled={isLoading}
-                  className="flex-1 flex items-center justify-center px-6 py-3.5 rounded-xl bg-gold text-bg-primary text-[0.9rem] font-medium tracking-wide border-0 cursor-pointer transition-all duration-200 hover:bg-gold-light hover:-translate-y-px disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+                  loading={isLoading}
+                  variant="primary"
+                  size="lg"
+                  className="flex-1"
                 >
-                  {isLoading ? (
-                    <div className="w-[18px] h-[18px] border-2 border-[#0c0c0b]/30 border-t-[#0c0c0b] rounded-full animate-spin" />
-                  ) : (
-                    role === "alum" ? "Submit for review" : "Finish onboarding"
-                  )}
-                </button>
+                  {role === "alum" ? "Submit for review" : "Finish onboarding"}
+                </Button>
               )}
             </div>
           </form>

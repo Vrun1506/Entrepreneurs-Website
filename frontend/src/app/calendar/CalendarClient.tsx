@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { Dialog, closeDialog } from "@/components/ui/Dialog";
 
 type ListingKind = "opportunity" | "event" | "vc_grant";
 type Role = "applied" | "going" | "organising" | "posted";
@@ -248,89 +249,71 @@ function MonthView({ items, onSelect }: { items: CalItem[]; onSelect: (i: CalIte
 
 // ─── Detail dialog ─────────────────────────────────────────────────
 function DetailDialog({ item, onClose }: { item: CalItem; onClose: () => void }) {
-  // Escape to close + lock background scroll while open.
-  useEffect(() => {
-    const onEsc = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", onEsc);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onEsc);
-      document.body.style.overflow = prev;
-    };
-  }, [onClose]);
-
   const d = new Date(item.occursAt);
   const when = item.listingKind === "event"
     ? d.toLocaleString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })
     : `Deadline · ${d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}`;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm"
-      role="dialog"
-      aria-modal="true"
-      aria-label={item.title}
-      onClick={onClose}
+    <Dialog
+      onClose={onClose}
+      label={item.title}
+      containerClassName="flex items-end sm:items-center justify-center p-0 sm:p-4"
+      className="w-full sm:max-w-[520px] max-h-[88vh] overflow-y-auto overscroll-contain rounded-t-2xl sm:rounded-2xl bg-bg-card border border-border-subtle p-6 sm:p-7"
     >
-      <div
-        className="w-full sm:max-w-[520px] max-h-[88vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-bg-card border border-border-subtle p-6 sm:p-7"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-start justify-between gap-4 mb-4">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 text-[0.7rem] text-text-muted">
-              <span className={`inline-block w-2 h-2 rounded-full ${KIND_DOT[item.listingKind]}`} aria-hidden />
-              {KIND_LABEL[item.listingKind]}
-              <span className="opacity-50">·</span>
-              <span>{ROLE_LABEL[item.role]}</span>
-            </div>
-            <h2 className="font-display text-text-primary text-[1.4rem] leading-tight mt-1">{item.title}</h2>
-            {item.subtitle && <div className="text-[0.8rem] text-text-muted mt-1">{item.subtitle}</div>}
+      <div className="flex items-start justify-between gap-4 mb-4">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 text-[0.7rem] text-text-muted">
+            <span className={`inline-block w-2 h-2 rounded-full ${KIND_DOT[item.listingKind]}`} aria-hidden />
+            {KIND_LABEL[item.listingKind]}
+            <span className="opacity-50">·</span>
+            <span>{ROLE_LABEL[item.role]}</span>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="shrink-0 -mr-1 -mt-1 w-9 h-9 rounded-lg bg-transparent border border-border text-text-muted cursor-pointer hover:text-text-primary hover:border-gold/40 transition-colors flex items-center justify-center text-lg leading-none"
-          >
-            ×
-          </button>
+          <h2 className="font-display text-text-primary text-[1.4rem] leading-tight mt-1">{item.title}</h2>
+          {item.subtitle && <div className="text-[0.8rem] text-text-muted mt-1">{item.subtitle}</div>}
         </div>
-
-        {item.status === "pending" && (
-          <div className="mb-4 px-4 py-3 rounded-xl border border-gold/25 bg-gold/[0.06] text-[0.8rem] text-text-secondary leading-relaxed">
-            <span className="text-gold-light font-medium">Still in review.</span> This listing is awaiting admin approval, so it doesn&apos;t have a public page yet. The details below are what you submitted.
-          </div>
-        )}
-
-        <div className="text-[0.85rem] text-text-primary mb-4">{when}</div>
-
-        {item.meta.length > 0 && (
-          <dl className="space-y-2.5 mb-4">
-            {item.meta.map((m) => (
-              <div key={m.label} className="flex gap-3 text-[0.825rem]">
-                <dt className="shrink-0 w-28 text-text-muted">{m.label}</dt>
-                <dd className="min-w-0 flex-1 text-text-secondary break-words">
-                  {m.href ? (
-                    <a href={m.href} target="_blank" rel="noopener noreferrer" className="text-gold-light hover:underline break-all">{m.value}</a>
-                  ) : (
-                    m.value
-                  )}
-                </dd>
-              </div>
-            ))}
-          </dl>
-        )}
-
-        {item.description && (
-          <div className="pt-3 border-t border-border-subtle">
-            <div className="text-[0.7rem] text-text-muted uppercase tracking-wider mb-2">Description</div>
-            <p className="text-[0.85rem] text-text-secondary leading-relaxed whitespace-pre-line">{item.description}</p>
-          </div>
-        )}
+        <button
+          type="button"
+          onClick={closeDialog}
+          aria-label="Close"
+          className="shrink-0 -mr-1 -mt-1 w-9 h-9 rounded-lg bg-transparent border border-border text-text-muted cursor-pointer hover:text-text-primary hover:border-gold/40 transition-colors flex items-center justify-center text-lg leading-none"
+        >
+          ×
+        </button>
       </div>
-    </div>
+
+      {item.status === "pending" && (
+        <div className="mb-4 px-4 py-3 rounded-xl border border-gold/25 bg-gold/[0.06] text-[0.8rem] text-text-secondary leading-relaxed">
+          <span className="text-gold-light font-medium">Still in review.</span> This listing is awaiting admin approval, so it doesn&apos;t have a public page yet. The details below are what you submitted.
+        </div>
+      )}
+
+      <div className="text-[0.85rem] text-text-primary mb-4">{when}</div>
+
+      {item.meta.length > 0 && (
+        <dl className="space-y-2.5 mb-4">
+          {item.meta.map((m) => (
+            <div key={m.label} className="flex gap-3 text-[0.825rem]">
+              <dt className="shrink-0 w-28 text-text-muted">{m.label}</dt>
+              <dd className="min-w-0 flex-1 text-text-secondary break-words">
+                {m.href ? (
+                  <a href={m.href} target="_blank" rel="noopener noreferrer" className="text-gold-light hover:underline break-all">{m.value}</a>
+                ) : (
+                  m.value
+                )}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
+
+      {item.description && (
+        <div className="pt-3 border-t border-border-subtle">
+          <div className="text-[0.7rem] text-text-muted uppercase tracking-wider mb-2">Description</div>
+          <p className="text-[0.85rem] text-text-secondary leading-relaxed whitespace-pre-line">{item.description}</p>
+        </div>
+      )}
+    </Dialog>
   );
 }
 

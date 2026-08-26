@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useUrlFilters, useSearchDraft } from "@/lib/filters/useUrlFilters";
+import { SearchInput } from "@/components/filters/FilterBar";
 import { useListingFreshness } from "@/lib/useListingFreshness";
 import { ListingGoneNotice } from "@/components/ListingGoneNotice";
 import { MarkActionPill } from "@/components/MarkActionPill";
@@ -42,7 +44,16 @@ export default function OpportunitiesClient({
    *  star — matches the user's intent on a bookmarks-only view. */
   removeOnUnbookmark?: boolean;
 }) {
-  const [query, setQuery] = useState("");
+  // Client-side navigation: this page already holds every open role it can
+  // show (list_approved_opportunities self-prunes past the deadline), so a
+  // filter is a local operation and the URL is kept in step for free.
+  const filters = useUrlFilters();
+  const [query, setQuery] = useSearchDraft(filters);
+  // Deep link from a profile's "Looking for" chip: /opportunities?o=<id>.
+  // A query param, unlike the fragment it replaced, reaches the server — so
+  // the card renders open in the first HTML rather than popping open after
+  // hydration.
+  const openId = filters.get("o");
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [bookmarks, setBookmarks] = useState<Set<string>>(new Set(bookmarkedIds));
   const appliedSet = useMemo(() => new Set(appliedIds), [appliedIds]);
@@ -96,15 +107,13 @@ export default function OpportunitiesClient({
 
   return (
     <>
-      <div className="mb-8">
-        <input
-          type="search"
-          placeholder="Search by role, company, skill, sector, or poster"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="w-full px-4 py-3 bg-white/[0.03] border border-border rounded-xl text-[0.875rem] text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]"
-        />
-      </div>
+      <SearchInput
+        className="mb-8"
+        label="Search opportunities"
+        placeholder="Search by role, company, skill, sector, or poster"
+        value={query}
+        onChange={setQuery}
+      />
 
       {filtered.length === 0 ? (
         <div className="text-center py-16 text-text-muted text-[0.85rem]">
@@ -118,6 +127,7 @@ export default function OpportunitiesClient({
               opportunity={o}
               bookmarked={bookmarks.has(o.id)}
               applied={appliedSet.has(o.id)}
+              defaultOpen={openId === o.id}
               onToggleBookmark={() => handleToggleBookmark(o.id)}
               onDismiss={() => dismiss(o.id)}
             />
@@ -129,30 +139,29 @@ export default function OpportunitiesClient({
 }
 
 function OpportunityCard({
-  opportunity: o, bookmarked, applied, onToggleBookmark, onDismiss,
+  opportunity: o, bookmarked, applied, defaultOpen, onToggleBookmark, onDismiss,
 }: {
   opportunity: Opportunity;
   bookmarked: boolean;
   applied: boolean;
+  /** True when ?o= names this card. Server and client agree on it, so it is
+   *  safe as an initial state — which the old #fragment check was not. */
+  defaultOpen: boolean;
   onToggleBookmark: () => void;
   onDismiss: () => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const { checking, stale, check } = useListingFreshness("opportunities", o.id);
   const expandRecorded = useRef(false);
   const articleRef = useRef<HTMLElement | null>(null);
 
-  // Deep-link from a profile's "Looking for" button: /opportunities#o-<id>.
-  // Open this card and bring it into view on arrival.
+  // The deep-linked card is already open in the markup; all that is left is
+  // bringing it into view, which only the browser can do.
   useEffect(() => {
-    if (typeof window !== "undefined" && window.location.hash === `#o-${o.id}`) {
-      // Reading window.location in a useState initialiser would cause a
-      // hydration mismatch (server renders closed); set it post-mount instead.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setOpen(true);
+    if (defaultOpen) {
       articleRef.current?.scrollIntoView({ behavior: scrollBehavior(), block: "center" });
     }
-  }, [o.id]);
+  }, [defaultOpen]);
 
   useEffect(() => {
     if (!open) return;

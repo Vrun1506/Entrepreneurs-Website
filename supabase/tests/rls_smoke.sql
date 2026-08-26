@@ -643,6 +643,28 @@ begin
   exception when sqlstate '42501' then null;
   end;
 
+  -- The paginated admin profile RPCs (migration 20260826000004). These
+  -- return every member's status and signup email, so the is_admin()
+  -- check inside them is the only thing between a member and the
+  -- directory of everyone who was ever rejected.
+  begin
+    perform * from public.admin_list_profiles();
+    raise exception 'FAIL: non-admin called admin_list_profiles without being blocked';
+  exception when sqlstate '42501' then null;
+  end;
+
+  begin
+    perform * from public.admin_profile_facets();
+    raise exception 'FAIL: non-admin called admin_profile_facets without being blocked';
+  exception when sqlstate '42501' then null;
+  end;
+
+  begin
+    perform * from public.admin_list_pending_profiles();
+    raise exception 'FAIL: non-admin called admin_list_pending_profiles without being blocked';
+  exception when sqlstate '42501' then null;
+  end;
+
   begin
     perform * from public.reject_opportunity(v_opa, 'spam');
     raise exception 'FAIL: non-admin called reject_opportunity without being blocked';
@@ -698,7 +720,8 @@ declare
     -- account / profile (user)
     'delete_my_account','update_profile','submit_onboarding',
     -- listing submit / edit (user)
-    'submit_opportunity','update_opportunity','submit_event','submit_vc_grant',
+    'submit_opportunity','update_opportunity','submit_event','update_event',
+    'submit_vc_grant','update_vc_grant',
     -- admin direct-create
     'admin_create_opportunity','admin_create_event','admin_create_vc_grant',
     -- admin review queues + actions
@@ -707,8 +730,10 @@ declare
     'approve_vc_grant','reject_vc_grant','approve_user','reject_user',
     'admin_delete_user','admin_delete_graduates','admin_get_signup_emails',
     'admin_outbound_email_stats',
+    'admin_list_profiles','admin_profile_facets','admin_list_pending_profiles',
     -- public / member reads
     'list_approved_opportunities','list_approved_events',
+    'list_directory_cards','list_directory_facets',
     'list_my_bookmarked_opportunities',
     'get_my_activity','get_my_listing_actions','get_my_listing_stats',
     'get_opportunity_for_edit','get_event_for_edit',
@@ -761,6 +786,395 @@ begin
   if v_guarded <> 3 then
     raise exception
       'FAIL: only % of 3 admin_create_* functions carry the no-profile guard', v_guarded;
+  end if;
+end;
+$$;
+
+-- ─── 23. The owner/pending edit split holds for events too ──────────
+-- Tests 1-5 assert this for opportunities only. events and vcs_grants have
+-- their own ~25 policies each, written by hand in parallel, and nothing was
+-- checking that they agree. This is the same five properties against events.
+set local role postgres;
+do $$
+declare
+  v_a       uuid := (select v from _test_ctx where k='user_a');
+  v_b       uuid := (select v from _test_ctx where k='user_b');
+  v_admin   uuid := (select v from _test_ctx where k='admin');
+  v_pend_a  uuid := gen_random_uuid();
+  v_pend_b  uuid := gen_random_uuid();
+  v_appr_b  uuid := gen_random_uuid();
+  v_seen    int;
+  v_count   int;
+begin
+  perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+  insert into public.events (
+    id, posted_by, status, title, description, luma_link, event_at,
+    location, organiser_name, contact_email, approved_at, approved_by
+  ) values
+    (v_pend_a, v_a, 'pending',  'A''s pending event',
+     'Description that is at least twenty chars long.', 'https://lu.ma/a',
+     now() + interval '30 days', 'London', 'A User', 'a@imperial.ac.uk', null, null),
+    (v_pend_b, v_b, 'pending',  'B''s pending event',
+     'Description that is at least twenty chars long.', 'https://lu.ma/b',
+     now() + interval '30 days', 'London', 'B User', 'b@imperial.ac.uk', null, null),
+    (v_appr_b, v_b, 'approved', 'B''s approved event',
+     'Description that is at least twenty chars long.', 'https://lu.ma/c',
+     now() + interval '30 days', 'London', 'B User', 'b@imperial.ac.uk', now(), v_admin);
+
+  -- (a) owner reads their own pending row
+  perform _set_caller(v_a);
+  select count(*) into v_seen from public.events where id = v_pend_a;
+  if v_seen <> 1 then raise exception 'FAIL(events): owner cannot read own pending event'; end if;
+
+  -- (b) a non-owner does not
+  select count(*) into v_seen from public.events where id = v_pend_b;
+  if v_seen <> 0 then raise exception 'FAIL(events): user A could read user B''s pending event'; end if;
+
+  -- (c) a non-owner cannot edit someone else's approved row
+  update public.events set title = 'HIJACKED' where id = v_appr_b;
+  get diagnostics v_count = ROW_COUNT;
+  if v_count <> 0 then raise exception 'FAIL(events): user A edited user B''s approved event (% rows)', v_count; end if;
+
+  -- (d) nor can the owner, once it is approved (bait-and-switch)
+  perform _set_caller(v_b);
+  update public.events set title = 'HIJACKED-OWN' where id = v_appr_b;
+  get diagnostics v_count = ROW_COUNT;
+  if v_count <> 0 then raise exception 'FAIL(events): owner edited own approved event (% rows)', v_count; end if;
+
+  -- (e) but the owner can edit it while it is still pending
+  update public.events set title = 'Edited title' where id = v_pend_b;
+  get diagnostics v_count = ROW_COUNT;
+  if v_count <> 1 then raise exception 'FAIL(events): owner could not edit own pending event (% rows)', v_count; end if;
+end;
+$$;
+
+-- ─── 24. …and for vcs_grants ────────────────────────────────────────
+set local role postgres;
+do $$
+declare
+  v_a       uuid := (select v from _test_ctx where k='user_a');
+  v_b       uuid := (select v from _test_ctx where k='user_b');
+  v_admin   uuid := (select v from _test_ctx where k='admin');
+  v_pend_a  uuid := gen_random_uuid();
+  v_pend_b  uuid := gen_random_uuid();
+  v_appr_b  uuid := gen_random_uuid();
+  v_seen    int;
+  v_count   int;
+begin
+  perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+  insert into public.vcs_grants (
+    id, kind, posted_by, status, name, description, link, approved_at, approved_by
+  ) values
+    (v_pend_a, 'vc',    v_a, 'pending',
+     'A''s pending fund', 'Description that is at least twenty chars long.',
+     'https://example.com/a', null, null),
+    (v_pend_b, 'vc',    v_b, 'pending',
+     'B''s pending fund', 'Description that is at least twenty chars long.',
+     'https://example.com/b', null, null),
+    (v_appr_b, 'grant', v_b, 'approved',
+     'B''s approved grant', 'Description that is at least twenty chars long.',
+     'https://example.com/c', now(), v_admin);
+
+  perform _set_caller(v_a);
+  select count(*) into v_seen from public.vcs_grants where id = v_pend_a;
+  if v_seen <> 1 then raise exception 'FAIL(vcs): owner cannot read own pending listing'; end if;
+
+  select count(*) into v_seen from public.vcs_grants where id = v_pend_b;
+  if v_seen <> 0 then raise exception 'FAIL(vcs): user A could read user B''s pending listing'; end if;
+
+  update public.vcs_grants set name = 'HIJACKED' where id = v_appr_b;
+  get diagnostics v_count = ROW_COUNT;
+  if v_count <> 0 then raise exception 'FAIL(vcs): user A edited user B''s approved listing (% rows)', v_count; end if;
+
+  perform _set_caller(v_b);
+  update public.vcs_grants set name = 'HIJACKED-OWN' where id = v_appr_b;
+  get diagnostics v_count = ROW_COUNT;
+  if v_count <> 0 then raise exception 'FAIL(vcs): owner edited own approved listing (% rows)', v_count; end if;
+
+  update public.vcs_grants set name = 'Edited name' where id = v_pend_b;
+  get diagnostics v_count = ROW_COUNT;
+  if v_count <> 1 then raise exception 'FAIL(vcs): owner could not edit own pending listing (% rows)', v_count; end if;
+end;
+$$;
+
+-- ─── 25. Approving a listing takes it out of the owner's edit reach ──
+-- The property 6c depends on: whatever mechanism the edit path uses, an
+-- approve must close the window. Asserted for all three tables at once so a
+-- new listing type can't be added with this policy quietly missing.
+set local role postgres;
+do $$
+declare
+  v_a    uuid := (select v from _test_ctx where k='user_a');
+  v_adm  uuid := (select v from _test_ctx where k='admin');
+  v_opp  uuid := gen_random_uuid();
+  v_ev   uuid := gen_random_uuid();
+  v_vc   uuid := gen_random_uuid();
+  v_count int;
+begin
+  perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+  insert into public.opportunities (
+    id, posted_by, status, position_name, company, pay, location_type,
+    description, start_month, start_year, application_deadline,
+    contact_email, apply_method
+  ) values (v_opp, v_a, 'pending', 'Soon approved', 'Co', '£50k', 'remote',
+            'Description that is at least twenty chars long.',
+            1, 2027, current_date + 30, 'a@imperial.ac.uk', 'email');
+  insert into public.events (
+    id, posted_by, status, title, description, luma_link, event_at,
+    location, organiser_name, contact_email
+  ) values (v_ev, v_a, 'pending', 'Soon approved event',
+            'Description that is at least twenty chars long.', 'https://lu.ma/d',
+            now() + interval '30 days', 'London', 'A User', 'a@imperial.ac.uk');
+  insert into public.vcs_grants (
+    id, kind, posted_by, status, name, description, link
+  ) values (v_vc, 'vc', v_a, 'pending', 'Soon approved fund',
+            'Description that is at least twenty chars long.', 'https://example.com/d');
+
+  -- Approve all three through the real admin RPCs.
+  perform _set_caller(v_adm);
+  perform public.approve_opportunity(v_opp, null);
+  perform public.approve_event(v_ev, null);
+  perform public.approve_vc_grant(v_vc, null);
+
+  -- The owner's edit window is now shut on every one of them.
+  perform _set_caller(v_a);
+  update public.opportunities set position_name = 'TOO LATE' where id = v_opp;
+  get diagnostics v_count = ROW_COUNT;
+  if v_count <> 0 then raise exception 'FAIL: owner still edits an approved opportunity (% rows)', v_count; end if;
+
+  update public.events set title = 'TOO LATE' where id = v_ev;
+  get diagnostics v_count = ROW_COUNT;
+  if v_count <> 0 then raise exception 'FAIL: owner still edits an approved event (% rows)', v_count; end if;
+
+  update public.vcs_grants set name = 'TOO LATE' where id = v_vc;
+  get diagnostics v_count = ROW_COUNT;
+  if v_count <> 0 then raise exception 'FAIL: owner still edits an approved VC/grant (% rows)', v_count; end if;
+end;
+$$;
+
+-- ─── 26. update_event / update_vc_grant enforce their own guards ─────
+-- Migration 20260826000001 moved the event and VC/grant edit paths off
+-- client-direct PostgREST UPDATEs onto SECURITY DEFINER RPCs, matching
+-- update_opportunity. SECURITY DEFINER bypasses RLS, so the in-body
+-- ownership + status checks ARE the boundary — tests 23-25 prove the
+-- policies are right, and prove nothing about these. Both directions are
+-- asserted: the guards reject, and a legitimate edit still succeeds.
+--
+-- Rejections are checked with a "did it succeed" flag rather than by
+-- catching the expected exception. A handler wide enough to catch the RPC's
+-- error is also wide enough to swallow the FAIL raise inside the same block,
+-- which would turn a broken guard into a silent pass.
+set local role postgres;
+do $$
+declare
+  v_a      uuid := (select v from _test_ctx where k='user_a');
+  v_b      uuid := (select v from _test_ctx where k='user_b');
+  v_adm    uuid := (select v from _test_ctx where k='admin');
+  v_ev     uuid := gen_random_uuid();
+  v_vc     uuid := gen_random_uuid();
+  v_title  text;
+  v_name   text;
+  v_passed boolean;
+begin
+  perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+  insert into public.events (
+    id, posted_by, status, title, description, luma_link, event_at,
+    location, organiser_name, contact_email
+  ) values (v_ev, v_a, 'pending', 'RPC guard event',
+            'Description that is at least twenty chars long.', 'https://lu.ma/g',
+            now() + interval '30 days', 'London', 'A User', 'a@imperial.ac.uk');
+  insert into public.vcs_grants (
+    id, kind, posted_by, status, name, description, link
+  ) values (v_vc, 'vc', v_a, 'pending', 'RPC guard fund',
+            'Description that is at least twenty chars long.', 'https://example.com/g');
+
+  -- (a) a non-owner is refused, even though the RPC runs as definer
+  perform _set_caller(v_b);
+  v_passed := false;
+  begin
+    perform public.update_event(v_ev, 'HIJACKED',
+      'Description that is at least twenty chars long.', 'https://lu.ma/g',
+      now() + interval '30 days', 'London', 'B User', 'b@imperial.ac.uk', false);
+    v_passed := true;
+  exception when others then null;
+  end;
+  if v_passed then raise exception 'FAIL: update_event let a non-owner through'; end if;
+
+  v_passed := false;
+  begin
+    perform public.update_vc_grant(v_vc, 'vc', 'HIJACKED',
+      'Description that is at least twenty chars long.', 'https://example.com/g',
+      null, null, null);
+    v_passed := true;
+  exception when others then null;
+  end;
+  if v_passed then raise exception 'FAIL: update_vc_grant let a non-owner through'; end if;
+
+  -- (b) the owner can edit while pending
+  perform _set_caller(v_a);
+  perform public.update_event(v_ev, 'Edited via RPC',
+    'Description that is at least twenty chars long.', 'https://lu.ma/g',
+    now() + interval '30 days', 'London', 'A User', 'a@imperial.ac.uk', false);
+  perform public.update_vc_grant(v_vc, 'grant', 'Edited via RPC',
+    'Description that is at least twenty chars long.', 'https://example.com/g',
+    null, null, null);
+
+  set local role none;
+  select title into v_title from public.events     where id = v_ev;
+  select name  into v_name  from public.vcs_grants where id = v_vc;
+  if v_title <> 'Edited via RPC' then raise exception 'FAIL: update_event did not apply the edit (got %)', v_title; end if;
+  if v_name  <> 'Edited via RPC' then raise exception 'FAIL: update_vc_grant did not apply the edit (got %)', v_name; end if;
+
+  -- (c) once approved, the same call is refused
+  perform _set_caller(v_adm);
+  perform public.approve_event(v_ev, null);
+  perform public.approve_vc_grant(v_vc, null);
+
+  perform _set_caller(v_a);
+  v_passed := false;
+  begin
+    perform public.update_event(v_ev, 'TOO LATE',
+      'Description that is at least twenty chars long.', 'https://lu.ma/g',
+      now() + interval '30 days', 'London', 'A User', 'a@imperial.ac.uk', false);
+    v_passed := true;
+  exception when others then null;
+  end;
+  if v_passed then raise exception 'FAIL: update_event edited an approved event'; end if;
+
+  v_passed := false;
+  begin
+    perform public.update_vc_grant(v_vc, 'vc', 'TOO LATE',
+      'Description that is at least twenty chars long.', 'https://example.com/g',
+      null, null, null);
+    v_passed := true;
+  exception when others then null;
+  end;
+  if v_passed then raise exception 'FAIL: update_vc_grant edited an approved listing'; end if;
+
+  -- (d) an event cannot be edited into the past
+  perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+  set local role none;
+  update public.events set status = 'pending', approved_at = null, approved_by = null where id = v_ev;
+  perform _set_caller(v_a);
+  v_passed := false;
+  begin
+    perform public.update_event(v_ev, 'Backdated',
+      'Description that is at least twenty chars long.', 'https://lu.ma/g',
+      now() - interval '2 days', 'London', 'A User', 'a@imperial.ac.uk', false);
+    v_passed := true;
+  exception when others then null;
+  end;
+  if v_passed then raise exception 'FAIL: update_event accepted a start time in the past'; end if;
+end;
+$$;
+
+-- ─── 27. The admin profile lists page, and count what they didn't return ──
+--     PostgREST silently truncates any response at max_rows (1000), which
+--     is how /admin/community came to show 1000 of however many members
+--     there were. The fix only works if two things hold: a page really is
+--     capped at p_limit, and total_count reports the whole match rather
+--     than the page. If total_count ever tracked the page, the pager would
+--     render "Page 1 of 1" over a truncated list — the original bug with a
+--     pager bolted on.
+set local role postgres;
+do $$
+declare
+  v_adm   uuid := (select v from _test_ctx where k='admin');
+  v_seed  uuid;
+  v_total bigint;
+  v_rows  int;
+  v_first text;
+begin
+  perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+
+  -- 60 extra members: more than one page of 50, few enough to stay fast.
+  for i in 1..60 loop
+    v_seed := gen_random_uuid();
+    insert into auth.users (id, email, raw_user_meta_data, raw_app_meta_data)
+    values (v_seed, 'page' || i || '@imperial.ac.uk',
+            '{"first_name":"Page","surname":"Member","role":"student"}'::jsonb,
+            '{"provider":"email"}'::jsonb)
+    on conflict do nothing;
+    -- Distinct created_at values, oldest first. now() is the transaction
+    -- timestamp, so without this every seeded row shares one and the
+    -- oldest-first assertion below would really be testing the uuid
+    -- tiebreak.
+    insert into public.profiles (id, role, status, first_name, surname, course, grad_year, created_at)
+    values (v_seed, 'student',
+            (case when i <= 10 then 'pending_review' else 'approved' end)::public.user_status,
+            'Page', 'Member' || i, 'MEng Paging', 2027,
+            now() - make_interval(mins => 100 - i))
+    on conflict (id) do update set
+      status = excluded.status, first_name = excluded.first_name,
+      surname = excluded.surname, course = excluded.course,
+      -- The auto-create-profile trigger has already inserted a bare row, so
+      -- this lands on DO UPDATE. grad_year has to come along:
+      -- profiles_grad_year_role_consistency rejects an approved student
+      -- without one.
+      grad_year = excluded.grad_year, created_at = excluded.created_at;
+  end loop;
+
+  perform _set_caller(v_adm);
+
+  -- (a) a page is p_limit long, and the count is of everything matching
+  select count(*), max(total_count) into v_rows, v_total
+    from public.admin_list_profiles(p_limit => 50);
+  if v_rows <> 50 then
+    raise exception 'FAIL: admin_list_profiles returned % rows for p_limit 50', v_rows;
+  end if;
+  if v_total < 63 then
+    raise exception 'FAIL: total_count reported % — it is counting the page, not the match', v_total;
+  end if;
+
+  -- (b) the offset moves the window without changing the total
+  select count(*), max(total_count) into v_rows, v_total
+    from public.admin_list_profiles(p_limit => 50, p_offset => 50);
+  if v_rows = 0 then raise exception 'FAIL: page 2 of admin_list_profiles came back empty'; end if;
+  if v_total < 63 then raise exception 'FAIL: total_count changed with the offset (got %)', v_total; end if;
+
+  -- (c) p_limit is clamped, so a crafted ?limit= can't ask for everything
+  --     and reintroduce the truncation this migration removed
+  select count(*) into v_rows from public.admin_list_profiles(p_limit => 100000);
+  if v_rows > 200 then
+    raise exception 'FAIL: admin_list_profiles honoured an unclamped p_limit (% rows)', v_rows;
+  end if;
+
+  -- (d) filters narrow the count as well as the rows. A filter that
+  --     narrowed only the page would page over the unfiltered set.
+  select count(*), max(total_count) into v_rows, v_total
+    from public.admin_list_profiles(p_statuses => array['pending_review'], p_limit => 50);
+  if v_rows <> 10 then
+    raise exception 'FAIL: status filter returned % rows, expected 10', v_rows;
+  end if;
+  if v_total <> 10 then
+    raise exception 'FAIL: status filter left total_count at % — filters are not reaching the count', v_total;
+  end if;
+
+  -- (e) the search matches the signup email, which only admins can see
+  select count(*) into v_rows from public.admin_list_profiles(p_query => 'page7@imperial.ac.uk');
+  if v_rows <> 1 then
+    raise exception 'FAIL: email search matched % rows, expected 1', v_rows;
+  end if;
+
+  -- (f) the review queue is bounded and counts its whole backlog
+  select count(*), max(total_count) into v_rows, v_total
+    from public.admin_list_pending_profiles(p_limit => 5);
+  if v_rows <> 5  then raise exception 'FAIL: pending queue returned % rows for p_limit 5', v_rows; end if;
+  if v_total <> 10 then raise exception 'FAIL: pending queue total_count is % , expected 10', v_total; end if;
+
+  -- (g) oldest first — a queue that shows newest first buries the person
+  --     who has waited longest
+  select surname into v_first from public.admin_list_pending_profiles(p_limit => 1);
+  if v_first <> 'Member1' then
+    raise exception 'FAIL: pending queue is not oldest-first (first row was %)', v_first;
+  end if;
+
+  -- (h) facets span every status, not just approved members — filtering
+  --     this page by "rejected" is the point of it
+  if not exists (
+    select 1 from public.admin_profile_facets() f where 'MEng Paging' = any(f.courses)
+  ) then
+    raise exception 'FAIL: admin_profile_facets is missing a course that exists on a profile';
   end if;
 end;
 $$;

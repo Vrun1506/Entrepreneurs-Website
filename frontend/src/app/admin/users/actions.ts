@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { invalidate } from "@/lib/cache";
 import { requireAdmin } from "@/lib/auth/actionAuth";
 import { sendAcceptanceEmail, sendRejectionEmail } from "@/lib/email";
 import { emailBaseUrl } from "@/lib/siteUrl";
@@ -38,6 +39,8 @@ export async function approveUser(userId: string): Promise<Result> {
   const row = Array.isArray(data) ? data[0] : data;
   if (!row?.email) {
     console.warn("approve_user returned no email for user:", userId);
+    // Membership changed, so the cached directory is stale.
+    await invalidate("directoryFacets");
     revalidatePath("/admin/users");
     return { ok: true };
   }
@@ -56,10 +59,13 @@ export async function approveUser(userId: string): Promise<Result> {
     // Approval is committed; surface the email failure so the admin
     // can follow up but don't reverse the approval.
     const msg = e instanceof Error ? e.message : String(e);
+    // Membership changed, so the cached directory is stale.
+    await invalidate("directoryFacets");
     revalidatePath("/admin/users");
     return { ok: false, error: `User approved, but welcome email failed to queue: ${msg}` };
   }
-
+  // Membership changed, so the cached directory is stale.
+  await invalidate("directoryFacets");
   revalidatePath("/admin/users");
   return { ok: true };
 }
@@ -83,6 +89,8 @@ export async function rejectUser(userId: string, reason: string): Promise<Result
     // Status flip succeeded but we couldn't find the email. Don't fail the
     // whole action — the admin's intent is recorded; just log.
     console.warn("reject_user returned no email for user:", userId);
+    // Membership changed, so the cached directory is stale.
+    await invalidate("directoryFacets");
     revalidatePath("/admin/users");
     return { ok: true };
   }
@@ -93,10 +101,13 @@ export async function rejectUser(userId: string, reason: string): Promise<Result
     // Email failed but DB rejection is already committed. Surface to admin
     // so they know to follow up manually, but don't revert the rejection.
     const msg = e instanceof Error ? e.message : String(e);
+    // Membership changed, so the cached directory is stale.
+    await invalidate("directoryFacets");
     revalidatePath("/admin/users");
     return { ok: false, error: `User rejected, but email failed to send: ${msg}` };
   }
-
+  // Membership changed, so the cached directory is stale.
+  await invalidate("directoryFacets");
   revalidatePath("/admin/users");
   return { ok: true };
 }

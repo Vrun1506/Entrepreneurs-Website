@@ -1,9 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import SocialLinks from "@/components/SocialLinks";
 import SearchableMultiSelect from "@/components/forms/SearchableMultiSelect";
+import { useUrlFilters, useSearchDraft } from "@/lib/filters/useUrlFilters";
+import { SearchInput, FilterPanel, ChipGroup, RangeFilter } from "@/components/filters/FilterBar";
+import { Pager } from "@/components/ui/Pager";
+import { Dialog, closeDialog } from "@/components/ui/Dialog";
+import { browserClient } from "@/lib/supabase/browser";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 type Member = {
   id: string;
@@ -12,95 +18,79 @@ type Member = {
   role: "alum" | "student";
   course: string | null;
   gradYear: number | null;
-  bio: string | null;
-  workingOn: string | null;
-  linkedinUrl: string | null;
-  githubUrl: string | null;
-  portfolioUrl: string | null;
+  // Truncated by list_directory_cards to what the card renders. The full
+  // text and the profile links are fetched when the dialog opens — they are
+  // most of the payload and almost none of the page.
+  bioPreview: string | null;
+  workingOnPreview: string | null;
   skills: string[];
   sectors: string[];
   lookingFor: { id: string; role: string }[];
 };
 
-// At most this many "Looking for" buttons render on a profile (card + dialog).
+type Facets = {
+  courses: string[];
+  sectors: string[];
+  skills: string[];
+  grad_min: number | null;
+  grad_max: number | null;
+  total: number;
+};
+
+type Filters = {
+  q: string;
+  roles: string[];
+  courses: string[];
+  sectors: string[];
+  skills: string[];
+  gradMin: string;
+  gradMax: string;
+  page: number;
+};
+
 const MAX_LOOKING_FOR = 3;
 
+// ════════════════════════════════════════════════════════════════════
+// Filtering and paging happen on the server; this component's job is to
+// keep the URL in step with the controls.
+//
+// That is not a stylistic choice. The directory used to load every member
+// and filter in memory, which meant PostgREST's 1000-row cap silently hid
+// everyone past the thousandth, and every navigation shipped the whole
+// membership. Neither is fixable while the filter logic lives here.
+//
+// The upside is that a filtered view is now a shareable URL, and the back
+// button steps through filter history.
+// ════════════════════════════════════════════════════════════════════
 export default function CommunityClient({
-  members, newest,
+  members, newest, facets, filters, matching, pageSize,
 }: {
   members: Member[];
   newest: Member[];
+  facets: Facets;
+  filters: Filters;
+  matching: number;
+  pageSize: number;
 }) {
-  const [query, setQuery] = useState("");
-  const [selectedRoles, setSelectedRoles] = useState<Set<"alum" | "student">>(new Set());
-  const [selectedCourses, setSelectedCourses] = useState<Set<string>>(new Set());
-  const [selectedSectors, setSelectedSectors] = useState<Set<string>>(new Set());
-  const [selectedSkills, setSelectedSkills] = useState<Set<string>>(new Set());
-  const [gradYearMin, setGradYearMin] = useState<string>("");
-  const [gradYearMax, setGradYearMax] = useState<string>("");
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  // Server-side navigation: the directory is too large to ship whole, so a
+  // filter is an argument to a Postgres query rather than a local operation.
+  // `filters` (the prop) is the server's own parse of these same params —
+  // the values rendered here and the values the query ran with are one
+  // thing, not two that can disagree.
+  const url = useUrlFilters({ navigate: "server", resetKey: "page" });
+  const [queryDraft, setQueryDraft] = useSearchDraft(url);
+
   const [openMember, setOpenMember] = useState<Member | null>(null);
 
-  // Derive the available chips from what members actually have, sorted
-  // alphabetically. Avoids the chip row showing options that match
-  // nobody.
-  const { availableCourses, availableSectors, availableSkills, gradYearBounds } = useMemo(() => {
-    const courses = new Set<string>();
-    const sectors = new Set<string>();
-    const skills  = new Set<string>();
-    let minY = Infinity, maxY = -Infinity;
-    for (const m of members) {
-      if (m.course && m.course.trim().length > 0) courses.add(m.course);
-      m.sectors.forEach((s) => sectors.add(s));
-      m.skills.forEach((s) => skills.add(s));
-      if (m.gradYear != null) {
-        if (m.gradYear < minY) minY = m.gradYear;
-        if (m.gradYear > maxY) maxY = m.gradYear;
-      }
-    }
-    return {
-      availableCourses: [...courses].sort((a, b) => a.localeCompare(b)),
-      availableSectors: [...sectors].sort((a, b) => a.localeCompare(b)),
-      availableSkills:  [...skills].sort((a, b) => a.localeCompare(b)),
-      gradYearBounds:   Number.isFinite(minY) ? { min: minY, max: maxY } : null,
-    };
-  }, [members]);
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const minY = gradYearMin ? parseInt(gradYearMin, 10) : null;
-    const maxY = gradYearMax ? parseInt(gradYearMax, 10) : null;
-    return members.filter((m) => {
-      if (selectedRoles.size > 0 && !selectedRoles.has(m.role)) return false;
-      if (selectedCourses.size > 0 && (!m.course || !selectedCourses.has(m.course))) return false;
-      if (selectedSectors.size > 0 && !m.sectors.some((s) => selectedSectors.has(s))) return false;
-      if (selectedSkills.size  > 0 && !m.skills.some((s)  => selectedSkills.has(s)))  return false;
-      if (minY != null && (m.gradYear == null || m.gradYear < minY)) return false;
-      if (maxY != null && (m.gradYear == null || m.gradYear > maxY)) return false;
-      if (q) {
-        const hay = [
-          m.firstName, m.surname, `${m.firstName} ${m.surname}`,
-          m.course ?? "", m.bio ?? "", m.workingOn ?? "",
-          ...m.skills, ...m.sectors,
-        ].join(" ").toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      return true;
-    });
-  }, [members, query, selectedRoles, selectedCourses, selectedSectors, selectedSkills, gradYearMin, gradYearMax]);
-
   const activeFilterCount =
-    selectedRoles.size + selectedCourses.size + selectedSectors.size + selectedSkills.size +
-    (gradYearMin ? 1 : 0) + (gradYearMax ? 1 : 0);
+    filters.roles.length + filters.courses.length + filters.sectors.length +
+    filters.skills.length + (filters.gradMin ? 1 : 0) + (filters.gradMax ? 1 : 0);
 
-  const clearFilters = () => {
-    setSelectedRoles(new Set());
-    setSelectedCourses(new Set());
-    setSelectedSectors(new Set());
-    setSelectedSkills(new Set());
-    setGradYearMin("");
-    setGradYearMax("");
-  };
+  const gradYearBounds =
+    facets.grad_min != null && facets.grad_max != null
+      ? { min: facets.grad_min, max: facets.grad_max }
+      : null;
+
 
   return (
     <>
@@ -118,128 +108,105 @@ export default function CommunityClient({
         </section>
       )}
 
-      <div className="mb-4">
-        <input
-          type="search"
-          placeholder="Search by name, course, skill, sector, or what they're working on"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="w-full px-4 py-3 bg-white/[0.03] border border-border rounded-xl text-[0.875rem] text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]"
+      <SearchInput
+        label="Search members"
+        placeholder="Search by name, course, skill, sector, or what they're working on"
+        value={queryDraft}
+        onChange={setQueryDraft}
+      />
+
+      <FilterPanel
+        activeCount={activeFilterCount}
+        onClear={() => url.clear("role", "course", "sector", "skill", "gradMin", "gradMax")}
+        resultCount={
+          <>
+            {matching === facets.total ? `${facets.total}` : `${matching} of ${facets.total}`}
+            <span className="sr-only"> members match</span>
+          </>
+        }
+      >
+        <ChipGroup
+          label="Role"
+          options={[
+            { value: "student", label: "Students" },
+            { value: "alum",    label: "Alumni" },
+          ]}
+          selected={new Set(filters.roles)}
+          onToggle={(v) => url.toggle("role", v)}
         />
-      </div>
 
-      <div className="mb-6">
-        <div className="flex items-center gap-3 mb-3">
-          <button
-            type="button"
-            onClick={() => setFiltersOpen((o) => !o)}
-            className="text-[0.8rem] text-text-secondary hover:text-text-primary bg-transparent border-0 cursor-pointer transition-colors flex items-center gap-1 py-2 -my-2"
-          >
-            <FilterIcon />
-            Filters
-            {activeFilterCount > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 rounded-full text-[0.65rem] bg-gold/15 text-gold-light border border-gold/25">
-                {activeFilterCount}
-              </span>
-            )}
-            <span className="ml-1 text-text-muted">{filtersOpen ? "▲" : "▼"}</span>
-          </button>
-          {activeFilterCount > 0 && (
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="text-[0.75rem] text-text-muted hover:text-text-primary bg-transparent border-0 cursor-pointer transition-colors"
-            >
-              Clear all
-            </button>
-          )}
-          <span className="ml-auto text-[0.8rem] text-text-muted">
-            {filtered.length} of {members.length}
-          </span>
-        </div>
+        {facets.courses.length > 0 && (
+          <SearchableMultiSelect
+            label="Course"
+            options={facets.courses}
+            selected={new Set(filters.courses)}
+            onChange={(next) => url.apply({ course: [...next] })}
+            placeholder="Filter by course — search or pick"
+            emptyText="No course matches that search."
+          />
+        )}
 
-        {filtersOpen && (
-          <div className="rounded-2xl bg-bg-card border border-border-subtle p-5 space-y-5">
-            <FilterGroup
-              label="Role"
-              options={[
-                { value: "student", label: "Students" },
-                { value: "alum",    label: "Alumni" },
-              ]}
-              selected={selectedRoles}
-              onToggle={(v) => toggleSet(selectedRoles, v as "alum" | "student", setSelectedRoles)}
-            />
+        {facets.sectors.length > 0 && (
+          <ChipGroup
+            label="Sectors"
+            options={facets.sectors.map((s) => ({ value: s, label: s }))}
+            selected={new Set(filters.sectors)}
+            onToggle={(v) => url.toggle("sector", v)}
+          />
+        )}
 
-            {availableCourses.length > 0 && (
-              <SearchableMultiSelect
-                label="Course"
-                options={availableCourses}
-                selected={selectedCourses}
-                onChange={setSelectedCourses}
-                placeholder="Filter by course — search or pick"
-                emptyText="No course matches that search."
-              />
-            )}
+        {facets.skills.length > 0 && (
+          <ChipGroup
+            label="Skills"
+            options={facets.skills.map((s) => ({ value: s, label: s }))}
+            selected={new Set(filters.skills)}
+            onToggle={(v) => url.toggle("skill", v)}
+          />
+        )}
 
-            {availableSectors.length > 0 && (
-              <FilterGroup
-                label="Sectors"
-                options={availableSectors.map((s) => ({ value: s, label: s }))}
-                selected={selectedSectors}
-                onToggle={(v) => toggleSet(selectedSectors, v, setSelectedSectors)}
-              />
-            )}
+        {gradYearBounds && (
+          <RangeFilter
+            label="Graduation year"
+            hint={` — range ${gradYearBounds.min}–${gradYearBounds.max}`}
+            type="number"
+            bounds={gradYearBounds}
+            from={filters.gradMin}
+            to={filters.gradMax}
+            fromLabel="Graduation year from"
+            toLabel="Graduation year to"
+            fromPlaceholder={`From ${gradYearBounds.min}`}
+            toPlaceholder={`To ${gradYearBounds.max}`}
+            // Every keystroke here is a database query, so wait for the field
+            // to be finished with rather than filtering on a half-typed year.
+            commitOn="blur"
+            onFromChange={(v) => url.apply({ gradMin: v })}
+            onToChange={(v) => url.apply({ gradMax: v })}
+          />
+        )}
+      </FilterPanel>
 
-            {availableSkills.length > 0 && (
-              <FilterGroup
-                label="Skills"
-                options={availableSkills.map((s) => ({ value: s, label: s }))}
-                selected={selectedSkills}
-                onToggle={(v) => toggleSet(selectedSkills, v, setSelectedSkills)}
-              />
-            )}
-
-            {gradYearBounds && (
-              <div>
-                <div className="text-[0.75rem] text-text-muted mb-2">
-                  Graduation year <span className="text-text-muted/70">— range {gradYearBounds.min}–{gradYearBounds.max}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    placeholder={`From ${gradYearBounds.min}`}
-                    value={gradYearMin}
-                    onChange={(e) => setGradYearMin(e.target.value)}
-                    min={gradYearBounds.min}
-                    max={gradYearBounds.max}
-                    className="w-[140px] px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.8rem] text-text-primary placeholder:text-text-muted focus:border-gold/50"
-                  />
-                  <span className="text-text-muted text-[0.8rem]">to</span>
-                  <input
-                    type="number"
-                    placeholder={`To ${gradYearBounds.max}`}
-                    value={gradYearMax}
-                    onChange={(e) => setGradYearMax(e.target.value)}
-                    min={gradYearBounds.min}
-                    max={gradYearBounds.max}
-                    className="w-[140px] px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.8rem] text-text-primary placeholder:text-text-muted focus:border-gold/50"
-                  />
-                </div>
-              </div>
-            )}
+      {/* A pending navigation dims the current page rather than replacing it
+          with a skeleton: the results are still valid, just about to change,
+          and swapping them for placeholders on every keystroke would flash. */}
+      <div className={url.pending ? "opacity-60 transition-opacity duration-150" : undefined}>
+        {members.length === 0 ? (
+          <div className="text-center py-16 text-text-muted text-[0.85rem]">
+            {facets.total === 0 ? "No members yet." : "No members match your search or filters."}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {members.map((m) => <MemberCard key={m.id} member={m} onClick={() => setOpenMember(m)} />)}
           </div>
         )}
       </div>
 
-      {filtered.length === 0 ? (
-        <div className="text-center py-16 text-text-muted text-[0.85rem]">
-          {members.length === 0 ? "No members yet." : "No members match your search or filters."}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((m) => <MemberCard key={m.id} member={m} onClick={() => setOpenMember(m)} />)}
-        </div>
-      )}
+      <Pager
+        url={url}
+        page={filters.page}
+        total={matching}
+        pageSize={pageSize}
+        label="Directory pages"
+      />
 
       {openMember && (
         <MemberDialog member={openMember} onClose={() => setOpenMember(null)} />
@@ -248,53 +215,6 @@ export default function CommunityClient({
   );
 }
 
-function toggleSet<T>(set: Set<T>, value: T, setter: (s: Set<T>) => void) {
-  const next = new Set(set);
-  if (next.has(value)) next.delete(value); else next.add(value);
-  setter(next);
-}
-
-function FilterGroup<T extends string>({
-  label, options, selected, onToggle,
-}: {
-  label: string;
-  options: { value: T; label: string }[];
-  selected: Set<T>;
-  onToggle: (v: T) => void;
-}) {
-  return (
-    <div>
-      <div className="text-[0.75rem] text-text-muted mb-2">{label}</div>
-      <div className="flex flex-wrap gap-1.5">
-        {options.map((o) => {
-          const on = selected.has(o.value);
-          return (
-            <button
-              key={o.value}
-              type="button"
-              onClick={() => onToggle(o.value)}
-              className={`px-3 py-1.5 rounded-full text-[0.775rem] border transition-colors duration-150 cursor-pointer ${
-                on
-                  ? "bg-gold-muted border-gold/50 text-gold-light"
-                  : "bg-white/[0.02] border-border text-text-secondary hover:border-gold/30 hover:text-text-primary"
-              }`}
-            >
-              {o.label}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function FilterIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
-    </svg>
-  );
-}
 
 function NewestCard({ member: m, onClick }: { member: Member; onClick: () => void }) {
   return (
@@ -347,15 +267,15 @@ function MemberCard({ member: m, onClick }: { member: Member; onClick: () => voi
         </div>
       </header>
 
-      {m.bio && (
+      {m.bioPreview && (
         <p className="text-[0.8rem] text-text-secondary leading-relaxed mt-3 line-clamp-2">
-          {m.bio}
+          {m.bioPreview}
         </p>
       )}
 
-      {m.workingOn && (
+      {m.workingOnPreview && (
         <div className="text-[0.75rem] text-text-muted mt-2 leading-relaxed line-clamp-1">
-          <span className="text-gold/80">Working on:</span> {m.workingOn}
+          <span className="text-gold/80">Working on:</span> {m.workingOnPreview}
         </div>
       )}
 
@@ -365,7 +285,7 @@ function MemberCard({ member: m, onClick }: { member: Member; onClick: () => voi
           {m.lookingFor.slice(0, MAX_LOOKING_FOR).map((lf) => (
             <Link
               key={lf.id}
-              href={`/opportunities#o-${lf.id}`}
+              href={`/opportunities?o=${lf.id}`}
               onClick={(e) => e.stopPropagation()}
               className="px-2 py-0.5 rounded-full border border-gold/30 text-gold text-[0.7rem] no-underline hover:bg-gold/10 transition-colors"
             >
@@ -378,127 +298,156 @@ function MemberCard({ member: m, onClick }: { member: Member; onClick: () => voi
   );
 }
 
+// The fields the list deliberately doesn't carry.
+type FullProfile = {
+  bio: string | null;
+  working_on: string | null;
+  linkedin_url: string | null;
+  github_url: string | null;
+  portfolio_url: string | null;
+};
+
 function MemberDialog({ member: m, onClose }: { member: Member; onClose: () => void }) {
-  // Esc closes; lock body scroll while open.
+  // Fetched on open rather than shipped with the list. A plain select, not
+  // an RPC: the profiles RLS policies already restrict reads to approved
+  // members, so there is nothing extra to enforce here.
+  const [full, setFull] = useState<FullProfile | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
+
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", onKey);
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prevOverflow;
-    };
-  }, [onClose]);
+    let cancelled = false;
+    browserClient()
+      .from("profiles")
+      .select("bio, working_on, linkedin_url, github_url, portfolio_url")
+      .eq("id", m.id)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error || !data) {
+          console.error("Failed to load profile details:", error);
+          setLoadFailed(true);
+          return;
+        }
+        setFull(data as FullProfile);
+      });
+    return () => { cancelled = true; };
+  }, [m.id]);
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={`Profile of ${m.firstName} ${m.surname}`}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4 py-8 overflow-y-auto"
-      onClick={onClose}
+    <Dialog
+      onClose={onClose}
+      label={`Profile of ${m.firstName} ${m.surname}`}
+      className="w-full max-w-[600px] rounded-2xl bg-bg-card border border-border-subtle shadow-2xl my-auto"
     >
-      <div
-        className="w-full max-w-[600px] rounded-2xl bg-bg-card border border-border-subtle shadow-2xl my-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <header className="flex items-start justify-between gap-4 px-7 pt-6 pb-4 border-b border-border-subtle">
-          <div className="min-w-0 flex-1">
-            <h2 className="font-display text-[1.4rem] text-text-primary tracking-tight truncate">
-              {m.firstName} {m.surname}
-            </h2>
-            <div className="text-[0.75rem] text-text-muted mt-1">{memberSubtitle(m)}</div>
-            {m.course && (
-              <div className="text-[0.8rem] text-text-secondary mt-1">{m.course}</div>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="shrink-0 w-8 h-8 rounded-full bg-white/[0.04] hover:bg-white/[0.08] text-text-secondary hover:text-text-primary flex items-center justify-center transition-colors cursor-pointer border-0"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
-          </button>
-        </header>
-
-        <div className="px-7 py-5 space-y-5">
-          {m.bio && (
-            <section>
-              <div className="text-[0.7rem] text-text-muted uppercase tracking-wider mb-1.5">Bio</div>
-              <p className="text-[0.85rem] text-text-secondary leading-relaxed whitespace-pre-wrap">{m.bio}</p>
-            </section>
-          )}
-
-          {m.workingOn && (
-            <section>
-              <div className="text-[0.7rem] text-text-muted uppercase tracking-wider mb-1.5">Working on</div>
-              <p className="text-[0.85rem] text-text-secondary leading-relaxed whitespace-pre-wrap">{m.workingOn}</p>
-            </section>
-          )}
-
-          {m.lookingFor.length > 0 && (
-            <section>
-              <div className="text-[0.7rem] text-text-muted uppercase tracking-wider mb-2">Looking for</div>
-              <div className="flex flex-wrap gap-1.5">
-                {m.lookingFor.slice(0, MAX_LOOKING_FOR).map((lf) => (
-                  <Link
-                    key={lf.id}
-                    href={`/opportunities#o-${lf.id}`}
-                    className="px-2.5 py-1 rounded-full text-[0.725rem] border border-gold/30 text-gold no-underline hover:bg-gold/10 transition-colors"
-                  >
-                    {lf.role}
-                  </Link>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {m.sectors.length > 0 && (
-            <section>
-              <div className="text-[0.7rem] text-text-muted uppercase tracking-wider mb-2">Interests</div>
-              <div className="flex flex-wrap gap-1.5">
-                {m.sectors.map((s) => (
-                  <span key={`sec-${s}`} className="px-2.5 py-1 rounded-full text-[0.725rem] bg-gold-muted text-gold-light border border-gold/20">
-                    {s}
-                  </span>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {m.skills.length > 0 && (
-            <section>
-              <div className="text-[0.7rem] text-text-muted uppercase tracking-wider mb-2">Skills &amp; expertise</div>
-              <div className="flex flex-wrap gap-1.5">
-                {m.skills.map((s) => (
-                  <span key={`skl-${s}`} className="px-2.5 py-1 rounded-full text-[0.725rem] bg-white/[0.03] text-text-secondary border border-border">
-                    {s}
-                  </span>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {(m.linkedinUrl || m.githubUrl || m.portfolioUrl) && (
-            <section className="pt-3 border-t border-border-subtle">
-              <div className="text-[0.7rem] text-text-muted uppercase tracking-wider mb-2">Links</div>
-              <SocialLinks linkedinUrl={m.linkedinUrl} githubUrl={m.githubUrl} portfolioUrl={m.portfolioUrl} />
-            </section>
-          )}
-
-          {!m.bio && !m.workingOn && m.sectors.length === 0 && m.skills.length === 0
-            && m.lookingFor.length === 0 && !m.linkedinUrl && !m.githubUrl && !m.portfolioUrl && (
-            <p className="text-[0.85rem] text-text-muted italic">
-              No additional details on this profile yet.
-            </p>
+      <header className="flex items-start justify-between gap-4 px-7 pt-6 pb-4 border-b border-border-subtle">
+        <div className="min-w-0 flex-1">
+          <h2 className="font-display text-[1.4rem] text-text-primary tracking-tight truncate">
+            {m.firstName} {m.surname}
+          </h2>
+          <div className="text-[0.75rem] text-text-muted mt-1">{memberSubtitle(m)}</div>
+          {m.course && (
+            <div className="text-[0.8rem] text-text-secondary mt-1">{m.course}</div>
           )}
         </div>
+        <button
+          type="button"
+          onClick={closeDialog}
+          aria-label="Close"
+          className="shrink-0 w-8 h-8 rounded-full bg-white/[0.04] hover:bg-white/[0.08] text-text-secondary hover:text-text-primary flex items-center justify-center transition-colors cursor-pointer border-0"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
+        </button>
+      </header>
+
+      <div className="px-7 py-5 space-y-5">
+        {/* While the full text loads, show the preview the card already has
+            rather than an empty box — the dialog opens with content, and the
+            untruncated version replaces it in place. */}
+        {(full?.bio ?? m.bioPreview) && (
+          <section>
+            <div className="text-[0.7rem] text-text-muted uppercase tracking-wider mb-1.5">Bio</div>
+            <p className="text-[0.85rem] text-text-secondary leading-relaxed whitespace-pre-wrap">
+              {full?.bio ?? m.bioPreview}
+            </p>
+            {!full && !loadFailed && <Skeleton className="h-3 w-2/3 mt-2" />}
+          </section>
+        )}
+
+        {(full?.working_on ?? m.workingOnPreview) && (
+          <section>
+            <div className="text-[0.7rem] text-text-muted uppercase tracking-wider mb-1.5">Working on</div>
+            <p className="text-[0.85rem] text-text-secondary leading-relaxed whitespace-pre-wrap">
+              {full?.working_on ?? m.workingOnPreview}
+            </p>
+          </section>
+        )}
+
+        {m.lookingFor.length > 0 && (
+          <section>
+            <div className="text-[0.7rem] text-text-muted uppercase tracking-wider mb-2">Looking for</div>
+            <div className="flex flex-wrap gap-1.5">
+              {m.lookingFor.slice(0, MAX_LOOKING_FOR).map((lf) => (
+                <Link
+                  key={lf.id}
+                  href={`/opportunities?o=${lf.id}`}
+                  className="px-2.5 py-1 rounded-full text-[0.725rem] border border-gold/30 text-gold no-underline hover:bg-gold/10 transition-colors"
+                >
+                  {lf.role}
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {m.sectors.length > 0 && (
+          <section>
+            <div className="text-[0.7rem] text-text-muted uppercase tracking-wider mb-2">Interests</div>
+            <div className="flex flex-wrap gap-1.5">
+              {m.sectors.map((s) => (
+                <span key={`sec-${s}`} className="px-2.5 py-1 rounded-full text-[0.725rem] bg-gold-muted text-gold-light border border-gold/20">
+                  {s}
+                </span>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {m.skills.length > 0 && (
+          <section>
+            <div className="text-[0.7rem] text-text-muted uppercase tracking-wider mb-2">Skills &amp; expertise</div>
+            <div className="flex flex-wrap gap-1.5">
+              {m.skills.map((s) => (
+                <span key={`skl-${s}`} className="px-2.5 py-1 rounded-full text-[0.725rem] bg-white/[0.03] text-text-secondary border border-border">
+                  {s}
+                </span>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {full && (full.linkedin_url || full.github_url || full.portfolio_url) && (
+          <section className="pt-3 border-t border-border-subtle">
+            <div className="text-[0.7rem] text-text-muted uppercase tracking-wider mb-2">Links</div>
+            <SocialLinks
+              linkedinUrl={full.linkedin_url}
+              githubUrl={full.github_url}
+              portfolioUrl={full.portfolio_url}
+            />
+          </section>
+        )}
+
+        {/* Only claim the profile is empty once we know: the links and the
+            full text arrive after the dialog opens. */}
+        {full && !full.bio && !full.working_on && m.sectors.length === 0 && m.skills.length === 0
+          && m.lookingFor.length === 0 && !full.linkedin_url && !full.github_url && !full.portfolio_url && (
+          <p className="text-[0.85rem] text-text-muted italic">
+            No additional details on this profile yet.
+          </p>
+        )}
       </div>
-    </div>
+    </Dialog>
   );
 }
 

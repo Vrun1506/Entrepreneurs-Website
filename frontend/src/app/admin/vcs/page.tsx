@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import VcsReview from "./VcsReview";
+import { reportIfCapped } from "@/lib/supabase/rowCap";
 
 export default async function AdminVcsPage() {
   const supabase = await createClient();
@@ -18,7 +19,7 @@ export default async function AdminVcsPage() {
 
   if (error) console.error("Failed to load pending vcs_grants:", error);
 
-  const rawRows = (rows ?? []) as unknown as RawRow[];
+  const rawRows = reportIfCapped("vcs_grants (pending)", (rows ?? []) as unknown as RawRow[]);
 
   const posterIds = Array.from(new Set(rawRows.map((r) => r.posted_by)));
   const signupEmailById = new Map<string, string>();
@@ -34,7 +35,7 @@ export default async function AdminVcsPage() {
   const pending = rawRows.map((r) => toReviewItem(r, signupEmailById.get(r.posted_by) ?? null));
 
   return (
-    <div className="min-h-screen bg-bg-primary text-text-primary px-8 py-12">
+    <main id="main-content" tabIndex={-1} className="min-h-screen bg-bg-primary text-text-primary px-8 py-12">
       <div className="max-w-[1200px] mx-auto">
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -62,7 +63,7 @@ export default async function AdminVcsPage() {
           <VcsReview items={pending} />
         )}
       </div>
-    </div>
+    </main>
   );
 }
 

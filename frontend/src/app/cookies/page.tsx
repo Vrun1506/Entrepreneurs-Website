@@ -42,7 +42,7 @@ const COOKIES: Cookie[] = [
 
 export default function CookiesPage() {
   return (
-    <div className="min-h-screen bg-bg-primary text-text-primary px-8 py-16">
+    <main id="main-content" tabIndex={-1} className="min-h-screen bg-bg-primary text-text-primary px-8 py-16">
       <div className="max-w-[720px] mx-auto">
         <Link href="/login" className="text-[0.8rem] text-text-muted no-underline hover:text-text-secondary transition-colors">
           ← Back
@@ -137,7 +137,7 @@ export default function CookiesPage() {
           </Section>
         </article>
       </div>
-    </div>
+    </main>
   );
 }
 

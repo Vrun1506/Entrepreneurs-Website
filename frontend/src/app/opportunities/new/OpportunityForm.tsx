@@ -1,13 +1,16 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { Field } from "@/components/forms/Field";
+import { useRef, useState } from "react";
+import { Field, FieldError } from "@/components/forms/Field";
 import { ChipGroup, type ChipItem } from "@/components/forms/ChipGroup";
 import { ErrorBanner } from "@/components/forms/Banners";
 import { inputCls } from "@/components/forms/styles";
 import { TurnstileWidget, turnstileConfigured } from "@/components/forms/TurnstileWidget";
 import { submitOpportunity, updateOwnOpportunity } from "@/app/opportunities/actions";
+import { opportunitySchema } from "@/lib/validation/listings";
+import { collectFieldErrors, showFieldErrors, FORM_ERROR, type FieldErrors } from "@/lib/validation/fields";
+import { Button } from "@/components/ui/Button";
 
 type Lookup = ChipItem;
 type Mode = "user" | "admin";
@@ -77,6 +80,8 @@ export default function OpportunityForm({ signupEmail, skills, sectors, mode, ed
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [turnstileToken, setTurnstileToken] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const formRef = useRef<HTMLFormElement>(null);
 
   // Turnstile only gates user submissions, not admin direct-publish or edits.
   const showTurnstile = mode === "user" && !editingId && turnstileConfigured;
@@ -90,49 +95,16 @@ export default function OpportunityForm({ signupEmail, skills, sectors, mode, ed
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-
-    if (positionName.trim().length < 2) {
-      setError("Role title is required."); return;
-    }
-    if (!company.trim()) {
-      setError("Company is required."); return;
-    }
-    if (!pay.trim()) {
-      setError("Salary / compensation is required."); return;
-    }
-    if (description.trim().length < 20) {
-      setError("Description must be at least 20 characters."); return;
-    }
-    if (!applicationDeadline) {
-      setError("Application deadline is required."); return;
-    }
-    if (new Date(applicationDeadline) < new Date(new Date().toDateString())) {
-      setError("Application deadline must be today or later."); return;
-    }
-    if (locationType !== "remote" && !locationText.trim()) {
-      setError("Please provide a location (city/region) for hybrid or onsite roles."); return;
-    }
-    if (applyMethod === "link") {
-      const url = applyUrl.trim();
-      if (!/^https?:\/\//i.test(url)) {
-        setError("Application portal URL must start with http:// or https://"); return;
-      }
-    }
-
-    const contactEmail = useCustomContact
-      ? customContactEmail.trim()
-      : signupEmail;
-    if (!/^[^@]+@[^@]+\.[^@]+$/.test(contactEmail)) {
-      setError("Contact email is invalid."); return;
-    }
+    setFieldErrors({});
 
     if (showTurnstile && !turnstileToken) {
       setError("Please complete the verification challenge below."); return;
     }
 
-    setIsLoading(true);
-
-    const payload = {
+    // Validated against the same schema the server action uses, so every
+    // failing field is reported at once, beside itself, and the two can't
+    // disagree.
+    const parsed = collectFieldErrors(opportunitySchema, {
       positionName:        positionName.trim(),
       company:             company.trim(),
       pay:                 pay.trim(),
@@ -142,13 +114,23 @@ export default function OpportunityForm({ signupEmail, skills, sectors, mode, ed
       startMonth:          parseInt(startMonth, 10),
       startYear:           parseInt(startYear,  10),
       applicationDeadline,
-      contactEmail,
+      contactEmail:        useCustomContact ? customContactEmail.trim() : signupEmail,
       contactEmailVisible,
       applyMethod,
       applyUrl:            applyMethod === "link" ? applyUrl.trim() : null,
       skillIds:            Array.from(skillIds),
       sectorIds:           Array.from(sectorIds),
-    };
+    });
+    if (!parsed.ok) {
+      // Schema-level rules that aren't tied to one field still need somewhere
+      // to land.
+      if (parsed.errors[FORM_ERROR]) setError(parsed.errors[FORM_ERROR]);
+      showFieldErrors(parsed.errors, setFieldErrors, formRef.current);
+      return;
+    }
+    const payload = parsed.data;
+
+    setIsLoading(true);
 
     const res = editingId
       ? await updateOwnOpportunity(editingId, payload)
@@ -169,23 +151,23 @@ export default function OpportunityForm({ signupEmail, skills, sectors, mode, ed
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5 rounded-2xl bg-bg-card border border-border-subtle p-8">
+    <form ref={formRef} onSubmit={handleSubmit} className="space-y-5 rounded-2xl bg-bg-card border border-border-subtle p-8">
       {error && <ErrorBanner>{error}</ErrorBanner>}
 
-      <Field label="Role title" required>
+      <Field label="Role title" required error={fieldErrors.positionName}>
         <input type="text" maxLength={200} value={positionName} onChange={(e) => setPositionName(e.target.value)} className={inputCls} required />
       </Field>
 
-      <Field label="Company" required>
+      <Field label="Company" required error={fieldErrors.company}>
         <input type="text" maxLength={200} value={company} onChange={(e) => setCompany(e.target.value)} className={inputCls} required />
       </Field>
 
-      <Field label="Salary / compensation" required hint="e.g. £80k–£100k, equity 0.1–0.5%, daily rate, etc.">
+      <Field label="Salary / compensation" required hint="e.g. £80k–£100k, equity 0.1–0.5%, daily rate, etc." error={fieldErrors.pay}>
         <input type="text" maxLength={100} value={pay} onChange={(e) => setPay(e.target.value)} className={inputCls} required />
       </Field>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Field label="Location type" required>
+        <Field label="Location type" required error={fieldErrors.locationType}>
           <select value={locationType} onChange={(e) => setLocationType(e.target.value as "remote" | "hybrid" | "onsite")} className={inputCls}>
             <option value="remote">Remote</option>
             <option value="hybrid">Hybrid</option>
@@ -193,28 +175,28 @@ export default function OpportunityForm({ signupEmail, skills, sectors, mode, ed
           </select>
         </Field>
         <div className="sm:col-span-2">
-          <Field label="City / region" hint={locationType === "remote" ? "Optional for remote" : "Required"}>
+          <Field label="City / region" hint={locationType === "remote" ? "Optional for remote" : "Required"} error={fieldErrors.locationText}>
             <input type="text" maxLength={200} value={locationText} onChange={(e) => setLocationText(e.target.value)} className={inputCls} />
           </Field>
         </div>
       </div>
 
-      <Field label="Job description" required hint={`${description.length}/5000`}>
+      <Field label="Job description" required hint={`${description.length}/5000`} error={fieldErrors.description}>
         <textarea rows={6} maxLength={5000} value={description} onChange={(e) => setDescription(e.target.value)} className={`${inputCls} resize-none`} required />
       </Field>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Field label="Start month" required>
+        <Field label="Start month" required error={fieldErrors.startMonth}>
           <select value={startMonth} onChange={(e) => setStartMonth(e.target.value)} className={inputCls}>
             {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
           </select>
         </Field>
-        <Field label="Start year" required>
+        <Field label="Start year" required error={fieldErrors.startYear}>
           <select value={startYear} onChange={(e) => setStartYear(e.target.value)} className={inputCls}>
             {START_YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
           </select>
         </Field>
-        <Field label="Final date to apply" required>
+        <Field label="Final date to apply" required error={fieldErrors.applicationDeadline}>
           <input type="date" value={applicationDeadline} onChange={(e) => setApplicationDeadline(e.target.value)} className={inputCls} required />
         </Field>
       </div>
@@ -229,13 +211,16 @@ export default function OpportunityForm({ signupEmail, skills, sectors, mode, ed
           <input type="checkbox" checked={useCustomContact} onChange={(e) => setUseCustomContact(e.target.checked)} />
           Use a different contact email
         </label>
-        {useCustomContact ? (
-          <input type="email" placeholder="contact@example.com" value={customContactEmail} onChange={(e) => setCustomContactEmail(e.target.value)} className={inputCls} required />
-        ) : (
-          <div className="px-4 py-3 bg-white/[0.02] border border-border-subtle rounded-lg text-[0.8rem] text-text-muted">
-            {signupEmail}
-          </div>
-        )}
+        <div data-invalid={fieldErrors.contactEmail ? "" : undefined}>
+          {useCustomContact ? (
+            <input type="email" aria-label="Contact email" placeholder="contact@example.com" value={customContactEmail} onChange={(e) => setCustomContactEmail(e.target.value)} className={inputCls} required />
+          ) : (
+            <div className="px-4 py-3 bg-white/[0.02] border border-border-subtle rounded-lg text-[0.8rem] text-text-muted">
+              {signupEmail}
+            </div>
+          )}
+          <FieldError>{fieldErrors.contactEmail}</FieldError>
+        </div>
         <label className="flex items-start gap-2 text-[0.8rem] text-text-secondary mt-3 cursor-pointer">
           <input type="checkbox" className="mt-0.5" checked={contactEmailVisible} onChange={(e) => setContactEmailVisible(e.target.checked)} />
           <span>
@@ -258,8 +243,9 @@ export default function OpportunityForm({ signupEmail, skills, sectors, mode, ed
           </label>
         </div>
         {applyMethod === "link" && (
-          <div className="mt-3">
-            <input type="url" maxLength={512} placeholder="https://yourcompany.com/careers/role-id" value={applyUrl} onChange={(e) => setApplyUrl(e.target.value)} className={inputCls} required />
+          <div className="mt-3" data-invalid={fieldErrors.applyUrl ? "" : undefined}>
+            <input type="url" aria-label="Application portal URL" maxLength={512} placeholder="https://yourcompany.com/careers/role-id" value={applyUrl} onChange={(e) => setApplyUrl(e.target.value)} className={inputCls} required />
+            <FieldError>{fieldErrors.applyUrl}</FieldError>
           </div>
         )}
       </div>
@@ -269,21 +255,21 @@ export default function OpportunityForm({ signupEmail, skills, sectors, mode, ed
 
       {showTurnstile && <TurnstileWidget onToken={setTurnstileToken} />}
 
-      <button
+      <Button
         type="submit"
-        disabled={isLoading}
-        className="w-full mt-3 flex items-center justify-center px-6 py-3.5 rounded-xl bg-gold text-bg-primary text-[0.9rem] font-medium tracking-wide border-0 cursor-pointer transition-all duration-200 hover:bg-gold-light hover:-translate-y-px disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+        loading={isLoading}
+        variant="primary"
+        size="lg"
+        className="w-full mt-3"
       >
-        {isLoading ? (
-          <div className="w-[18px] h-[18px] border-2 border-[#0c0c0b]/30 border-t-[#0c0c0b] rounded-full animate-spin" />
-        ) : editingId ? (
+        {editingId ? (
           "Save changes"
         ) : mode === "admin" ? (
           "Publish opportunity"
         ) : (
           "Submit for review"
         )}
-      </button>
+      </Button>
     </form>
   );
 }

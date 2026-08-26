@@ -6,6 +6,7 @@ export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
     await import("./sentry.server.config");
     assertProductionAbuseControls();
+    warnIfCacheSharesRateLimitDb();
   }
   if (process.env.NEXT_RUNTIME === "edge") {
     await import("./sentry.edge.config");
@@ -44,6 +45,28 @@ function assertProductionAbuseControls() {
   console.error(message);
   // Surfaces in Sentry if a DSN is configured; no-op otherwise.
   Sentry.captureMessage(message, "error");
+}
+
+// The read-through cache (lib/cache.ts) falls back to the rate limiter's
+// Upstash database when it has none of its own. That works, but the two then
+// share one command quota — and the `submit` rate-limit bucket fails CLOSED,
+// so cache traffic exhausting the quota would start refusing submissions.
+// lib/cache.ts backs off after repeated failures to protect the limiter's
+// remaining budget, but the right fix is a separate database.
+function warnIfCacheSharesRateLimitDb() {
+  if (process.env.NODE_ENV !== "production") return;
+  if (process.env.VERCEL_ENV && process.env.VERCEL_ENV !== "production") return;
+
+  const hasRateLimitDb = Boolean(process.env.UPSTASH_REDIS_REST_URL);
+  const hasOwnCacheDb = Boolean(process.env.UPSTASH_CACHE_REDIS_REST_URL);
+  if (!hasRateLimitDb || hasOwnCacheDb) return;
+
+  console.warn(
+    "[startup] The response cache is sharing the rate limiter's Upstash database. " +
+      "They draw on one command quota, and the `submit` rate-limit bucket fails CLOSED — " +
+      "so exhausting it with cache traffic would start refusing submissions. " +
+      "Set UPSTASH_CACHE_REDIS_REST_URL / UPSTASH_CACHE_REDIS_REST_TOKEN to separate them.",
+  );
 }
 
 export { captureRequestError as onRequestError } from "@sentry/nextjs";

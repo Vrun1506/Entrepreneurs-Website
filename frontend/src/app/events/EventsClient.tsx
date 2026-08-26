@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useUrlFilters, useSearchDraft } from "@/lib/filters/useUrlFilters";
+import { SearchInput, FilterPanel, ChipChoice, RangeFilter } from "@/components/filters/FilterBar";
 import { useListingFreshness } from "@/lib/useListingFreshness";
 import { ListingGoneNotice } from "@/components/ListingGoneNotice";
 import { MarkActionPill } from "@/components/MarkActionPill";
@@ -21,7 +23,13 @@ type FoundryEvent = {
   postedBy: { firstName: string; surname: string; linkedinUrl: string | null };
 };
 
-type Mode = "all" | "online" | "in_person";
+const MODES = [
+  { value: "all",       label: "All" },
+  { value: "online",    label: "Online" },
+  { value: "in_person", label: "In-person" },
+] as const;
+
+const MODE_VALUES = MODES.map((m) => m.value);
 
 // Mirrors the auto-detection on the card itself so the filter is a
 // pure overlay of the same logic.
@@ -34,11 +42,15 @@ export default function EventsClient({
   /** Event IDs the current user has self-marked as going. */
   goingIds?: string[];
 }) {
-  const [query, setQuery] = useState("");
-  const [mode, setMode] = useState<Mode>("all");
-  const [from, setFrom] = useState<string>("");
-  const [to,   setTo]   = useState<string>("");
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  // Client-side navigation: list_approved_events already filters to
+  // event_at >= now(), so the page holds every event it can show and a
+  // filter is a local operation. The URL still owns the state, which is
+  // what makes a filtered view shareable.
+  const filters = useUrlFilters();
+  const [query, setQuery] = useSearchDraft(filters);
+  const mode = filters.getOne("mode", MODE_VALUES, "all");
+  const from = filters.get("from");
+  const to   = filters.get("to");
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const goingSet = useMemo(() => new Set(goingIds), [goingIds]);
 
@@ -68,86 +80,46 @@ export default function EventsClient({
   }, [items, query, mode, from, to, dismissed]);
 
   const activeFilterCount = (mode !== "all" ? 1 : 0) + (from ? 1 : 0) + (to ? 1 : 0);
-  const clearFilters = () => { setMode("all"); setFrom(""); setTo(""); };
 
   const dismiss = (id: string) => setDismissed((prev) => new Set(prev).add(id));
 
   return (
     <>
-      <div className="mb-4">
-        <input
-          type="search"
-          placeholder="Search events"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="w-full px-4 py-3 bg-white/[0.03] border border-border rounded-xl text-[0.875rem] text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]"
-        />
-      </div>
+      <SearchInput
+        label="Search events"
+        placeholder="Search events"
+        value={query}
+        onChange={setQuery}
+      />
 
-      <div className="mb-6">
-        <div className="flex items-center gap-3 mb-3">
-          <button
-            type="button"
-            onClick={() => setFiltersOpen((o) => !o)}
-            className="text-[0.8rem] text-text-secondary hover:text-text-primary bg-transparent border-0 cursor-pointer transition-colors flex items-center gap-1 py-2 -my-2"
-          >
-            <FilterIcon />
-            Filters
-            {activeFilterCount > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 rounded-full text-[0.65rem] bg-gold/15 text-gold-light border border-gold/25">
-                {activeFilterCount}
-              </span>
-            )}
-            <span className="ml-1 text-text-muted">{filtersOpen ? "▲" : "▼"}</span>
-          </button>
-          {activeFilterCount > 0 && (
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="text-[0.75rem] text-text-muted hover:text-text-primary bg-transparent border-0 cursor-pointer transition-colors"
-            >
-              Clear all
-            </button>
-          )}
-          <span className="ml-auto text-[0.8rem] text-text-muted">
+      <FilterPanel
+        activeCount={activeFilterCount}
+        onClear={() => filters.clear("mode", "from", "to")}
+        resultCount={
+          <>
             {filtered.length} of {items.length}
-          </span>
-        </div>
+            <span className="sr-only"> events shown</span>
+          </>
+        }
+      >
+        <ChipChoice
+          label="Location"
+          options={MODES}
+          value={mode}
+          onChange={(next) => filters.apply({ mode: next === "all" ? null : next })}
+        />
 
-        {filtersOpen && (
-          <div className="rounded-2xl bg-bg-card border border-border-subtle p-5 space-y-5">
-            <div>
-              <div className="text-[0.75rem] text-text-muted mb-2">Location</div>
-              <div className="flex flex-wrap gap-1.5">
-                <FilterChip label="All"        active={mode === "all"}       onClick={() => setMode("all")} />
-                <FilterChip label="Online"     active={mode === "online"}    onClick={() => setMode("online")} />
-                <FilterChip label="In-person"  active={mode === "in_person"} onClick={() => setMode("in_person")} />
-              </div>
-            </div>
-
-            <div>
-              <div className="text-[0.75rem] text-text-muted mb-2">Date range</div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <input
-                  type="date"
-                  value={from}
-                  onChange={(e) => setFrom(e.target.value)}
-                  max={to || undefined}
-                  className="px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.8rem] text-text-primary focus:border-gold/50"
-                />
-                <span className="text-text-muted text-[0.8rem]">to</span>
-                <input
-                  type="date"
-                  value={to}
-                  onChange={(e) => setTo(e.target.value)}
-                  min={from || undefined}
-                  className="px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.8rem] text-text-primary focus:border-gold/50"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+        <RangeFilter
+          label="Date range"
+          type="date"
+          from={from}
+          to={to}
+          fromLabel="Events from date"
+          toLabel="Events to date"
+          onFromChange={(v) => filters.apply({ from: v })}
+          onToChange={(v) => filters.apply({ to: v })}
+        />
+      </FilterPanel>
 
       {filtered.length === 0 ? (
         <div className="text-center py-16 text-text-muted text-[0.85rem]">
@@ -159,26 +131,6 @@ export default function EventsClient({
         </div>
       )}
     </>
-  );
-}
-
-function FilterChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`px-3 py-1.5 rounded-full text-[0.775rem] border transition-colors duration-150 cursor-pointer ${active ? "bg-gold-muted border-gold/50 text-gold-light" : "bg-white/[0.02] border-border text-text-secondary hover:border-gold/30 hover:text-text-primary"}`}
-    >
-      {label}
-    </button>
-  );
-}
-
-function FilterIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
-    </svg>
   );
 }
 
