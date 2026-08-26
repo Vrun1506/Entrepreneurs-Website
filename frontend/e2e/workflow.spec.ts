@@ -10,11 +10,10 @@ import { storageStatePath } from "./fixtures";
 // Runs under the `member` (approved-student) project; admin steps use a
 // separate browser context loaded with the admin storageState.
 
-// The form's Field wrapper doesn't associate <label> with its input, so
-// scope by the label text and grab the control inside that field group.
+// Field nests the control inside its <label>, so every form control has a
+// real accessible name and can be addressed the way a user would describe it.
 async function fillField(page: Page, label: string, value: string) {
-  const control = page.locator(`div:has(> label:has-text("${label}"))`).locator("input, textarea").first();
-  await control.fill(value);
+  await page.getByLabel(label, { exact: false }).first().fill(value);
 }
 
 const futureDate = () => new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10);

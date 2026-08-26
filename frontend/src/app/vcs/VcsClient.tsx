@@ -71,6 +71,9 @@ export default function VcsClient({
       <div className="mb-4">
         <input
           type="search"
+          aria-label="Search VCs and grants"
+          spellCheck={false}
+          autoComplete="off"
           placeholder="Search by name, stage, or amount"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -103,8 +106,12 @@ export default function VcsClient({
               Clear all
             </button>
           )}
-          <span className="ml-auto text-[0.8rem] text-text-muted">
+          {/* Announced as filters change, so a screen-reader user hears the
+              result count without having to go hunting for it. tabular-nums
+              stops the row shifting as the digits change width. */}
+          <span role="status" className="ml-auto text-[0.8rem] text-text-muted tabular-nums">
             {filtered.length} of {items.length}
+            <span className="sr-only"> listings shown</span>
           </span>
         </div>
 
@@ -127,6 +134,7 @@ export default function VcsClient({
               <div className="flex items-center gap-2 flex-wrap">
                 <input
                   type="date"
+                  aria-label="Deadline from date"
                   value={from}
                   onChange={(e) => setFrom(e.target.value)}
                   max={to || undefined}
@@ -135,6 +143,7 @@ export default function VcsClient({
                 <span className="text-text-muted text-[0.8rem]">to</span>
                 <input
                   type="date"
+                  aria-label="Deadline to date"
                   value={to}
                   onChange={(e) => setTo(e.target.value)}
                   min={from || undefined}

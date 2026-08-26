@@ -570,7 +570,7 @@ export default function LoginPage() {
       </header>
 
       {/* Main */}
-      <main className="relative z-10 flex-1 flex items-center justify-center px-8 py-12">
+      <main id="main-content" tabIndex={-1} className="relative z-10 flex-1 flex items-center justify-center px-8 py-12">
         <div className="w-full max-w-[440px]">
 
           {/* Heading */}

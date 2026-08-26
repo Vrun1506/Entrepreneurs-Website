@@ -37,7 +37,7 @@ export default async function EventsPage({
   return (
     <div className="min-h-screen bg-bg-primary flex flex-col">
       <AppNav active="events" isApproved={true} isAdmin={isAdmin} />
-      <main className="flex-1 px-4 sm:px-8 py-10 sm:py-12">
+      <main id="main-content" tabIndex={-1} className="flex-1 px-4 sm:px-8 py-10 sm:py-12">
         <div className="max-w-[1200px] mx-auto">
           {justSubmitted && <SubmittedBanner kind="event" />}
           <div className="mb-8 flex items-start justify-between gap-4 flex-wrap">

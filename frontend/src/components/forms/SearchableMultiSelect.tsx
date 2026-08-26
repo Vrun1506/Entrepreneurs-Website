@@ -109,6 +109,9 @@ export default function SearchableMultiSelect({
               <input
                 ref={inputRef}
                 type="search"
+                aria-label={placeholder}
+                spellCheck={false}
+                autoComplete="off"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={placeholder}

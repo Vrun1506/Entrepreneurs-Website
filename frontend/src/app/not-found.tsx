@@ -27,7 +27,7 @@ export default function NotFound() {
       </header>
 
       {/* Main */}
-      <main className="relative z-10 flex-1 flex items-center justify-center px-8 py-12">
+      <main id="main-content" tabIndex={-1} className="relative z-10 flex-1 flex items-center justify-center px-8 py-12">
         <div className="w-full max-w-[560px] text-center flex flex-col items-center">
           <Image
             src="/entrepreneurs-logo.png"

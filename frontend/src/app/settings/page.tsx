@@ -29,7 +29,7 @@ export default async function SettingsPage() {
   return (
     <div className="min-h-screen bg-bg-primary flex flex-col">
       <AppNav active="settings" isApproved={profile.status === "approved"} isAdmin={isAdmin} />
-      <main className="flex-1 px-4 sm:px-8 py-10 sm:py-12">
+      <main id="main-content" tabIndex={-1} className="flex-1 px-4 sm:px-8 py-10 sm:py-12">
         <div className="max-w-[640px] mx-auto">
           <div className="mb-10">
             <div className="text-[0.7rem] text-gold tracking-[0.18em] uppercase mb-2">Settings</div>
