@@ -31,10 +31,19 @@ export function describeSupabaseError(err: AnyError): string {
   }
 
   // Row-level security blocked the call (insufficient_privilege).
+  //
+  // Two very different things arrive here. Postgres's own denials ("new row
+  // violates row-level security policy for table …") mean nothing to an end
+  // user. But our SECURITY DEFINER RPCs deliberately raise 42501 with a
+  // message written *for* the user — "Only pending listings can be edited",
+  // "Forbidden: not an admin" — and flattening those loses the one thing
+  // that told them what to do about it. So: generic for Postgres's wording,
+  // passthrough for ours.
   if (code === "42501") {
-    return message.includes("Forbidden")
-      ? message
-      : "You don't have permission to do that.";
+    if (!message || /row-level security|permission denied for/i.test(message)) {
+      return "You don't have permission to do that.";
+    }
+    return message;
   }
 
   // Unique constraint violations — show a humanised version when we can

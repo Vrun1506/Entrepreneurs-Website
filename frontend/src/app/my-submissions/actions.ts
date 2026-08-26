@@ -3,16 +3,21 @@
 import { revalidatePath } from "next/cache";
 import { describeSupabaseError } from "@/lib/supabaseErrors";
 import { getActionAuth } from "@/lib/auth/actionAuth";
+import type { Database } from "@/lib/database.overrides";
 
 export type ListingType = "opportunity" | "event" | "vc_grant";
 
 type Result = { ok: true } | { ok: false; error: string };
 
-const TABLE: Record<ListingType, string> = {
+// `as const satisfies` rather than Record<ListingType, string>: the wider
+// type erases the table names, and supabase-js can only resolve columns
+// from a literal. It also makes a typo here a compile error instead of a
+// runtime 404 from PostgREST.
+const TABLE = {
   opportunity: "opportunities",
   event:       "events",
   vc_grant:    "vcs_grants",
-};
+} as const satisfies Record<ListingType, keyof Database["public"]["Tables"]>;
 
 const REVALIDATE: Record<ListingType, string[]> = {
   opportunity: ["/opportunities", "/my-submissions"],

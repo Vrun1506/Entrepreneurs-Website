@@ -17,11 +17,23 @@ describe("describeSupabaseError", () => {
     expect(describeSupabaseError({ message: "invalid claim: bad" })).toMatch(/session has expired/i);
   });
 
-  it("maps RLS denial (42501), preserving an explicit Forbidden message", () => {
+  it("maps RLS denial (42501): generic for Postgres's wording, passthrough for ours", () => {
     expect(describeSupabaseError({ code: "42501" })).toBe("You don't have permission to do that.");
+    // Postgres's own denials say nothing useful to an end user.
+    expect(
+      describeSupabaseError({
+        code: "42501",
+        message: 'new row violates row-level security policy for table "events"',
+      }),
+    ).toBe("You don't have permission to do that.");
+    expect(describeSupabaseError({ code: "42501", message: "permission denied for table events" }))
+      .toBe("You don't have permission to do that.");
+    // Messages our own SECURITY DEFINER RPCs raise are written for the user.
     expect(describeSupabaseError({ code: "42501", message: "Forbidden: not yours" })).toBe(
       "Forbidden: not yours",
     );
+    expect(describeSupabaseError({ code: "42501", message: "Only pending listings can be edited" }))
+      .toBe("Only pending listings can be edited");
   });
 
   it("maps unique-violation (23505), email-specific then generic", () => {

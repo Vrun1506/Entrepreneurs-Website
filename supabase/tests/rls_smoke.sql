@@ -698,7 +698,8 @@ declare
     -- account / profile (user)
     'delete_my_account','update_profile','submit_onboarding',
     -- listing submit / edit (user)
-    'submit_opportunity','update_opportunity','submit_event','submit_vc_grant',
+    'submit_opportunity','update_opportunity','submit_event','update_event',
+    'submit_vc_grant','update_vc_grant',
     -- admin direct-create
     'admin_create_opportunity','admin_create_event','admin_create_vc_grant',
     -- admin review queues + actions
@@ -924,6 +925,122 @@ begin
   update public.vcs_grants set name = 'TOO LATE' where id = v_vc;
   get diagnostics v_count = ROW_COUNT;
   if v_count <> 0 then raise exception 'FAIL: owner still edits an approved VC/grant (% rows)', v_count; end if;
+end;
+$$;
+
+-- ─── 26. update_event / update_vc_grant enforce their own guards ─────
+-- Migration 20260826000001 moved the event and VC/grant edit paths off
+-- client-direct PostgREST UPDATEs onto SECURITY DEFINER RPCs, matching
+-- update_opportunity. SECURITY DEFINER bypasses RLS, so the in-body
+-- ownership + status checks ARE the boundary — tests 23-25 prove the
+-- policies are right, and prove nothing about these. Both directions are
+-- asserted: the guards reject, and a legitimate edit still succeeds.
+--
+-- Rejections are checked with a "did it succeed" flag rather than by
+-- catching the expected exception. A handler wide enough to catch the RPC's
+-- error is also wide enough to swallow the FAIL raise inside the same block,
+-- which would turn a broken guard into a silent pass.
+set local role postgres;
+do $$
+declare
+  v_a      uuid := (select v from _test_ctx where k='user_a');
+  v_b      uuid := (select v from _test_ctx where k='user_b');
+  v_adm    uuid := (select v from _test_ctx where k='admin');
+  v_ev     uuid := gen_random_uuid();
+  v_vc     uuid := gen_random_uuid();
+  v_title  text;
+  v_name   text;
+  v_passed boolean;
+begin
+  perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+  insert into public.events (
+    id, posted_by, status, title, description, luma_link, event_at,
+    location, organiser_name, contact_email
+  ) values (v_ev, v_a, 'pending', 'RPC guard event',
+            'Description that is at least twenty chars long.', 'https://lu.ma/g',
+            now() + interval '30 days', 'London', 'A User', 'a@imperial.ac.uk');
+  insert into public.vcs_grants (
+    id, kind, posted_by, status, name, description, link
+  ) values (v_vc, 'vc', v_a, 'pending', 'RPC guard fund',
+            'Description that is at least twenty chars long.', 'https://example.com/g');
+
+  -- (a) a non-owner is refused, even though the RPC runs as definer
+  perform _set_caller(v_b);
+  v_passed := false;
+  begin
+    perform public.update_event(v_ev, 'HIJACKED',
+      'Description that is at least twenty chars long.', 'https://lu.ma/g',
+      now() + interval '30 days', 'London', 'B User', 'b@imperial.ac.uk', false);
+    v_passed := true;
+  exception when others then null;
+  end;
+  if v_passed then raise exception 'FAIL: update_event let a non-owner through'; end if;
+
+  v_passed := false;
+  begin
+    perform public.update_vc_grant(v_vc, 'vc', 'HIJACKED',
+      'Description that is at least twenty chars long.', 'https://example.com/g',
+      null, null, null);
+    v_passed := true;
+  exception when others then null;
+  end;
+  if v_passed then raise exception 'FAIL: update_vc_grant let a non-owner through'; end if;
+
+  -- (b) the owner can edit while pending
+  perform _set_caller(v_a);
+  perform public.update_event(v_ev, 'Edited via RPC',
+    'Description that is at least twenty chars long.', 'https://lu.ma/g',
+    now() + interval '30 days', 'London', 'A User', 'a@imperial.ac.uk', false);
+  perform public.update_vc_grant(v_vc, 'grant', 'Edited via RPC',
+    'Description that is at least twenty chars long.', 'https://example.com/g',
+    null, null, null);
+
+  set local role none;
+  select title into v_title from public.events     where id = v_ev;
+  select name  into v_name  from public.vcs_grants where id = v_vc;
+  if v_title <> 'Edited via RPC' then raise exception 'FAIL: update_event did not apply the edit (got %)', v_title; end if;
+  if v_name  <> 'Edited via RPC' then raise exception 'FAIL: update_vc_grant did not apply the edit (got %)', v_name; end if;
+
+  -- (c) once approved, the same call is refused
+  perform _set_caller(v_adm);
+  perform public.approve_event(v_ev, null);
+  perform public.approve_vc_grant(v_vc, null);
+
+  perform _set_caller(v_a);
+  v_passed := false;
+  begin
+    perform public.update_event(v_ev, 'TOO LATE',
+      'Description that is at least twenty chars long.', 'https://lu.ma/g',
+      now() + interval '30 days', 'London', 'A User', 'a@imperial.ac.uk', false);
+    v_passed := true;
+  exception when others then null;
+  end;
+  if v_passed then raise exception 'FAIL: update_event edited an approved event'; end if;
+
+  v_passed := false;
+  begin
+    perform public.update_vc_grant(v_vc, 'vc', 'TOO LATE',
+      'Description that is at least twenty chars long.', 'https://example.com/g',
+      null, null, null);
+    v_passed := true;
+  exception when others then null;
+  end;
+  if v_passed then raise exception 'FAIL: update_vc_grant edited an approved listing'; end if;
+
+  -- (d) an event cannot be edited into the past
+  perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+  set local role none;
+  update public.events set status = 'pending', approved_at = null, approved_by = null where id = v_ev;
+  perform _set_caller(v_a);
+  v_passed := false;
+  begin
+    perform public.update_event(v_ev, 'Backdated',
+      'Description that is at least twenty chars long.', 'https://lu.ma/g',
+      now() - interval '2 days', 'London', 'A User', 'a@imperial.ac.uk', false);
+    v_passed := true;
+  exception when others then null;
+  end;
+  if v_passed then raise exception 'FAIL: update_event accepted a start time in the past'; end if;
 end;
 $$;
 

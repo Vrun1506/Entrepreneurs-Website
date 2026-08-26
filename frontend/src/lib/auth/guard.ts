@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
+import type { Database } from "@/lib/database.overrides";
 import type { UserStatus } from "@/lib/database.overrides";
 import { destinationForStatus } from "@/lib/auth/status";
 
@@ -27,7 +28,7 @@ export type GateResult = {
   user: User;
   isAdmin: boolean;
   status: UserStatus | null;
-  supabase: SupabaseClient;
+  supabase: SupabaseClient<Database>;
 };
 
 /**
