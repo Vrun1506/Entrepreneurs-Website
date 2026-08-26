@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { invalidate } from "@/lib/cache";
 import { requireAdmin } from "@/lib/auth/actionAuth";
 import { sendAccountRemovalEmail } from "@/lib/email";
 import { describeSupabaseError } from "@/lib/supabaseErrors";
@@ -23,6 +24,8 @@ export async function adminDeleteUser(userId: string, reason: string): Promise<R
   const row = Array.isArray(data) ? data[0] : data;
   if (!row?.email) {
     console.warn("admin_delete_user returned no email for user:", userId);
+    // Membership changed, so the cached directory is stale.
+    await invalidate("directory");
     revalidatePath("/admin/community");
     return { ok: true };
   }
@@ -35,10 +38,13 @@ export async function adminDeleteUser(userId: string, reason: string): Promise<R
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
+    // Membership changed, so the cached directory is stale.
+    await invalidate("directory");
     revalidatePath("/admin/community");
     return { ok: false, error: `User deleted, but email failed to send: ${msg}` };
   }
-
+  // Membership changed, so the cached directory is stale.
+  await invalidate("directory");
   revalidatePath("/admin/community");
   return { ok: true };
 }
