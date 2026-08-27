@@ -1,0 +1,60 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import * as Sentry from "@sentry/nextjs";
+import type { PostgrestError } from "@supabase/supabase-js";
+import { rows, maybeRow } from "./query";
+import { MAX_ROWS } from "@/lib/supabase/rowCap";
+
+vi.mock("@sentry/nextjs", () => ({ captureMessage: vi.fn() }));
+
+const boom = { message: "boom", details: "", hint: "", code: "XX000" } as PostgrestError;
+const many = (n: number) => Array.from({ length: n }, (_, i) => ({ i }));
+
+describe("rows", () => {
+  beforeEach(() => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.mocked(Sentry.captureMessage).mockClear();
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it("returns the rows on success", async () => {
+    const out = await rows("q", async () => ({ data: [{ a: 1 }], error: null }));
+    expect(out).toEqual([{ a: 1 }]);
+  });
+
+  it("treats a null payload as an empty list, not a crash", async () => {
+    expect(await rows("q", async () => ({ data: null, error: null }))).toEqual([]);
+  });
+
+  it("degrades to [] on error and names the query in the log", async () => {
+    const out = await rows("list_approved_events", async () => ({ data: null, error: boom }));
+    expect(out).toEqual([]);
+    expect(console.error).toHaveBeenCalledWith("Failed to load list_approved_events:", boom);
+  });
+
+  // The reason this wrapper exists at all. reportIfCapped used to be a line
+  // each call site had to remember, and six of them had forgotten it.
+  it("reports the row cap without the caller asking", async () => {
+    await rows("list_approved_events", async () => ({ data: many(MAX_ROWS), error: null }));
+    expect(Sentry.captureMessage).toHaveBeenCalledOnce();
+    expect(vi.mocked(Sentry.captureMessage).mock.calls[0]![0]).toMatch(/1000-row cap/);
+  });
+
+  it("stays quiet below the cap", async () => {
+    await rows("q", async () => ({ data: many(MAX_ROWS - 1), error: null }));
+    expect(Sentry.captureMessage).not.toHaveBeenCalled();
+  });
+});
+
+describe("maybeRow", () => {
+  beforeEach(() => vi.spyOn(console, "error").mockImplementation(() => {}));
+  afterEach(() => vi.restoreAllMocks());
+
+  it("returns the row on success", async () => {
+    expect(await maybeRow("q", async () => ({ data: { a: 1 }, error: null }))).toEqual({ a: 1 });
+  });
+
+  it("returns null on error, having logged it", async () => {
+    expect(await maybeRow("profiles", async () => ({ data: null, error: boom }))).toBeNull();
+    expect(console.error).toHaveBeenCalledWith("Failed to load profiles:", boom);
+  });
+});

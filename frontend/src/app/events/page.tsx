@@ -1,12 +1,11 @@
 import { Suspense } from "react";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import ListingPageShell from "@/components/ListingPageShell";
 import { Skeleton, FilterBarSkeleton, RowListSkeleton } from "@/components/ui/Skeleton";
-import type { Database } from "@/lib/database.overrides";
 import { requireApprovedUser } from "@/lib/auth/guard";
-import { markedListingIds } from "@/lib/listings/actionRow";
+import { markedIds } from "@/lib/data/activity";
+import { listApprovedEvents, type FoundryEvent } from "@/lib/data/events";
+import type { Db } from "@/lib/data/query";
 import EventsClient from "./EventsClient";
-import { reportIfCapped } from "@/lib/supabase/rowCap";
 
 export default async function EventsPage({
   searchParams,
@@ -50,27 +49,16 @@ export default async function EventsPage({
 }
 
 type EventsData = {
-  items: ReturnType<typeof toEvent>[];
+  items: FoundryEvent[];
   goingIds: string[];
 };
 
-async function loadEvents(supabase: SupabaseClient<Database>): Promise<EventsData> {
-  // SECURITY DEFINER RPC masks contact_email at the DB layer rather
-  // than the application mapper (migration 20260530000002). It also
-  // filters to event_at >= now(), so this list is bounded by what is
-  // actually upcoming rather than by how many events have ever existed.
-  const [evRes, actionsRes] = await Promise.all([
-    supabase.rpc("list_approved_events"),
-    supabase.rpc("get_my_listing_actions"),
+async function loadEvents(supabase: Db): Promise<EventsData> {
+  const [items, goingIds] = await Promise.all([
+    listApprovedEvents(supabase),
+    markedIds(supabase, "event", "going"),
   ]);
-
-  if (evRes.error) console.error("Failed to load events:", evRes.error);
-  if (actionsRes.error) console.error("Failed to load listing actions:", actionsRes.error);
-
-  return {
-    items: reportIfCapped("list_approved_events", (evRes.data ?? []) as RpcRow[]).map(toEvent),
-    goingIds: markedListingIds(reportIfCapped("get_my_listing_actions", actionsRes.data ?? []), "event", "going"),
-  };
+  return { items, goingIds };
 }
 
 async function EventCount({ data }: { data: Promise<EventsData> }) {
@@ -81,41 +69,4 @@ async function EventCount({ data }: { data: Promise<EventsData> }) {
 async function EventList({ data }: { data: Promise<EventsData> }) {
   const { items, goingIds } = await data;
   return <EventsClient items={items} goingIds={goingIds} />;
-}
-
-type RpcRow = {
-  id: string;
-  title: string;
-  description: string;
-  luma_link: string;
-  event_at: string;
-  location: string;
-  organiser_name: string;
-  contact_email: string | null;
-  contact_email_visible: boolean;
-  is_society_event: boolean;
-  posted_by: string;
-  created_at: string;
-  poster_first_name: string | null;
-  poster_surname: string | null;
-  poster_linkedin_url: string | null;
-};
-
-function toEvent(r: RpcRow) {
-  return {
-    id: r.id,
-    title: r.title,
-    description: r.description,
-    lumaLink: r.luma_link,
-    eventAt: r.event_at,
-    location: r.location,
-    organiserName: r.organiser_name,
-    contactEmail: r.contact_email,
-    isSocietyEvent: r.is_society_event,
-    postedBy: {
-      firstName:   r.poster_first_name ?? "",
-      surname:     r.poster_surname    ?? "",
-      linkedinUrl: r.poster_linkedin_url,
-    },
-  };
 }
