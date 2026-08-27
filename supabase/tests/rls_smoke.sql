@@ -1302,6 +1302,75 @@ begin
 end;
 $$;
 
+-- ─── 30. The email-change log is service-role only, and cascades ────
+-- It holds former email addresses, which is PII this project otherwise
+-- keeps very sparingly (reject_user deletes the whole account and retains
+-- only the rejection reason). Two things therefore have to hold, and the
+-- second is the one most likely to be quietly wrong.
+set local role postgres;
+do $$
+declare
+  v_member uuid;
+  v_other  uuid;
+  v_rows   int;
+  v_uid    uuid := gen_random_uuid();
+begin
+  select id into v_member from public.profiles where status = 'approved' limit 1;
+  select id into v_other  from public.profiles where id <> v_member limit 1;
+  if v_member is null then
+    raise exception 'FAIL: fixture missing (approved profile)';
+  end if;
+
+  -- Seed a row directly; the trigger's own behaviour is covered by the E2E,
+  -- which drives a real email change through GoTrue.
+  insert into public.email_change_log (user_id, old_email, new_email)
+  values (v_member, 'was@imperial.ac.uk', 'now@imperial.ac.uk');
+
+  -- (a) a member cannot read the log — not their own row, not anyone's.
+  --     This is a hard permission denial rather than an RLS-filtered empty
+  --     result, because the grants are revoked as well as RLS being on.
+  --     That is the stronger of the two: adding a careless policy later
+  --     still would not open it, since the table grant is gone too.
+  perform _set_caller(v_member);
+  begin
+    select count(*) into v_rows from public.email_change_log;
+    set local role postgres;
+    raise exception
+      'FAIL: an authenticated member read email_change_log (% rows) — it holds former addresses', v_rows;
+  exception when insufficient_privilege then
+    null; -- expected
+  end;
+
+  -- (b) nor can they write one, which would let anyone forge the record an
+  --     admin uses to identify a locked-out member.
+  begin
+    insert into public.email_change_log (user_id, old_email, new_email)
+    values (v_member, 'forged@imperial.ac.uk', 'attacker@example.com');
+    set local role postgres;
+    raise exception 'FAIL: an authenticated member inserted into email_change_log';
+  exception when insufficient_privilege then
+    null; -- expected
+  end;
+
+  -- (c) deleting the account takes its history with it. Without this the
+  --     deletion paths stop being complete deletions and the table becomes
+  --     a quiet archive of people who asked to be forgotten.
+  set local role postgres;
+  insert into auth.users (id, instance_id, email, aud, role)
+  values (v_uid, '00000000-0000-0000-0000-000000000000', 'cascade@imperial.ac.uk', 'authenticated', 'authenticated');
+  insert into public.email_change_log (user_id, old_email, new_email)
+  values (v_uid, 'cascade@imperial.ac.uk', 'cascade-new@imperial.ac.uk');
+
+  delete from auth.users where id = v_uid;
+
+  select count(*) into v_rows from public.email_change_log where user_id = v_uid;
+  if v_rows <> 0 then
+    raise exception
+      'FAIL: % email_change_log row(s) survived the account being deleted', v_rows;
+  end if;
+end;
+$$;
+
 -- ─── Cleanup ────────────────────────────────────────────────────────
 -- The test blocks leak the transaction-local 'authenticated' role (see note
 -- above), so reset to the owner role before dropping the helper function.

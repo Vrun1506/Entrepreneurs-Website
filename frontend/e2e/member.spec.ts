@@ -236,6 +236,9 @@ test.describe("settings email change", () => {
     if (user && user.email !== original) {
       await admin.auth.admin.updateUserById(user.id, { email: original });
     }
+    // Both the change and the restore above are logged. Clear them so a
+    // persistent local stack does not accumulate a run's worth each time.
+    if (user) await admin.from("email_change_log").delete().eq("user_id", user.id);
     await Promise.all([clearMailbox(original), clearMailbox(next)]);
   });
 
@@ -294,6 +297,58 @@ test.describe("settings email change", () => {
     const moved = data?.users.find((u) => u.email === next);
     expect(moved, "the account should now be on the new address").toBeTruthy();
     expect(data?.users.find((u) => u.email === original)).toBeFalsy();
+
+    // The audit trail. This is what an admin has to work with when a member
+    // mistypes the address and writes in locked out: the previous address,
+    // to match against the one they contact you from. Asserted here rather
+    // than only in rls_smoke because the trigger has to survive a real
+    // change driven through GoTrue, not a hand-written UPDATE.
+    // Newest row rather than a count. afterAll restores the address through
+    // the admin API, and that restore is itself a logged change — which is
+    // the trigger doing its job (it records changes made outside the form,
+    // including from the Supabase dashboard), but it means history
+    // accumulates across runs on a persistent local stack.
+    const { data: log } = await admin
+      .from("email_change_log")
+      .select("old_email, new_email")
+      .eq("user_id", moved!.id)
+      .order("changed_at", { ascending: false })
+      .limit(1);
+    expect(log, "the change should have left an audit row").toHaveLength(1);
+    expect(log![0]!.old_email).toBe(original);
+    expect(log![0]!.new_email).toBe(next);
+  });
+
+  // The compliance half of the audit trail, and the half most likely to be
+  // quietly wrong. This project keeps PII sparingly on purpose, so a log of
+  // former addresses is only defensible while deleting an account still
+  // deletes everything about them. Exercised through the admin API — the
+  // path admin_delete_user, delete_my_account and reject_user all end in —
+  // rather than a raw DELETE.
+  test("deleting an account takes its email history with it", async () => {
+    const admin = service();
+    const throwaway = "e2e-cascade@imperial.ac.uk";
+
+    const { data: created, error } = await admin.auth.admin.createUser({
+      email: throwaway,
+      email_confirm: true,
+      user_metadata: { first_name: "Cass", surname: "Cade", role: "student" },
+    });
+    if (error) throw new Error(`cascade seed failed: ${error.message}`);
+    const id = created.user!.id;
+
+    await admin.from("email_change_log").insert({
+      user_id: id,
+      old_email: throwaway,
+      new_email: "e2e-cascade-new@imperial.ac.uk",
+    });
+    const { data: before } = await admin.from("email_change_log").select("id").eq("user_id", id);
+    expect(before).toHaveLength(1);
+
+    await admin.auth.admin.deleteUser(id);
+
+    const { data: after } = await admin.from("email_change_log").select("id").eq("user_id", id);
+    expect(after, "the log row should not outlive the account").toHaveLength(0);
   });
 
   // The domain rule is enforced by the DB trigger, but the trigger fires
