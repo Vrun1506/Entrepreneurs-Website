@@ -7,73 +7,13 @@ import {
   sendAcceptanceEmail, sendRejectionEmail,
   renderAcceptanceEmail, renderRejectionEmail,
   acceptanceReplyTo, rejectionReplyTo,
-  enqueueEmailsBulk,
 } from "@/lib/email";
 import { emailBaseUrl } from "@/lib/siteUrl";
 import { describeSupabaseError } from "@/lib/supabaseErrors";
 import type { BulkResult } from "@/app/admin/bulkTypes";
+import { runBulk } from "@/lib/admin/bulk";
 
 type Result = { ok: true } | { ok: false; error: string };
-
-/** What an RPC gives back about one member so we can email them. */
-type Recipient = { email: string; first_name: string | null };
-
-/**
- * Runs a per-member RPC across a list, then does the shared follow-up work
- * ONCE for the whole batch.
- *
- * This used to call the single-member action per id, and each of those
- * re-authenticated (getUser + is_admin + a profiles select), enqueued its
- * own email, dropped the cache key and revalidated the path — roughly six
- * round trips per member, sequential, in no transaction. Approving a
- * fifty-person backlog was three hundred round trips and would hit the
- * function timeout part-way through, leaving some members approved and
- * some not, with the admin shown nothing at all.
- *
- * Now: authenticate once, one RPC per member, one bulk email insert, one
- * cache drop, one revalidate. The pattern is the one admin_delete_graduates
- * already uses. Per-member results are still collected, so a partial batch
- * is still reported rather than guessed at.
- */
-async function runBulk(
-  ids: string[],
-  rpc: (id: string) => Promise<{ recipient: Recipient | null; error?: string }>,
-  email: (r: Recipient) => { subject: string; text: string; html: string },
-  replyTo: string,
-): Promise<BulkResult> {
-  let succeeded = 0;
-  const errors: string[] = [];
-  const recipients: Recipient[] = [];
-
-  for (const id of ids) {
-    const r = await rpc(id);
-    if (r.error) {
-      errors.push(r.error);
-      continue;
-    }
-    succeeded++;
-    if (r.recipient?.email) recipients.push(r.recipient);
-  }
-
-  if (recipients.length > 0) {
-    try {
-      await enqueueEmailsBulk(
-        recipients.map((r) => ({ to: r.email, replyTo, ...email(r) })),
-      );
-    } catch (e) {
-      // The status changes are committed. Say so rather than reporting a
-      // clean success the admin would read as "they've all been told".
-      const msg = e instanceof Error ? e.message : String(e);
-      errors.push(`Applied to ${succeeded}, but the notification emails failed to queue: ${msg}`);
-    }
-  }
-
-  // Membership changed, so the cached directory is stale. Once, not per member.
-  await invalidate("directoryFacets");
-  revalidatePath("/admin/users");
-
-  return { ok: true, succeeded, failed: errors.length, firstError: errors[0] };
-}
 
 export async function approveUser(userId: string): Promise<Result> {
   const auth = await requireAdmin();
@@ -175,9 +115,8 @@ export async function bulkApproveUsers(ids: string[]): Promise<BulkResult> {
 
   const communityUrl = `${emailBaseUrl()}/community`;
 
-  return runBulk(
-    ids,
-    async (id) => {
+  return runBulk(ids, {
+    one: async (id) => {
       const { data, error } = await supabase.rpc("approve_user", {
         p_user_id: id,
         p_notes:   null,
@@ -187,9 +126,13 @@ export async function bulkApproveUsers(ids: string[]): Promise<BulkResult> {
       if (!row?.email) console.warn("approve_user returned no email for user:", id);
       return { recipient: row?.email ? { email: row.email, first_name: row.first_name ?? null } : null };
     },
-    (r) => renderAcceptanceEmail({ firstName: r.first_name, communityUrl }),
-    acceptanceReplyTo(),
-  );
+    email: {
+      render:  (r) => renderAcceptanceEmail({ firstName: r.first_name, communityUrl }),
+      replyTo: acceptanceReplyTo(),
+    },
+    cacheKeys:  ["directoryFacets"],
+    revalidate: ["/admin/users"],
+  });
 }
 
 export async function bulkRejectUsers(ids: string[], reason: string): Promise<BulkResult> {
@@ -199,9 +142,8 @@ export async function bulkRejectUsers(ids: string[], reason: string): Promise<Bu
   if (!trimmed) return { ok: false, error: "Rejection reason is required." };
   const { supabase } = auth;
 
-  return runBulk(
-    ids,
-    async (id) => {
+  return runBulk(ids, {
+    one: async (id) => {
       const { data, error } = await supabase
         .rpc("reject_user", { p_user_id: id, p_reason: trimmed });
       if (error) return { recipient: null, error: describeSupabaseError(error) };
@@ -209,7 +151,11 @@ export async function bulkRejectUsers(ids: string[], reason: string): Promise<Bu
       if (!row?.email) console.warn("reject_user returned no email for user:", id);
       return { recipient: row?.email ? { email: row.email, first_name: row.first_name ?? null } : null };
     },
-    (r) => renderRejectionEmail({ firstName: r.first_name }),
-    rejectionReplyTo(),
-  );
+    email: {
+      render:  (r) => renderRejectionEmail({ firstName: r.first_name }),
+      replyTo: rejectionReplyTo(),
+    },
+    cacheKeys:  ["directoryFacets"],
+    revalidate: ["/admin/users"],
+  });
 }

@@ -126,7 +126,9 @@ export default function EmailChangeForm({
     setIsLoading(true);
     const { error: updateError } = await supabase.auth.updateUser({ email: pending });
     setIsLoading(false);
-    if (updateError) {
+    // An address that already has an account is deliberately NOT reported.
+    // See isEmailTaken below.
+    if (updateError && !isEmailTaken(updateError)) {
       setError(updateError.message);
       return;
     }
@@ -310,6 +312,34 @@ export default function EmailChangeForm({
       </Button>
     </form>
   );
+}
+
+/**
+ * Is this the "that address already has an account" failure?
+ *
+ * GoTrue answers a change to a registered address with 422 `email_exists`
+ * — "A user with this email address has already been registered". Showing
+ * that is a user-enumeration oracle: any signed-in member could test
+ * addresses one at a time and learn which are registered, one guess per
+ * attempt.
+ *
+ * resetPasswordForEmail is deliberately anti-enumeration — it reports the
+ * same outcome whether or not the account exists — and this flow now
+ * matches it. A taken address advances to the code screen exactly as a
+ * free one does. No codes were sent, so the change cannot complete, and
+ * the two cases are indistinguishable from the outside.
+ *
+ * Nothing is lost by staying quiet: on this error GoTrue sent no mail and
+ * wrote no pending change, so the account is untouched either way. The
+ * member whose typo landed on a real address sees the same "start again"
+ * route out as one whose codes went astray.
+ *
+ * Matched on the error code, with the message as a fallback in case a
+ * GoTrue version omits the code.
+ */
+function isEmailTaken(err: { code?: string; message: string }): boolean {
+  if (err.code === "email_exists") return true;
+  return /already (been )?registered|already exists/i.test(err.message);
 }
 
 /**

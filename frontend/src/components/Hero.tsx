@@ -67,8 +67,8 @@ export default function Hero() {
           <Image
             src="/entrepreneurs-logo.png"
             alt="Imperial Entrepreneurs"
-            width={4832}
-            height={2540}
+            width={2416}
+            height={1270}
             priority
             sizes="(min-width: 1024px) 480px, 80vw"
             className="w-full max-w-[480px] h-auto"

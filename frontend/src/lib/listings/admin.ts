@@ -1,7 +1,11 @@
 import "server-only";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/actionAuth";
-import { sendListingRejectionEmail } from "@/lib/email";
+import {
+  sendListingRejectionEmail,
+  renderListingRejectionEmail,
+  listingRejectionReplyTo,
+} from "@/lib/email";
 import { describeSupabaseError } from "@/lib/supabaseErrors";
 import { ok, err, type Result } from "@/lib/result";
 import type { BulkResult } from "@/app/admin/bulkTypes";
@@ -82,13 +86,27 @@ export async function rejectListing(
   return ok();
 }
 
-// The admin gate runs here as well as inside each per-item call: it turns
-// "not an admin" into one clean message instead of N identical failures,
-// and it means an empty selection can't look like a success.
+// Authenticated once here, not once per listing. The RPCs re-check
+// is_admin() on every call regardless, so the boundary is unchanged —
+// what goes away is the repeated getUser + profiles round trip, and the
+// per-item cache drop and revalidate that made a large batch time out.
 export async function bulkApproveListings(kind: ListingKind, ids: string[]): Promise<BulkResult> {
+  const def = LISTINGS[kind];
   const auth = await requireAdmin();
   if (!auth.ok) return { ok: false, error: auth.error };
-  return runBulk(ids, (id) => approveListing(kind, id));
+  const { supabase } = auth;
+
+  // Approval notifies nobody, so there is no email stage here.
+  return runBulk(ids, {
+    one: async (id) => {
+      const { error } = await def.approve(supabase, id);
+      return error
+        ? { recipient: null, error: describeSupabaseError(error) }
+        : { recipient: null };
+    },
+    cacheKeys: def.cacheKeys,
+    revalidate: [def.revalidate.admin, def.revalidate.public],
+  });
 }
 
 export async function bulkRejectListings(
@@ -96,8 +114,36 @@ export async function bulkRejectListings(
   ids: string[],
   reason: string,
 ): Promise<BulkResult> {
+  const def = LISTINGS[kind];
   const auth = await requireAdmin();
   if (!auth.ok) return { ok: false, error: auth.error };
-  if (!reason.trim()) return { ok: false, error: "Rejection reason is required." };
-  return runBulk(ids, (id) => rejectListing(kind, id, reason));
+  const trimmed = reason.trim();
+  if (!trimmed) return { ok: false, error: "Rejection reason is required." };
+  const { supabase } = auth;
+
+  return runBulk(ids, {
+    one: async (id) => {
+      const { data, error } = await def.reject(supabase, id, trimmed);
+      if (error) return { recipient: null, error: describeSupabaseError(error) };
+      const row: RejectedPoster | null = Array.isArray(data) ? data[0] ?? null : data;
+      if (!row?.email) {
+        console.warn(`bulk reject ${kind}: RPC returned no poster email for`, id);
+        return { recipient: null };
+      }
+      return {
+        recipient: { email: row.email, first_name: row.first_name ?? null, title: row.title },
+      };
+    },
+    email: {
+      render: (r) => renderListingRejectionEmail({
+        firstName:    r.first_name,
+        listingKind:  def.emailKind,
+        listingTitle: r.title,
+        reason:       trimmed,
+      }),
+      replyTo: listingRejectionReplyTo(),
+    },
+    cacheKeys: def.cacheKeys,
+    revalidate: [def.revalidate.admin, def.revalidate.public],
+  });
 }

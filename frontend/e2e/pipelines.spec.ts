@@ -186,7 +186,7 @@ test.describe("pipeline · email change", () => {
     }
   });
 
-  test("bench A11 · an address already in use is refused, with nothing left pending", async ({
+  test("bench A11 · an address already in use is indistinguishable from a free one", async ({
     page,
   }) => {
     const admin = service();
@@ -204,11 +204,20 @@ test.describe("pipeline · email change", () => {
       await page.getByLabel("Confirm new email address").fill(taken);
       await page.getByRole("button", { name: "Send codes" }).click();
 
-      // GoTrue refuses at updateUser, so the form never reaches the code step.
-      await expect(page.getByLabel("Code sent to your old email address")).toHaveCount(0);
+      // Anti-enumeration. GoTrue refuses at updateUser with 422 email_exists,
+      // but saying so would let any member test addresses one at a time and
+      // learn which are registered. The form swallows that one error and
+      // shows the code step it shows for a free address (bench A5-A7), so
+      // the two cases cannot be told apart from the outside.
+      await expect(page.getByLabel("Code sent to your old email address")).toBeVisible();
+      await expect(
+        page.getByText(/already (been )?registered|already exists|already in use/i),
+      ).toHaveCount(0);
       expect(await expectNoMail(taken), "the other account must not be emailed").toBe(true);
 
-      // And nothing is left half-started on the account.
+      // Staying quiet costs nothing server-side: GoTrue wrote no pending
+      // change, so the codes the screen asks for do not exist and the
+      // change cannot complete.
       const { data } = await admin.auth.admin.getUserById(id);
       expect(data.user?.new_email ?? "", "no pending address should be recorded").toBe("");
     } finally {
