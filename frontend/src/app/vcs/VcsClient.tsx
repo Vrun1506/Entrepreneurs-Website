@@ -8,18 +8,7 @@ import { ListingGoneNotice } from "@/components/ListingGoneNotice";
 import { MarkActionPill } from "@/components/MarkActionPill";
 import { recordListingEvent } from "@/lib/analytics";
 import { formatDate } from "@/lib/dates";
-
-type Vc = {
-  id: string;
-  kind: "vc" | "grant";
-  name: string;
-  description: string;
-  link: string;
-  amount: string | null;
-  deadline: string | null;
-  stage: string | null;
-  postedBy: { firstName: string; surname: string };
-};
+import type { Vc } from "@/lib/data/vcs";
 
 const KINDS = [
   { value: "all",   label: "All" },

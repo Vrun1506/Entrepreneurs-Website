@@ -14,6 +14,11 @@ skills-lock.json
 # planning docs churn faster than the code and aren't the record of what
 # shipped — the migrations, tests and commit messages are.
 build-list.md
+next.md
+
+# graphify knowledge graph: 4.5MB of generated output (graph.json,
+# graph.html, GRAPH_REPORT.md) rebuilt from source by `graphify update .`.
+graphify-out/
 
 # Playwright MCP debug artifacts (console logs + page snapshots)
 .playwright-mcp/

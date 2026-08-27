@@ -186,6 +186,12 @@ test.describe("deep-linked opportunity", () => {
     expect(html).toContain("Hide details");
 
     const card = page.locator(`#o-${opportunityId}`);
+    // Same guard as the sibling test below, and for the same reason plus one
+    // more: Suspense content is streamed into a hidden holder and then swapped
+    // into place, so for one frame the same <article> exists twice. toHaveCount
+    // retries, so it waits that window out — going straight to toContainText
+    // hits a strict-mode violation instead, which says nothing useful.
+    await expect(card).toHaveCount(1);
     await expect(card.getByRole("button", { expanded: true })).toBeVisible();
     await expect(card).toContainText("Seeded so the deep-link assertion");
   });
