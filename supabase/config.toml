@@ -248,6 +248,18 @@ otp_expiry = 3600
 # subject = "You have been invited"
 # content_path = "./supabase/templates/invite.html"
 
+# The change-email template is wired in locally on purpose, unlike the
+# others. The stock GoTrue template for this flow carries only a
+# {{ .ConfirmationURL }} and no {{ .Token }}, so with the default the
+# emails hold no 6-digit code and the OTP flow cannot be exercised at
+# all. Pointing the local stack at the real template is what lets the
+# E2E read the codes back out of Inbucket and confirm a change end to
+# end. Hosted Supabase never reads supabase/templates/ — the same file
+# still has to be pasted into the dashboard by hand.
+[auth.email.template.email_change]
+subject = "Confirm your new Foundry email"
+content_path = "./supabase/templates/change_email.html"
+
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]
 # enabled = true

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import AppNav from "@/components/AppNav";
+import EmailChangeForm from "./EmailChangeForm";
 import PasswordChangeForm from "./PasswordChangeForm";
 import DeleteAccountSection from "./DeleteAccountSection";
 import SessionsSection from "./SessionsSection";
@@ -13,7 +14,7 @@ export default async function SettingsPage() {
   if (!user) redirect("/login");
 
   const [profileRes, isAdminRes] = await Promise.all([
-    supabase.from("profiles").select("status").eq("id", user.id).single(),
+    supabase.from("profiles").select("status, role").eq("id", user.id).single(),
     supabase.rpc("is_admin"),
   ]);
 
@@ -81,6 +82,8 @@ export default async function SettingsPage() {
                 <span className="text-text-muted text-[1.1rem]">→</span>
               </div>
             </Link>
+
+            <EmailChangeForm currentEmail={user.email ?? ""} role={profile.role} />
 
             <PasswordChangeForm hasPassword={hasPassword} email={user.email ?? ""} />
 
