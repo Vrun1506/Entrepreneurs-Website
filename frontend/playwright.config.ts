@@ -51,6 +51,16 @@ export default defineConfig({
       testMatch: /admin\.spec\.ts/,
       use: { ...devices["Desktop Chrome"], storageState: storageStatePath("admin") },
     },
+    // Credential pipelines: email change, password change, password reset.
+    // No storageState — these sign in and out as throwaway accounts they
+    // create themselves, because what they assert on is whether a credential
+    // moved, and that question cannot be asked from inside a session handed
+    // to the test by global-setup.
+    {
+      name: "pipelines",
+      testMatch: /pipelines\.spec\.ts/,
+      use: { ...devices["Desktop Chrome"] },
+    },
     // Live rate-limit enforcement. Deliberately NOT run by the main e2e job
     // (which scopes to public/member/admin) — it only runs in the isolated
     // `e2e-ratelimit` CI job that wires Upstash via an SRH sidecar, so the

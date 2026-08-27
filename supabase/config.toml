@@ -160,7 +160,17 @@ site_url = "http://127.0.0.1:3000"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["https://127.0.0.1:3000"]
+# The recovery link redirects to /auth/callback?next=/reset-password, and
+# GoTrue silently falls back to site_url when a redirect_to is not on this
+# list — which lands the member on /login with no session and looks exactly
+# like a broken reset. The stock entry was "https://127.0.0.1:3000": wrong
+# scheme and wrong host for the local server, which is http://localhost:3000.
+# Fixing it is what lets the recovery link reach the app at all locally.
+additional_redirect_urls = [
+  "https://127.0.0.1:3000",
+  "http://localhost:3000/**",
+  "http://127.0.0.1:3000/**",
+]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.

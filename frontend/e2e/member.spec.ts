@@ -205,11 +205,15 @@ test.describe("settings password change", () => {
 // confirmation link and no {{ .Token }}, so there would be no code to read.
 //
 // GoTrue sends a code to BOTH mailboxes with double_confirm_changes on,
-// but only the one sent to the CURRENT address is usable: verifying it
-// applies the change outright, and the new-address code is rejected. The
-// second test pins that down, because it is the security property the
-// whole design rests on — a stolen session cannot move the account
-// without the mailbox it already has.
+// and BOTH are needed: the first one verified returns a 200 that means
+// "accepted, now send the other", with no user and no session, and the
+// address does not move until the second arrives. The pair below pins that
+// down — a single confirmation must leave auth.users untouched.
+//
+// Both codes matter for different reasons. The one at the current address
+// is what stops a stolen session moving the account somewhere the attacker
+// controls; the one at the new address is what stops a typo moving it
+// somewhere nobody can read.
 //
 // Runs as its own user because it changes that account's address, and
 // restores it afterwards via the service client so a local re-run
