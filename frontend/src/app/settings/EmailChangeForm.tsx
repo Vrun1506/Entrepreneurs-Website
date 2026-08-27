@@ -142,15 +142,13 @@ export default function EmailChangeForm({
         <p className="text-[0.8rem] text-text-muted leading-relaxed">
           {stage === "idle" ? (
             <>
-              We&apos;ll send a code to <span className="text-text-secondary">{currentEmail}</span> to
-              confirm it&apos;s you. Check the new address carefully — it&apos;s where you&apos;ll sign in
-              afterwards.
+              We&apos;ll send a code to your old email address to confirm it&apos;s you. Check the new
+              address carefully — it&apos;s where you&apos;ll sign in afterwards.
               {role === "student" && " Student accounts must stay on an Imperial address."}
             </>
           ) : (
             <>
-              Enter the code we sent to <span className="text-text-secondary">{currentEmail}</span>. It
-              expires in 30 minutes.
+              Enter the code we sent to your old email address. It expires in 30 minutes.
             </>
           )}
         </p>
@@ -195,7 +193,7 @@ export default function EmailChangeForm({
       ) : (
         <div>
           <label htmlFor="email-change-code" className="block text-[0.75rem] text-text-muted mb-1.5">
-            Code sent to {currentEmail}
+            Code sent to your old email address
           </label>
           <input
             id="email-change-code"
