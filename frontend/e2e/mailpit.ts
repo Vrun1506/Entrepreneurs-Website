@@ -35,6 +35,37 @@ export async function clearMailbox(address: string): Promise<void> {
 }
 
 /**
+ * The newest message to this address, as text + HTML.
+ *
+ * waitForCode answers "did a code arrive"; this answers "what did the member
+ * actually read". The change-email template is the one piece of this flow that
+ * lives outside the repo at runtime — it is pasted into the Supabase dashboard
+ * by hand — so asserting on the delivered body is the only way a test can tell
+ * a corrected template from a stale one.
+ */
+export async function waitForBody(address: string, timeoutMs = 20_000): Promise<string> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const messages = await messagesFor(address).catch(() => [] as Message[]);
+    if (messages.length > 0) {
+      const body = await json<{ Text?: string; HTML?: string }>(
+        `${MAILPIT}/api/v1/message/${messages[0]!.ID}`,
+      );
+      return `${body.Text ?? ""}\n${body.HTML ?? ""}`;
+    }
+    await new Promise((r) => setTimeout(r, 400));
+  }
+  throw new Error(`No message arrived for ${address} within ${timeoutMs}ms.`);
+}
+
+/** True if nothing has been delivered to this address after a settling wait. */
+export async function expectNoMail(address: string, settleMs = 4_000): Promise<boolean> {
+  await new Promise((r) => setTimeout(r, settleMs));
+  const messages = await messagesFor(address).catch(() => [] as Message[]);
+  return messages.length === 0;
+}
+
+/**
  * The 6-digit code from the newest message sent to this address.
  *
  * Polls, because the send is asynchronous relative to the click that
