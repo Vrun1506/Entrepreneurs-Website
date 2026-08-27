@@ -44,13 +44,17 @@ export const metadata: Metadata = {
       "The founder community at Imperial College London. Connect with student founders, alumni, mentors, and investors through Foundry.",
     url: SITE_URL,
     locale: "en_GB",
-    images: [{ url: "/entrepreneurs-logo.png", alt: "Imperial Entrepreneurs" }],
+    // Dedicated 1200x630 export. This file is served RAW to every scraper —
+    // next/image never touches it — so it is sized and compressed for the
+    // wire. The full-resolution artwork would be ~1.5 MB, which several
+    // scrapers (WhatsApp, iMessage) skip outright, losing the preview.
+    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "Imperial Entrepreneurs" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "Imperial Entrepreneurs — Foundry",
     description: "The founder community at Imperial College London.",
-    images: ["/entrepreneurs-logo.png"],
+    images: ["/og-image.png"],
   },
 };
 
@@ -90,7 +94,9 @@ const structuredData = {
       name: SITE_NAME,
       alternateName: "Foundry",
       url: SITE_URL,
-      logo: `${SITE_URL}/entrepreneurs-logo.png`,
+      // Square mark, not the banner lockup: this slot is cropped to a
+      // square in knowledge panels and chat unfurls, and is also served raw.
+      logo: `${SITE_URL}/logo-square.png`,
       description:
         "The founder community at Imperial College London, connecting student founders, alumni, mentors, and investors through Foundry.",
       sameAs: [

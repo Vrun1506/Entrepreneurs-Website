@@ -307,13 +307,15 @@ export async function sendGraduationEmail(opts: {
 // ─── Listing rejection ──────────────────────────────────────────────
 type ListingKind = "opportunity" | "event" | "VC/grant submission";
 
-export async function sendListingRejectionEmail(opts: {
-  to: string;
+// Rendered separately from sending, like renderAcceptanceEmail above, so
+// the bulk reject path can build many of these and hand them to
+// enqueueEmailsBulk in one round trip instead of one insert per listing.
+export function renderListingRejectionEmail(opts: {
   firstName: string | null;
   listingKind: ListingKind;
   listingTitle: string;
   reason: string;
-}): Promise<void> {
+}): { subject: string; text: string; html: string } {
   const greeting = opts.firstName ? `Hi ${escapeName(opts.firstName)},` : "Hi,";
   const subject = `Your Foundry ${opts.listingKind} wasn't approved`;
   const articleAndKind = opts.listingKind === "opportunity"
@@ -347,8 +349,22 @@ export async function sendListingRejectionEmail(opts: {
     </div>
   `;
 
+  return { subject, text, html };
+}
+
+export async function sendListingRejectionEmail(opts: {
+  to: string;
+  firstName: string | null;
+  listingKind: ListingKind;
+  listingTitle: string;
+  reason: string;
+}): Promise<void> {
+  const { subject, text, html } = renderListingRejectionEmail(opts);
   await enqueueEmail({ to: opts.to, subject, text, html, replyTo: appealsInbox() });
 }
+
+/** Reply-to for the listing rejection email, exported for the bulk path. */
+export const listingRejectionReplyTo = appealsInbox;
 
 // ─── Contact form ───────────────────────────────────────────────────
 export async function sendContactTicket(opts: {
