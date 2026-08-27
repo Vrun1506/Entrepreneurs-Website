@@ -10,43 +10,16 @@ import { Pager } from "@/components/ui/Pager";
 import { Dialog, closeDialog } from "@/components/ui/Dialog";
 import { browserClient } from "@/lib/supabase/browser";
 import { Skeleton } from "@/components/ui/Skeleton";
-
-type Member = {
-  id: string;
-  firstName: string;
-  surname: string;
-  role: "alum" | "student";
-  course: string | null;
-  gradYear: number | null;
-  // Truncated by list_directory_cards to what the card renders. The full
-  // text and the profile links are fetched when the dialog opens — they are
-  // most of the payload and almost none of the page.
-  bioPreview: string | null;
-  workingOnPreview: string | null;
-  skills: string[];
-  sectors: string[];
-  lookingFor: { id: string; role: string }[];
-};
-
-type Facets = {
-  courses: string[];
-  sectors: string[];
-  skills: string[];
-  grad_min: number | null;
-  grad_max: number | null;
-  total: number;
-};
-
-type Filters = {
-  q: string;
-  roles: string[];
-  courses: string[];
-  sectors: string[];
-  skills: string[];
-  gradMin: string;
-  gradMax: string;
-  page: number;
-};
+// Type-only, so the server-only module is erased rather than imported.
+// bioPreview and workingOnPreview are truncated by list_directory_cards to
+// what the card renders; the full text and the profile links are fetched
+// when the dialog opens — they are most of the payload and almost none of
+// the page.
+import type {
+  DirectoryMember,
+  Facets,
+  MemberFilters,
+} from "@/lib/data/directory";
 
 const MAX_LOOKING_FOR = 3;
 
@@ -65,10 +38,10 @@ const MAX_LOOKING_FOR = 3;
 export default function CommunityClient({
   members, newest, facets, filters, matching, pageSize,
 }: {
-  members: Member[];
-  newest: Member[];
+  members: DirectoryMember[];
+  newest: DirectoryMember[];
   facets: Facets;
-  filters: Filters;
+  filters: MemberFilters;
   matching: number;
   pageSize: number;
 }) {
@@ -80,7 +53,7 @@ export default function CommunityClient({
   const url = useUrlFilters({ navigate: "server", resetKey: "page" });
   const [queryDraft, setQueryDraft] = useSearchDraft(url);
 
-  const [openMember, setOpenMember] = useState<Member | null>(null);
+  const [openMember, setOpenMember] = useState<DirectoryMember | null>(null);
 
   const activeFilterCount =
     filters.roles.length + filters.courses.length + filters.sectors.length +
@@ -216,7 +189,7 @@ export default function CommunityClient({
 }
 
 
-function NewestCard({ member: m, onClick }: { member: Member; onClick: () => void }) {
+function NewestCard({ member: m, onClick }: { member: DirectoryMember; onClick: () => void }) {
   return (
     <button
       type="button"
@@ -236,7 +209,7 @@ function NewestCard({ member: m, onClick }: { member: Member; onClick: () => voi
   );
 }
 
-function MemberCard({ member: m, onClick }: { member: Member; onClick: () => void }) {
+function MemberCard({ member: m, onClick }: { member: DirectoryMember; onClick: () => void }) {
   // role="button" (not a real <button>) so the clickable "Looking for" links
   // below can be nested without invalid interactive-in-button HTML. Mirrors
   // the OpportunityCard pattern.
@@ -307,7 +280,7 @@ type FullProfile = {
   portfolio_url: string | null;
 };
 
-function MemberDialog({ member: m, onClose }: { member: Member; onClose: () => void }) {
+function MemberDialog({ member: m, onClose }: { member: DirectoryMember; onClose: () => void }) {
   // Fetched on open rather than shipped with the list. A plain select, not
   // an RPC: the profiles RLS policies already restrict reads to approved
   // members, so there is nothing extra to enforce here.
@@ -451,7 +424,7 @@ function MemberDialog({ member: m, onClose }: { member: Member; onClose: () => v
   );
 }
 
-function memberSubtitle(m: Member) {
+function memberSubtitle(m: DirectoryMember) {
   if (m.role === "alum") return `Alum · ${m.gradYear ?? "—"}`;
   return m.gradYear ? `Student · class of ${m.gradYear}` : "Imperial student";
 }

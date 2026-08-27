@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import AppNav from "@/components/AppNav";
 import { requireApprovedUser } from "@/lib/auth/guard";
+import { vcForEdit } from "@/lib/data/vcs";
 import VcForm, { type VcInitialValues } from "../../new/VcForm";
 
 type Params = { id: string };
@@ -10,23 +11,19 @@ export default async function EditVcGrantPage({ params }: { params: Promise<Para
   const { id } = await params;
   const { supabase, user, isAdmin } = await requireApprovedUser();
 
-  const { data: row } = await supabase
-    .from("vcs_grants")
-    .select("posted_by, status, kind, name, description, link, amount, deadline, stage")
-    .eq("id", id)
-    .single();
+  const row = await vcForEdit(supabase, id);
   if (!row) notFound();
   if (row.posted_by !== user.id) notFound();
   if (row.status !== "pending") notFound();
 
   const initialValues: VcInitialValues = {
-    kind:        row.kind as "vc" | "grant",
-    name:        row.name as string,
-    description: row.description as string,
-    link:        row.link as string,
-    amount:      (row.amount as string | null) ?? "",
-    deadline:    (row.deadline as string | null) ?? "",
-    stage:       (row.stage as string | null) ?? "",
+    kind:        row.kind,
+    name:        row.name,
+    description: row.description,
+    link:        row.link,
+    amount:      row.amount ?? "",
+    deadline:    row.deadline ?? "",
+    stage:       row.stage ?? "",
   };
 
   return (

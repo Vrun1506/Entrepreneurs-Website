@@ -1,6 +1,6 @@
 import "server-only";
 import { cached } from "@/lib/cache";
-import { rows, type Db } from "./query";
+import { rows, maybeRow, type Db } from "./query";
 
 export type Vc = {
   id: string;
@@ -87,4 +87,22 @@ export async function listApprovedVcs(db: Db, isAdmin: boolean): Promise<Vc[]> {
     // Supabase error, and pinning that would blank the page for the TTL.
     { skip: isAdmin, isCacheable: (r) => r.length > 0 },
   );
+}
+
+/**
+ * The one VC/grant the poster is editing, or null.
+ *
+ * A table read rather than an RPC, so unlike the other two this does not
+ * check the poster — it returns posted_by and the caller compares. RLS
+ * lets a member read approved rows and their own, so that comparison is
+ * what stops someone opening the edit form for a listing they did not
+ * post.
+ */
+export async function vcForEdit(db: Db, id: string) {
+  return maybeRow("vcs_grants (for edit)", () =>
+    db
+      .from("vcs_grants")
+      .select("posted_by, status, kind, name, description, link, amount, deadline, stage")
+      .eq("id", id)
+      .single());
 }
