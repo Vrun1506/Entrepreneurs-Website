@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient, type Session } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
-import { mkdirSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { mkdirSync, writeFileSync, statSync, readdirSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { USERS, storageStatePath, type SeedUser } from "./fixtures";
 
 // ════════════════════════════════════════════════════════════════════
@@ -24,6 +24,8 @@ export default async function globalSetup(): Promise<void> {
   }
 
   assertEphemeral(url);
+  assertFreshBuild();
+  assertBuildMatchesBackend(url);
 
   const admin = createClient(url, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -40,6 +42,107 @@ export default async function globalSetup(): Promise<void> {
   }
 }
 
+
+/**
+ * Refuses to run a build that was compiled against a DIFFERENT Supabase.
+ *
+ * NEXT_PUBLIC_* values are inlined at build time, so `next build` with the
+ * wrong environment produces a bundle that talks to the wrong backend for
+ * the rest of its life — and `next start` cannot tell. The suite then
+ * seeds the ephemeral stack, mints a session against it, and drives an app
+ * pointed somewhere else entirely. Every authed page bounces to /login and
+ * every failure is a lie.
+ *
+ * `next build` reads .env.local on its own, and in this repo .env.local
+ * holds the PRODUCTION url. So the wrong build is what you get by running
+ * `pnpm build` in a shell that has not exported `supabase status -o env` —
+ * which is the obvious thing to do and gives no sign of being wrong.
+ *
+ * Checked against the client chunks rather than a variable, because the
+ * inlined string is the thing that actually determines where the browser
+ * talks. If the host under test is not in there, something else is.
+ */
+function assertBuildMatchesBackend(url: string): void {
+  const host = new URL(url).host;
+  const dir = ".next/static/chunks";
+
+  let files: string[];
+  try {
+    files = readdirSync(dir).filter((f) => f.endsWith(".js"));
+  } catch {
+    return; // No client chunks to check; assertFreshBuild covers a missing build.
+  }
+
+  const foreign = new Set<string>();
+  for (const f of files) {
+    const source = readFileSync(join(dir, f), "utf8");
+    if (source.includes(host)) return; // The build points at the stack under test.
+    for (const m of source.matchAll(/https:\/\/[a-z0-9]+\.supabase\.co/g)) foreign.add(m[0]);
+  }
+
+  throw new Error(
+    `E2E: the build in .next was compiled against ${[...foreign].join(", ") || "an unknown Supabase"}, ` +
+      `not ${url}. NEXT_PUBLIC_* is inlined at build time and .env.local holds the PRODUCTION url, ` +
+      "so `pnpm build` without the ephemeral env baked in the wrong backend. Re-run it with " +
+      "`supabase status -o env` exported, then start the suite again.",
+  );
+}
+
+/**
+ * Refuses to run against a build older than the source it is meant to test.
+ *
+ * `pnpm start` is plain `next start`: it serves whatever .next already
+ * holds and never rebuilds. So editing a component and running the suite
+ * tests the PREVIOUS build, silently, and the run is green for the wrong
+ * reason — or red for a bug that was fixed hours ago.
+ *
+ * That happened. A five-hour-old build served every local run of a
+ * session, including a before/after comparison that was supposed to prove
+ * a refactor changed no behaviour: both halves ran the same stale code, so
+ * it proved nothing. CI was unaffected — it builds first — which is
+ * precisely why nothing caught it.
+ *
+ * The check is a timestamp comparison, not a hash: it only has to notice
+ * that source is newer than the build, and it must never be the reason a
+ * suite fails to start, so a missing .next says "run pnpm build" rather
+ * than throwing something cryptic.
+ */
+function assertFreshBuild(): void {
+  const buildId = ".next/BUILD_ID";
+  let builtAt: number;
+  try {
+    builtAt = statSync(buildId).mtimeMs;
+  } catch {
+    throw new Error("E2E: no .next build found. Run `pnpm build` before `pnpm exec playwright test`.");
+  }
+
+  let newest = 0;
+  let newestFile = "";
+  const walk = (dir: string): void => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(full);
+      } else if (/\.(ts|tsx|css)$/.test(entry.name)) {
+        const m = statSync(full).mtimeMs;
+        if (m > newest) {
+          newest = m;
+          newestFile = full;
+        }
+      }
+    }
+  };
+  walk("src");
+
+  if (newest > builtAt) {
+    const mins = Math.round((newest - builtAt) / 60_000);
+    throw new Error(
+      `E2E: .next is ${mins} minute(s) older than ${newestFile}. ` +
+        "`next start` serves the last build and never rebuilds, so this run would test stale code. " +
+        "Run `pnpm build` first.",
+    );
+  }
+}
 
 /**
  * Refuses to run against anything but a local Supabase.

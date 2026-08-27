@@ -2,7 +2,7 @@
 // global-setup (which creates them) and the specs (which assert as them).
 // These only ever exist in the ephemeral CI Supabase, never prod.
 
-export type Role = "student" | "admin" | "reauth";
+export type Role = "student" | "admin" | "reauth" | "emailchange";
 
 export type SeedUser = {
   role: Role;
@@ -35,6 +35,18 @@ export const USERS: Record<Role, SeedUser> = {
   // calls signOut({ scope: "others" }), which revokes the seeded session.
   // Keeping it on its own throwaway user means that revocation can't break
   // any other member spec that reuses the student session.
+  // Dedicated to the settings email-change test: the test changes this
+  // account's address, so it must not be one another spec signs in as.
+  // Both addresses stay on an Imperial domain because the seeded role is
+  // student and the on_auth_user_email_change trigger pins students there.
+  emailchange: {
+    role: "emailchange",
+    email: "e2e-emailchange@imperial.ac.uk",
+    password: "E2e-Emailchange-Pw-123!",
+    firstName: "Mia",
+    surname: "Mailchange",
+    isAdmin: false,
+  },
   reauth: {
     role: "reauth",
     email: "e2e-reauth@imperial.ac.uk",
