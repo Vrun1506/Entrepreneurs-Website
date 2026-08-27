@@ -32,6 +32,7 @@ test("admin can open each review queue", async ({ page }) => {
 // ════════════════════════════════════════════════════════════════════
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { USERS } from "./fixtures";
 
 /** Bigger than /admin/community's page of 50, so page 2 is non-empty. */
 const SEEDED = 55;
@@ -280,5 +281,124 @@ test.describe("bulk review acts on every selected member", () => {
       .in("to_address", [emailOf(2), emailOf(3)]);
     expect(mail).toHaveLength(2);
     for (const m of mail ?? []) expect(m.subject).toContain("Your Foundry application");
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════
+// The same, for a LISTING queue.
+//
+// The member queue above and the three listing queues used different
+// bulk implementations. The member one was made single-pass; the listing
+// one still called the whole single-item action per id — admin gate,
+// RPC, cache drop and two revalidates each — so a large selection could
+// hit the function timeout part-way and half-apply, which is exactly the
+// failure the member path was rescued from. Both now share
+// lib/admin/bulk.ts, and this is the coverage that was missing when the
+// first refactor went in.
+//
+// Events are the type used here because their seed is the smallest; the
+// three types run through one generic code path, so what holds for one
+// holds for all three.
+// ════════════════════════════════════════════════════════════════════
+
+test.describe("bulk review acts on every selected listing", () => {
+  const TITLE = (i: number) => `E2E Bulk Event ${i}`;
+  const eventIds: string[] = [];
+  let posterEmail = "";
+
+  test.beforeAll(async () => {
+    test.setTimeout(60_000);
+    const admin = service();
+
+    const { data: userList } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
+    const poster = userList.users.find(
+      (u) => u.email?.toLowerCase() === USERS.student.email.toLowerCase(),
+    );
+    if (!poster?.email) throw new Error("seeded student not found");
+    posterEmail = poster.email;
+
+    for (let i = 0; i < 4; i++) {
+      const { data, error } = await admin
+        .from("events")
+        .insert({
+          status: "pending",
+          posted_by: poster.id,
+          title: TITLE(i),
+          description: "Seeded for the bulk listing review test.",
+          luma_link: "https://lu.ma/e2e-bulk",
+          event_at: new Date(Date.now() + 45 * 86_400_000).toISOString(),
+          location: "Imperial",
+          organiser_name: "Foundry",
+          contact_email: poster.email,
+        })
+        .select("id")
+        .single();
+      if (error) throw new Error(`bulk event seed failed: ${error.message}`);
+      eventIds.push(data!.id as string);
+    }
+  });
+
+  test.afterAll(async () => {
+    const admin = service();
+    await admin.from("outbound_email").delete().eq("to_address", posterEmail);
+    await admin.from("admin_actions").delete().in("target_id", eventIds);
+    await admin.from("events").delete().in("id", eventIds);
+  });
+
+  const rowFor = (page: import("@playwright/test").Page, title: string) =>
+    page.locator("div.flex.items-start.gap-3").filter({ hasText: title });
+
+  test("approving a selection approves every one of them", async ({ page }) => {
+    await page.goto("/admin/events");
+
+    await rowFor(page, TITLE(0)).getByRole("checkbox").check();
+    await rowFor(page, TITLE(1)).getByRole("checkbox").check();
+
+    await page.getByRole("button", { name: "Approve 2" }).click();
+    await expect(page.getByText("2 events updated.")).toBeVisible({ timeout: 30_000 });
+
+    // The count in that message is rendered from a number the action
+    // returns, so it would still print if only one row had moved. Ask the
+    // database instead.
+    const admin = service();
+    const { data: rows } = await admin
+      .from("events")
+      .select("id, status")
+      .in("id", [eventIds[0], eventIds[1]]);
+    expect(rows?.map((r) => r.status).sort()).toEqual(["approved", "approved"]);
+  });
+
+  // Rejection is the half a batching refactor is most likely to drop:
+  // the emails are now queued once for the whole batch rather than one
+  // insert per listing, so "every one of them was told" is the assertion
+  // that matters.
+  test("rejecting a selection records the reason and queues every email", async ({ page }) => {
+    const reason = "Duplicate of an existing event";
+    await page.goto("/admin/events");
+
+    await rowFor(page, TITLE(2)).getByRole("checkbox").check();
+    await rowFor(page, TITLE(3)).getByRole("checkbox").check();
+
+    await page.getByRole("button", { name: "Reject\u2026" }).click();
+    await page.getByLabel("Rejection reason").fill(reason);
+    await page.getByRole("button", { name: "Reject 2" }).click();
+    await expect(page.getByText("2 events updated.")).toBeVisible({ timeout: 30_000 });
+
+    const admin = service();
+    const { data: rows } = await admin
+      .from("events")
+      .select("id, status")
+      .in("id", [eventIds[2], eventIds[3]]);
+    expect(rows?.map((r) => r.status).sort()).toEqual(["rejected", "rejected"]);
+
+    const { data: mail } = await admin
+      .from("outbound_email")
+      .select("to_address, subject, text_body")
+      .eq("to_address", posterEmail);
+    expect(mail, "both rejections must be queued, not just the last").toHaveLength(2);
+    for (const m of mail ?? []) {
+      expect(m.subject).toContain("wasn't approved");
+      expect(m.text_body).toContain(reason);
+    }
   });
 });

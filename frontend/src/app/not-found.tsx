@@ -32,8 +32,8 @@ export default function NotFound() {
           <Image
             src="/entrepreneurs-logo.png"
             alt="Imperial Entrepreneurs"
-            width={4832}
-            height={2540}
+            width={2416}
+            height={1270}
             priority
             sizes="(min-width: 768px) 320px, 70vw"
             className="w-full max-w-[320px] h-auto mb-8"
