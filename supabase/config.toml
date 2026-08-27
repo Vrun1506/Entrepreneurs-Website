@@ -179,7 +179,12 @@ enable_anonymous_sign_ins = false
 # Allow/disallow testing manual linking of accounts
 enable_manual_linking = false
 # Passwords shorter than this value will be rejected as weak. Minimum 6, recommended 8 or more.
-minimum_password_length = 6
+# 8 in the hosted project, and 8 is what login/page.tsx, ResetPasswordForm
+# and PasswordChangeForm all enforce client-side. The CLI default of 6 meant
+# a local stack accepted a 7-character password that production rejects —
+# invisible today because the forms block it first, and a trap the moment
+# anything sets a password without going through them.
+minimum_password_length = 8
 # Passwords that do not meet the following requirements will be rejected as weak. Supported values
 # are: `letters_digits`, `lower_upper_letters_digits`, `lower_upper_letters_digits_symbols`
 password_requirements = ""
@@ -223,7 +228,13 @@ enable_signup = true
 # addresses. If disabled, only the new email is required to confirm.
 double_confirm_changes = true
 # If enabled, users need to confirm their email address before signing in.
-enable_confirmations = false
+# ON in the hosted project. The local default is off, and off is not a
+# lenient version of on for the email-change flow — it is a different flow:
+# GoTrue skips the double-confirmation handshake entirely when autoconfirm
+# is set, so one code completes a change locally and two are required in
+# production. That divergence is what let #46 ship broken through a green
+# suite. Same argument as secure_password_change below.
+enable_confirmations = true
 # If enabled, users will need to reauthenticate or have logged in recently to change their password.
 # Mirrors the hosted project, where this is on. The local default is off,
 # and a settings form that only ever runs against the lenient setting is a

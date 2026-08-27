@@ -242,31 +242,55 @@ test.describe("settings email change", () => {
     await Promise.all([clearMailbox(original), clearMailbox(next)]);
   });
 
+  // ══════════════════════════════════════════════════════════════════
+  // THE REGRESSION THIS PAIR EXISTS FOR.
+  //
+  // GoTrue answers the first of the two codes with HTTP 200 and a body of
+  // {"msg":"Confirmation link accepted. Please proceed to confirm link
+  // sent to the other email"} — no user, no session, and auth.users.email
+  // untouched. supabase-js reports that as error: null, and the first
+  // version of this form treated the absence of an error as a completed
+  // change: it showed a success screen, told the member to sign in with
+  // the new address, and left the account exactly where it was.
+  //
+  // The previous version of these tests could not catch that, because the
+  // local stack ran with enable_confirmations off, which disables the
+  // double-confirmation handshake outright — one code completed a change
+  // locally and two were required in production. config.toml now matches
+  // the hosted project, so this runs against the same GoTrue behaviour
+  // members do.
+  // ══════════════════════════════════════════════════════════════════
+
   // Runs before the happy path so the account is still on its original
-  // address. It leaves a pending change behind, which the next test
-  // harmlessly overwrites by starting its own.
-  test("the code sent to the NEW address cannot complete the change", async ({ page }) => {
+  // address. It leaves a half-confirmed change behind, which the next test
+  // overwrites by starting its own — re-requesting resets
+  // email_change_confirm_status to 0 and reissues both tokens.
+  test("one confirmed code is not a completed change", async ({ page }) => {
     await clearMailbox(original);
     await clearMailbox(next);
 
     await page.goto("/settings");
     await page.getByLabel("New email address", { exact: true }).fill(next);
     await page.getByLabel("Confirm new email address").fill(next);
-    await page.getByRole("button", { name: "Send code" }).click();
+    await page.getByRole("button", { name: "Send codes" }).click();
 
-    // Both mailboxes receive a code. Only one of them is worth anything,
-    // and it is deliberately the one at the address the account already
-    // has — otherwise a stolen session could move the account using a
-    // code delivered to the attacker's own inbox.
     const currentCode = await waitForCode(original);
     const newCode = await waitForCode(next);
     expect(newCode).not.toBe(currentCode);
 
-    await page.getByLabel("Code sent to your old email address").fill(newCode);
+    // The real code for the old inbox, a wrong one for the new inbox.
+    const wrong = newCode === "000000" ? "111111" : "000000";
+    await page.getByLabel("Code sent to your old email address").fill(currentCode);
+    await page.getByLabel("Code sent to your new email address").fill(wrong);
     await page.getByRole("button", { name: "Confirm change" }).click();
 
-    await expect(page.getByText(/code is incorrect or has expired/i)).toBeVisible();
+    // The old-inbox code was accepted — the form says so, and that is the
+    // 200 the old code mistook for success.
+    await expect(page.getByText(/Confirmed\. Only the code sent to your new address/i)).toBeVisible();
+    await expect(page.getByText(/code for your new email address is incorrect/i)).toBeVisible();
+    await expect(page.getByText("Your email address has been changed")).toHaveCount(0);
 
+    // The assertion that matters: a single confirmation moved nothing.
     const admin = service();
     const { data } = await admin.auth.admin.listUsers({ perPage: 1000 });
     expect(
@@ -276,20 +300,22 @@ test.describe("settings email change", () => {
     expect(data?.users.find((u) => u.email === next)).toBeFalsy();
   });
 
-  test("the code sent to the current address moves the account", async ({ page }) => {
+  test("both codes move the account", async ({ page }) => {
     await clearMailbox(original);
     await clearMailbox(next);
 
     await page.goto("/settings");
     await page.getByLabel("New email address", { exact: true }).fill(next);
     await page.getByLabel("Confirm new email address").fill(next);
-    await page.getByRole("button", { name: "Send code" }).click();
+    await page.getByRole("button", { name: "Send codes" }).click();
 
-    const code = await waitForCode(original);
-    await page.getByLabel("Code sent to your old email address").fill(code);
+    const currentCode = await waitForCode(original);
+    const newCode = await waitForCode(next);
+    await page.getByLabel("Code sent to your old email address").fill(currentCode);
+    await page.getByLabel("Code sent to your new email address").fill(newCode);
     await page.getByRole("button", { name: "Confirm change" }).click();
 
-    await expect(page.getByText(`Your email address is now`)).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText("Your email address has been changed")).toBeVisible({ timeout: 20_000 });
 
     // The assertion that matters: auth.users actually moved.
     const admin = service();
@@ -364,7 +390,7 @@ test.describe("settings email change", () => {
     await page.goto("/settings");
     await page.getByLabel("New email address", { exact: true }).fill("mia@gmail.com");
     await page.getByLabel("Confirm new email address").fill("mia@gmail.com");
-    await page.getByRole("button", { name: "Send code" }).click();
+    await page.getByRole("button", { name: "Send codes" }).click();
 
     await expect(
       page.getByText("Student accounts must keep an @imperial.ac.uk or @ic.ac.uk address."),
