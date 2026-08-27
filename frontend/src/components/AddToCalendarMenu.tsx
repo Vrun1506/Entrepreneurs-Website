@@ -47,7 +47,7 @@ export function AddToCalendarMenu(props: Props) {
         onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border bg-transparent text-text-secondary text-[0.8rem] font-medium transition-colors cursor-pointer hover:border-gold/40 hover:text-text-primary"
+        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/[0.05] border border-border-strong text-text-primary text-[0.8rem] font-medium transition-colors cursor-pointer hover:bg-white/[0.10] hover:border-gold/50"
       >
         <CalendarIcon />
         Add to calendar

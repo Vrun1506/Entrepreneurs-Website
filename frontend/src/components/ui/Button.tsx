@@ -31,9 +31,17 @@ const BASE =
 
 const VARIANT: Record<Variant, string> = {
   primary:     "bg-gold text-bg-primary font-medium hover:bg-gold-light",
-  ghost:       "bg-transparent border border-border text-text-muted hover:text-text-primary",
-  // "Reject" — reads as neutral until you're about to press it.
-  dangerGhost: "bg-transparent border border-border text-text-secondary hover:text-[#ff6b6b] hover:border-[#ff4d4d]/30",
+  // The two neutral variants used to be fully transparent with a --color-border
+  // outline and a --color-text-muted label: 1.36:1 for the outline and 2.76:1
+  // for the text against the page. Both were below the point where they read as
+  // a control at all — the complaint was "it's not obvious that it's a button",
+  // and it was accurate. They now carry a surface as well as an outline, which
+  // is what actually separates a button from a line of text.
+  ghost:       "bg-white/[0.05] border border-border-strong text-text-primary hover:bg-white/[0.10]",
+  // "Reject" — still reads as neutral until you're about to press it. The
+  // restraint was always in the label colour, not in the invisible border, so
+  // only the border changed here.
+  dangerGhost: "bg-white/[0.05] border border-border-strong text-text-secondary hover:bg-[#ff4d4d]/10 hover:text-[#ff6b6b] hover:border-[#ff4d4d]/50",
   danger:      "bg-[#ff4d4d]/15 border border-[#ff4d4d]/30 text-[#ff6b6b] font-medium hover:bg-[#ff4d4d]/25",
 };
 

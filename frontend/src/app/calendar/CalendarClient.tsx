@@ -210,7 +210,7 @@ function MonthView({ items, onSelect }: { items: CalItem[]; onSelect: (i: CalIte
         <button
           type="button"
           onClick={() => setCursor((c) => shiftMonth(c, -1))}
-          className="px-3 py-1.5 rounded-lg bg-transparent border border-border text-text-secondary text-[0.8rem] cursor-pointer hover:border-gold/40 hover:text-gold-light"
+          className="px-3 py-1.5 rounded-lg bg-white/[0.05] border border-border-strong text-text-primary text-[0.8rem] cursor-pointer transition-colors hover:bg-white/[0.10] hover:border-gold/50 hover:text-gold-light"
           aria-label="Previous month"
         >
           ◀
@@ -219,7 +219,7 @@ function MonthView({ items, onSelect }: { items: CalItem[]; onSelect: (i: CalIte
         <button
           type="button"
           onClick={() => setCursor((c) => shiftMonth(c, 1))}
-          className="px-3 py-1.5 rounded-lg bg-transparent border border-border text-text-secondary text-[0.8rem] cursor-pointer hover:border-gold/40 hover:text-gold-light"
+          className="px-3 py-1.5 rounded-lg bg-white/[0.05] border border-border-strong text-text-primary text-[0.8rem] cursor-pointer transition-colors hover:bg-white/[0.10] hover:border-gold/50 hover:text-gold-light"
           aria-label="Next month"
         >
           ▶
@@ -285,7 +285,7 @@ function DetailDialog({ item, onClose }: { item: CalItem; onClose: () => void })
           type="button"
           onClick={closeDialog}
           aria-label="Close"
-          className="shrink-0 -mr-1 -mt-1 w-9 h-9 rounded-lg bg-transparent border border-border text-text-muted cursor-pointer hover:text-text-primary hover:border-gold/40 transition-colors flex items-center justify-center text-lg leading-none"
+          className="shrink-0 -mr-1 -mt-1 w-9 h-9 rounded-lg bg-white/[0.05] border border-border-strong text-text-primary cursor-pointer hover:bg-white/[0.10] hover:border-gold/50 transition-colors flex items-center justify-center text-lg leading-none"
         >
           ×
         </button>

@@ -19,7 +19,7 @@ export function ListingGoneNotice({
       <button
         type="button"
         onClick={onDismiss}
-        className="px-4 py-2 rounded-lg bg-white/[0.04] border border-border text-text-secondary text-[0.8rem] cursor-pointer transition-colors hover:bg-white/[0.06] hover:text-text-primary"
+        className="px-4 py-2 rounded-lg bg-white/[0.05] border border-border-strong text-text-primary text-[0.8rem] cursor-pointer transition-colors hover:bg-white/[0.10]"
       >
         Remove from list
       </button>
