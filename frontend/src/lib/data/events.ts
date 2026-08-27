@@ -60,3 +60,17 @@ export async function listApprovedEvents(db: Db): Promise<FoundryEvent[]> {
   const data = await rows("list_approved_events", () => db.rpc("list_approved_events"));
   return data.map(toEvent);
 }
+
+/**
+ * The one event the poster is editing, or null if there is no such row.
+ *
+ * SECURITY DEFINER: the RPC checks caller = poster and returns
+ * contact_email accordingly (migration 20260530000002). It returns a set,
+ * so at most one row — the caller decides what a miss means, and every
+ * caller so far 404s rather than saying whether the id exists.
+ */
+export async function eventForEdit(db: Db, id: string) {
+  const data = await rows("get_event_for_edit", () =>
+    db.rpc("get_event_for_edit", { p_id: id }));
+  return data[0] ?? null;
+}

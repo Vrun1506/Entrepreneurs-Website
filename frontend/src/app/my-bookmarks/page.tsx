@@ -1,26 +1,21 @@
 import Link from "next/link";
 import AppNav from "@/components/AppNav";
 import { requireApprovedUser } from "@/lib/auth/guard";
-import { markedListingIds } from "@/lib/listings/actionRow";
+import { listBookmarkedOpportunities } from "@/lib/data/opportunities";
+import { markedIds } from "@/lib/data/activity";
 import OpportunitiesClient from "../opportunities/OpportunitiesClient";
-import { reportIfCapped } from "@/lib/supabase/rowCap";
 
 export default async function MyBookmarksPage() {
   const { supabase, isAdmin } = await requireApprovedUser();
 
-  // SECURITY DEFINER RPC: contact_email is masked by the database, not
-  // the app layer (migration 20260530000002 + 20260530000005).
-  const [bookmarkRes, actionsRes] = await Promise.all([
-    supabase.rpc("list_my_bookmarked_opportunities"),
-    supabase.rpc("get_my_listing_actions"),
+  const [items, appliedIds] = await Promise.all([
+    listBookmarkedOpportunities(supabase),
+    markedIds(supabase, "opportunity", "applied"),
   ]);
 
-  if (bookmarkRes.error) console.error("Failed to load bookmarked opportunities:", bookmarkRes.error);
-  if (actionsRes.error) console.error("Failed to load listing actions:", actionsRes.error);
-
-  const items = reportIfCapped("list_my_bookmarked_opportunities", (bookmarkRes.data ?? []) as RpcRow[]).map(toOpportunity);
+  // Everything on this page is bookmarked by definition — that is what the
+  // query selects — so the stars render filled without a second read.
   const bookmarkedIds = items.map((i) => i.id);
-  const appliedIds = markedListingIds(reportIfCapped("get_my_listing_actions", actionsRes.data ?? []), "opportunity", "applied");
 
   return (
     <div className="min-h-screen bg-bg-primary flex flex-col">
@@ -66,54 +61,4 @@ export default async function MyBookmarksPage() {
       </main>
     </div>
   );
-}
-
-type RpcRow = {
-  id: string;
-  position_name: string;
-  company: string;
-  pay: string;
-  location_type: "remote" | "hybrid" | "onsite";
-  location_text: string | null;
-  description: string;
-  start_month: number;
-  start_year: number;
-  application_deadline: string;
-  contact_email: string | null;
-  contact_email_visible: boolean;
-  apply_method: "email" | "link";
-  apply_url: string | null;
-  posted_by: string;
-  created_at: string;
-  poster_first_name: string | null;
-  poster_surname: string | null;
-  poster_linkedin_url: string | null;
-  skill_names: string[];
-  sector_names: string[];
-  bookmarked_at: string;
-};
-
-function toOpportunity(r: RpcRow) {
-  return {
-    id: r.id,
-    positionName: r.position_name,
-    company: r.company,
-    pay: r.pay,
-    locationType: r.location_type,
-    locationText: r.location_text,
-    description: r.description,
-    startMonth: r.start_month,
-    startYear: r.start_year,
-    applicationDeadline: r.application_deadline,
-    contactEmail: r.contact_email,
-    applyMethod: r.apply_method,
-    applyUrl: r.apply_url,
-    postedBy: {
-      firstName:   r.poster_first_name ?? "",
-      surname:     r.poster_surname    ?? "",
-      linkedinUrl: r.poster_linkedin_url,
-    },
-    skills:  r.skill_names  ?? [],
-    sectors: r.sector_names ?? [],
-  };
 }

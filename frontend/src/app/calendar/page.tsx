@@ -1,6 +1,7 @@
 import AppNav from "@/components/AppNav";
-import { reportIfCapped } from "@/lib/supabase/rowCap";
 import { requireApprovedUser } from "@/lib/auth/guard";
+import { myActivity } from "@/lib/data/activity";
+import { myCalendarListings } from "@/lib/data/ownListings";
 import CalendarClient, { type CalItem } from "./CalendarClient";
 
 export default async function CalendarPage() {
@@ -11,23 +12,10 @@ export default async function CalendarPage() {
   // approved — their actual commitments — and are read directly (RLS lets
   // a poster see their own rows regardless of status, same as
   // /my-submissions). Past items drop off via the client's upcoming filter.
-  const [activityRes, evRes, oppRes, vcRes] = await Promise.all([
-    supabase.rpc("get_my_activity"),
-    supabase.from("events")
-      .select("id, title, description, location, organiser_name, luma_link, event_at, status")
-      .eq("posted_by", user.id).in("status", ["pending", "approved"]),
-    supabase.from("opportunities")
-      .select("id, position_name, company, pay, location_type, location_text, description, application_deadline, apply_method, apply_url, status")
-      .eq("posted_by", user.id).in("status", ["pending", "approved"]),
-    supabase.from("vcs_grants")
-      .select("id, kind, name, description, link, amount, deadline, stage, status")
-      .eq("posted_by", user.id).in("status", ["pending", "approved"]),
+  const [activity, own] = await Promise.all([
+    myActivity(supabase),
+    myCalendarListings(supabase, user.id),
   ]);
-
-  if (activityRes.error) console.error("Failed to load calendar activity:", activityRes.error);
-  if (evRes.error)  console.error("Failed to load own events:", evRes.error);
-  if (oppRes.error) console.error("Failed to load own opportunities:", oppRes.error);
-  if (vcRes.error)  console.error("Failed to load own vcs:", vcRes.error);
 
   const clean = (v: string | null | undefined) => (v && v.trim() ? v.trim() : null);
   const locationLabel = (type: string, text: string | null) => {
@@ -35,16 +23,16 @@ export default async function CalendarPage() {
     return clean(text) ? `${t} · ${text!.trim()}` : t;
   };
 
-  const activityItems: CalItem[] = (reportIfCapped("get_my_activity", activityRes.data ?? []) as ActivityRow[])
-    .filter((r) => r.occurs_at != null)
+  const activityItems: CalItem[] = activity
+    .filter((r) => r.occursAt != null)
     .map((r) => ({
-      listingKind: r.listing_kind, listingId: r.listing_id,
-      title: r.title, subtitle: r.subtitle, occursAt: r.occurs_at as string,
-      role: r.action_type, status: "approved", description: null,
+      listingKind: r.listingKind, listingId: r.listingId,
+      title: r.title, subtitle: r.subtitle, occursAt: r.occursAt as string,
+      role: r.actionType, status: "approved", description: null,
       meta: clean(r.url) ? [{ label: "Link", value: r.url!, href: r.url! }] : [],
     }));
 
-  const ownEvents: CalItem[] = ((evRes.data ?? []) as OwnEvent[])
+  const ownEvents: CalItem[] = own.events
     .filter((r) => r.event_at != null)
     .map((r) => ({
       listingKind: "event", listingId: r.id, title: r.title, subtitle: clean(r.location),
@@ -57,7 +45,7 @@ export default async function CalendarPage() {
       ],
     }));
 
-  const ownOpps: CalItem[] = ((oppRes.data ?? []) as OwnOpp[])
+  const ownOpps: CalItem[] = own.opportunities
     .filter((r) => r.application_deadline != null)
     .map((r) => ({
       listingKind: "opportunity", listingId: r.id, title: r.position_name, subtitle: clean(r.company),
@@ -73,7 +61,7 @@ export default async function CalendarPage() {
       ],
     }));
 
-  const ownVcs: CalItem[] = ((vcRes.data ?? []) as OwnVc[])
+  const ownVcs: CalItem[] = own.vcs
     .filter((r) => r.deadline != null)
     .map((r) => ({
       listingKind: "vc_grant", listingId: r.id, title: r.name,
@@ -116,19 +104,3 @@ export default async function CalendarPage() {
 }
 
 type Status = "pending" | "approved";
-
-type ActivityRow = {
-  listing_kind: "opportunity" | "event" | "vc_grant";
-  listing_id:   string;
-  action_type:  "applied" | "going";
-  marked_at:    string;
-  title:        string;
-  subtitle:     string | null;
-  status:       string;
-  occurs_at:    string | null;
-  url:          string | null;
-};
-
-type OwnEvent = { id: string; title: string; description: string | null; location: string | null; organiser_name: string | null; luma_link: string | null; event_at: string | null; status: string };
-type OwnOpp   = { id: string; position_name: string; company: string; pay: string | null; location_type: string; location_text: string | null; description: string | null; application_deadline: string | null; apply_method: string; apply_url: string | null; status: string };
-type OwnVc    = { id: string; kind: string; name: string; description: string | null; link: string; amount: string | null; deadline: string | null; stage: string | null; status: string };

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import * as Sentry from "@sentry/nextjs";
-import type { PostgrestError } from "@supabase/supabase-js";
+import type { PostgrestError, PostgrestSingleResponse } from "@supabase/supabase-js";
 import { rows, maybeRow } from "./query";
 import { MAX_ROWS } from "@/lib/supabase/rowCap";
 
@@ -56,5 +56,26 @@ describe("maybeRow", () => {
   it("returns null on error, having logged it", async () => {
     expect(await maybeRow("profiles", async () => ({ data: null, error: boom }))).toBeNull();
     expect(console.error).toHaveBeenCalledWith("Failed to load profiles:", boom);
+  });
+
+  // This one is really a typecheck, and it is here because the tests above
+  // could not catch what broke: they pass plain object literals, which
+  // infer fine. A real .single() resolves to PostgrestSingleResponse, a
+  // union of a success and a failure branch — and the first version of
+  // maybeRow named its payload as `data: T | null`, so T had both branches
+  // to choose from, settled on `never`, and every field access on the
+  // result became an error. tsc fails on `row.first_name` below if the
+  // signature ever goes back to inferring from the payload.
+  it("infers the row type through a real PostgrestSingleResponse", async () => {
+    const response: PostgrestSingleResponse<{ first_name: string }> = {
+      data: { first_name: "Ada" },
+      error: null,
+      success: true,
+      count: null,
+      status: 200,
+      statusText: "OK",
+    };
+    const row = await maybeRow("profiles", async () => response);
+    expect(row?.first_name).toBe("Ada");
   });
 });

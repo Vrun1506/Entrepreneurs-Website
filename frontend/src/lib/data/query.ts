@@ -50,10 +50,19 @@ type ListResponse<T> = {
   error: PostgrestError | null;
 };
 
-type SingleResponse<T> = {
-  data: T | null;
-  error: PostgrestError | null;
-};
+/**
+ * What a one-row query resolves to, loose enough to infer from.
+ *
+ * `rows()` above can name its payload as `T[]`, because an array only
+ * matches the success branch of PostgrestSingleResponse and TS therefore
+ * has one candidate for T. A single row has no such shape to bite on: ask
+ * TS to infer T from `data: T | null` and both branches of the union are
+ * candidates, `null` included, and it settles on `never` — at which point
+ * every field access on the result is an error. Naming the whole response
+ * instead and reading `.data` back off it sidesteps the inference
+ * entirely.
+ */
+type SingleLike = { data: unknown; error: PostgrestError | null };
 
 /**
  * Run a list query. Logs and degrades to `[]` on error, and reports if the
@@ -84,14 +93,14 @@ export async function rows<T>(
  * `.maybeSingle()`, or a scalar-returning RPC). No cap check — there is
  * no cap to hit.
  */
-export async function maybeRow<T>(
+export async function maybeRow<R extends SingleLike>(
   source: string,
-  run: () => PromiseLike<SingleResponse<T>>,
-): Promise<T | null> {
+  run: () => PromiseLike<R>,
+): Promise<NonNullable<R["data"]> | null> {
   const { data, error } = await run();
   if (error) {
     console.error(`Failed to load ${source}:`, error);
     return null;
   }
-  return data;
+  return (data ?? null) as NonNullable<R["data"]> | null;
 }

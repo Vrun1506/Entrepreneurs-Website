@@ -1,38 +1,12 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { listPendingVcs } from "@/lib/data/admin";
 import VcsReview from "./VcsReview";
-import { reportIfCapped } from "@/lib/supabase/rowCap";
 
 export default async function AdminVcsPage() {
   const supabase = await createClient();
 
-  const { data: rows, error } = await supabase
-    .from("vcs_grants")
-    .select(`
-      id, kind, name, description, link,
-      amount, deadline, stage,
-      posted_by, created_at,
-      profiles:posted_by ( first_name, surname, linkedin_url )
-    `)
-    .eq("status", "pending")
-    .order("created_at", { ascending: true });
-
-  if (error) console.error("Failed to load pending vcs_grants:", error);
-
-  const rawRows = reportIfCapped("vcs_grants (pending)", (rows ?? []) as unknown as RawRow[]);
-
-  const posterIds = Array.from(new Set(rawRows.map((r) => r.posted_by)));
-  const signupEmailById = new Map<string, string>();
-  if (posterIds.length > 0) {
-    const { data: emails, error: emailsErr } = await supabase
-      .rpc("admin_get_signup_emails", { p_user_ids: posterIds });
-    if (emailsErr) console.error("Failed to load signup emails:", emailsErr);
-    for (const row of (emails ?? []) as { user_id: string; email: string }[]) {
-      signupEmailById.set(row.user_id, row.email);
-    }
-  }
-
-  const pending = rawRows.map((r) => toReviewItem(r, signupEmailById.get(r.posted_by) ?? null));
+  const pending = await listPendingVcs(supabase);
 
   return (
     <main id="main-content" tabIndex={-1} className="min-h-screen bg-bg-primary text-text-primary px-8 py-12">
@@ -65,38 +39,4 @@ export default async function AdminVcsPage() {
       </div>
     </main>
   );
-}
-
-type RawRow = {
-  id: string;
-  kind: "vc" | "grant";
-  name: string;
-  description: string;
-  link: string;
-  amount: string | null;
-  deadline: string | null;
-  stage: string | null;
-  posted_by: string;
-  created_at: string;
-  profiles: { first_name: string; surname: string; linkedin_url: string | null } | null;
-};
-
-function toReviewItem(r: RawRow, signupEmail: string | null) {
-  return {
-    id: r.id,
-    kind: r.kind,
-    name: r.name,
-    description: r.description,
-    link: r.link,
-    amount: r.amount,
-    deadline: r.deadline,
-    stage: r.stage,
-    postedBy: {
-      firstName: r.profiles?.first_name ?? "",
-      surname:   r.profiles?.surname    ?? "",
-      linkedinUrl: r.profiles?.linkedin_url ?? null,
-      signupEmail,
-    },
-    createdAt: r.created_at,
-  };
 }

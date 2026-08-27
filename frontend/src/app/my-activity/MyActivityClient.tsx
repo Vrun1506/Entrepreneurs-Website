@@ -4,18 +4,8 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { unmarkAction, type ListingKind } from "@/lib/listingActions";
 import { formatDate, formatDateTime } from "@/lib/dates";
-
-type Item = {
-  listingKind: ListingKind;
-  listingId:   string;
-  actionType:  "applied" | "going";
-  markedAt:    string;
-  title:       string;
-  subtitle:    string | null;
-  status:      string;
-  occursAt:    string | null;
-  url:         string | null;
-};
+// Type-only, so the server-only module is erased rather than imported.
+import type { ActivityItem } from "@/lib/data/activity";
 
 type Tab = "all" | "opportunity" | "event" | "vc_grant";
 
@@ -32,11 +22,11 @@ const KIND_BADGE: Record<ListingKind, string> = {
   vc_grant:     "VC / grant",
 };
 
-export default function MyActivityClient({ items }: { items: Item[] }) {
+export default function MyActivityClient({ items }: { items: ActivityItem[] }) {
   const [tab, setTab] = useState<Tab>("all");
   const [removed, setRemoved] = useState<Set<string>>(new Set());
 
-  const key = (i: Item) => `${i.listingKind}:${i.listingId}`;
+  const key = (i: ActivityItem) => `${i.listingKind}:${i.listingId}`;
   const visible = useMemo(() => {
     return items.filter((i) => !removed.has(key(i)) && (tab === "all" || i.listingKind === tab));
   }, [items, removed, tab]);
@@ -48,7 +38,7 @@ export default function MyActivityClient({ items }: { items: Item[] }) {
     vc_grant:     items.filter((i) => !removed.has(key(i)) && i.listingKind === "vc_grant").length,
   }), [items, removed]);
 
-  const handleUnmark = async (i: Item) => {
+  const handleUnmark = async (i: ActivityItem) => {
     const k = key(i);
     setRemoved((prev) => new Set(prev).add(k));
     const res = await unmarkAction(i.listingKind, i.listingId);
@@ -101,7 +91,7 @@ export default function MyActivityClient({ items }: { items: Item[] }) {
   );
 }
 
-function Row({ item, onUnmark }: { item: Item; onUnmark: () => void }) {
+function Row({ item, onUnmark }: { item: ActivityItem; onUnmark: () => void }) {
   const occursLabel = item.occursAt
     ? formatOccurs(item.listingKind, item.occursAt)
     : null;

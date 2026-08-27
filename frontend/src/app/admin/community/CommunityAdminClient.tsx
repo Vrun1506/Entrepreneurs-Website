@@ -8,33 +8,12 @@ import { SearchInput, FilterPanel, ChipGroup, RangeFilter } from "@/components/f
 import { Pager } from "@/components/ui/Pager";
 import { adminDeleteUser } from "./actions";
 import type { UserStatus } from "@/lib/database.overrides";
-import type { AdminFilters } from "./page";
+// Type-only, so the server-only module is erased rather than imported.
+import type { AdminMember, AdminMemberFilters } from "@/lib/data/admin";
+import type { Facets } from "@/lib/data/directory";
 
 type Status = UserStatus;
-type Role   = "alum" | "student";
 
-type Member = {
-  id: string;
-  firstName: string;
-  surname: string;
-  role: Role;
-  status: Status;
-  course: string | null;
-  gradYear: number | null;
-  email: string | null;
-  createdAt: string;
-  skills: string[];
-  sectors: string[];
-};
-
-type Facets = {
-  courses: string[];
-  sectors: string[];
-  skills: string[];
-  grad_min: number | null;
-  grad_max: number | null;
-  total: number;
-};
 
 const STATUS_LABEL: Record<Status, string> = {
   pending_onboarding: "Onboarding",
@@ -49,9 +28,9 @@ export default function CommunityAdminClient({
   members, facets, filters, matching, pageSize,
 }: {
   /** One page of members, already filtered and sorted by Postgres. */
-  members: Member[];
+  members: AdminMember[];
   facets: Facets;
-  filters: AdminFilters;
+  filters: AdminMemberFilters;
   /** Members matching the current filters, across every page. */
   matching: number;
   pageSize: number;
@@ -62,7 +41,7 @@ export default function CommunityAdminClient({
   // page 4 of the old result set means nothing in the new one.
   const url = useUrlFilters({ navigate: "server", resetKey: "page" });
   const [query, setQuery] = useSearchDraft(url);
-  const [selected, setSelected] = useState<Member | null>(null);
+  const [selected, setSelected] = useState<AdminMember | null>(null);
 
   const selectedRoles    = new Set(filters.roles);
   const selectedStatuses = new Set(filters.statuses);
@@ -232,7 +211,7 @@ export default function CommunityAdminClient({
 }
 
 
-function DeleteUserModal({ member, onClose }: { member: Member; onClose: () => void }) {
+function DeleteUserModal({ member, onClose }: { member: AdminMember; onClose: () => void }) {
   const router = useRouter();
   const [reason, setReason] = useState("");
   const [pending, startTransition] = useTransition();
