@@ -1179,6 +1179,59 @@ begin
 end;
 $$;
 
+-- ─── 29. The analytics write path is bounded and gated ──────────────
+-- record_listing_event is reached client-direct from the browser, so it
+-- never passes through the middleware and no rate-limit bucket sees it.
+-- Its own two guards are therefore the only ones there: it must be
+-- idempotent (or one account can grow the largest table without limit),
+-- and it must require an approved member (a ban is status='rejected',
+-- and an already-issued JWT keeps working for up to an hour after one).
+set local role postgres;
+do $$
+declare
+  v_member   uuid;
+  v_rejected uuid;
+  v_listing  uuid;
+  v_rows     int;
+begin
+  select id into v_member   from public.profiles where status = 'approved' limit 1;
+  select id into v_rejected from public.profiles where status = 'rejected' limit 1;
+  select id into v_listing  from public.opportunities where status = 'approved' limit 1;
+  if v_member is null or v_listing is null then
+    raise exception 'FAIL: fixture missing (approved profile / approved opportunity)';
+  end if;
+
+  -- (a) idempotent: the same view recorded repeatedly is one row
+  perform _set_caller(v_member);
+  perform public.record_listing_event('opportunity', v_listing, 'expand');
+  perform public.record_listing_event('opportunity', v_listing, 'expand');
+  perform public.record_listing_event('opportunity', v_listing, 'expand');
+
+  set local role postgres;
+  select count(*) into v_rows
+    from public.listing_events
+   where listing_kind = 'opportunity' and listing_id = v_listing
+     and viewer_id = v_member and event_type = 'expand';
+  if v_rows <> 1 then
+    raise exception
+      'FAIL: record_listing_event wrote % rows for one repeated view — it is unbounded again', v_rows;
+  end if;
+
+  -- (b) a rejected (banned) member cannot write at all
+  if v_rejected is not null then
+    perform _set_caller(v_rejected);
+    begin
+      perform public.record_listing_event('opportunity', v_listing, 'expand');
+      set local role postgres;
+      raise exception 'FAIL: a rejected member recorded an analytics event';
+    exception when insufficient_privilege then
+      null; -- expected
+    end;
+  end if;
+  set local role postgres;
+end;
+$$;
+
 -- ─── Cleanup ────────────────────────────────────────────────────────
 -- The test blocks leak the transaction-local 'authenticated' role (see note
 -- above), so reset to the owner role before dropping the helper function.
