@@ -37,9 +37,6 @@ export default async function SettingsPage() {
             <h1 className="font-display text-text-primary leading-[1.1] tracking-tight text-[clamp(1.75rem,3.5vw,2.5rem)]">
               Account & profile
             </h1>
-            <p className="text-[0.875rem] text-text-muted mt-3 leading-relaxed">
-              Signed in as <span className="text-text-secondary">{user.email}</span>
-            </p>
           </div>
 
           <div className="space-y-5">

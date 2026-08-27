@@ -262,7 +262,7 @@ test.describe("settings email change", () => {
     const newCode = await waitForCode(next);
     expect(newCode).not.toBe(currentCode);
 
-    await page.getByLabel(`Code sent to ${original}`).fill(newCode);
+    await page.getByLabel("Code sent to your old email address").fill(newCode);
     await page.getByRole("button", { name: "Confirm change" }).click();
 
     await expect(page.getByText(/code is incorrect or has expired/i)).toBeVisible();
@@ -286,7 +286,7 @@ test.describe("settings email change", () => {
     await page.getByRole("button", { name: "Send code" }).click();
 
     const code = await waitForCode(original);
-    await page.getByLabel(`Code sent to ${original}`).fill(code);
+    await page.getByLabel("Code sent to your old email address").fill(code);
     await page.getByRole("button", { name: "Confirm change" }).click();
 
     await expect(page.getByText(`Your email address is now`)).toBeVisible({ timeout: 20_000 });

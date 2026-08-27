@@ -5,7 +5,6 @@ import SignOutButton from "./SignOutButton";
 
 export default async function AdminPage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
 
   const counts = await pendingCounts(supabase);
   const totalPending = counts.total;
@@ -29,7 +28,6 @@ export default async function AdminPage() {
                   Queues clear
                 </span>
               )}
-              <span>· Signed in as <span className="text-text-secondary">{user?.email}</span></span>
             </p>
           </div>
           <div className="flex items-center gap-4">
