@@ -195,3 +195,125 @@ test.describe("settings password change", () => {
     await expect(current).toHaveValue("");
   });
 });
+
+// ════════════════════════════════════════════════════════════════════
+// Changing your email address.
+//
+// The real flow, not a mocked one: the test reads the actual 6-digit code
+// out of the local mail catcher. That is why the change-email template is
+// wired into the local config — the stock GoTrue template carries only a
+// confirmation link and no {{ .Token }}, so there would be no code to read.
+//
+// GoTrue sends a code to BOTH mailboxes with double_confirm_changes on,
+// but only the one sent to the CURRENT address is usable: verifying it
+// applies the change outright, and the new-address code is rejected. The
+// second test pins that down, because it is the security property the
+// whole design rests on — a stolen session cannot move the account
+// without the mailbox it already has.
+//
+// Runs as its own user because it changes that account's address, and
+// restores it afterwards via the service client so a local re-run
+// against a persistent stack still signs in during global-setup.
+// ════════════════════════════════════════════════════════════════════
+
+import { waitForCode, clearMailbox } from "./mailpit";
+
+test.describe("settings email change", () => {
+  test.use({ storageState: storageStatePath("emailchange") });
+
+  const original = USERS.emailchange.email;
+  const next = "e2e-emailchange-new@imperial.ac.uk";
+
+  const service = () =>
+    createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+
+  test.afterAll(async () => {
+    const admin = service();
+    const { data } = await admin.auth.admin.listUsers({ perPage: 1000 });
+    const user = data?.users.find((u) => u.email === next || u.email === original);
+    if (user && user.email !== original) {
+      await admin.auth.admin.updateUserById(user.id, { email: original });
+    }
+    await Promise.all([clearMailbox(original), clearMailbox(next)]);
+  });
+
+  // Runs before the happy path so the account is still on its original
+  // address. It leaves a pending change behind, which the next test
+  // harmlessly overwrites by starting its own.
+  test("the code sent to the NEW address cannot complete the change", async ({ page }) => {
+    await clearMailbox(original);
+    await clearMailbox(next);
+
+    await page.goto("/settings");
+    await page.getByLabel("New email address", { exact: true }).fill(next);
+    await page.getByLabel("Confirm new email address").fill(next);
+    await page.getByRole("button", { name: "Send code" }).click();
+
+    // Both mailboxes receive a code. Only one of them is worth anything,
+    // and it is deliberately the one at the address the account already
+    // has — otherwise a stolen session could move the account using a
+    // code delivered to the attacker's own inbox.
+    const currentCode = await waitForCode(original);
+    const newCode = await waitForCode(next);
+    expect(newCode).not.toBe(currentCode);
+
+    await page.getByLabel(`Code sent to ${original}`).fill(newCode);
+    await page.getByRole("button", { name: "Confirm change" }).click();
+
+    await expect(page.getByText(/code is incorrect or has expired/i)).toBeVisible();
+
+    const admin = service();
+    const { data } = await admin.auth.admin.listUsers({ perPage: 1000 });
+    expect(
+      data?.users.find((u) => u.email === original),
+      "the account must still be on its original address",
+    ).toBeTruthy();
+    expect(data?.users.find((u) => u.email === next)).toBeFalsy();
+  });
+
+  test("the code sent to the current address moves the account", async ({ page }) => {
+    await clearMailbox(original);
+    await clearMailbox(next);
+
+    await page.goto("/settings");
+    await page.getByLabel("New email address", { exact: true }).fill(next);
+    await page.getByLabel("Confirm new email address").fill(next);
+    await page.getByRole("button", { name: "Send code" }).click();
+
+    const code = await waitForCode(original);
+    await page.getByLabel(`Code sent to ${original}`).fill(code);
+    await page.getByRole("button", { name: "Confirm change" }).click();
+
+    await expect(page.getByText(`Your email address is now`)).toBeVisible({ timeout: 20_000 });
+
+    // The assertion that matters: auth.users actually moved.
+    const admin = service();
+    const { data } = await admin.auth.admin.listUsers({ perPage: 1000 });
+    const moved = data?.users.find((u) => u.email === next);
+    expect(moved, "the account should now be on the new address").toBeTruthy();
+    expect(data?.users.find((u) => u.email === original)).toBeFalsy();
+  });
+
+  // The domain rule is enforced by the DB trigger, but the trigger fires
+  // on the final write — after both codes. Catching it here is what stops
+  // a student visiting two mailboxes only to be refused at the end.
+  test("a student cannot move off the Imperial domain, and nothing is sent", async ({ page }) => {
+    let updateCalled = false;
+    await page.route("**/auth/v1/user**", (route) => {
+      updateCalled = true;
+      route.abort();
+    });
+
+    await page.goto("/settings");
+    await page.getByLabel("New email address", { exact: true }).fill("mia@gmail.com");
+    await page.getByLabel("Confirm new email address").fill("mia@gmail.com");
+    await page.getByRole("button", { name: "Send code" }).click();
+
+    await expect(
+      page.getByText("Student accounts must keep an @imperial.ac.uk or @ic.ac.uk address."),
+    ).toBeVisible();
+    expect(updateCalled, "no updateUser request should fire for a bad domain").toBe(false);
+  });
+});

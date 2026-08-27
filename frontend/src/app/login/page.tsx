@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { cleanName, isValidName } from "@/lib/text";
 import { SignupDisclosures } from "@/components/forms/SignupDisclosures";
 import { TurnstileWidget, turnstileConfigured } from "@/components/forms/TurnstileWidget";
+import { isImperialEmail } from "@/lib/auth/imperialEmail";
 import { BrandLogo } from "@/components/BrandLogo";
 import { destinationForStatus } from "@/lib/auth/status";
 import { Button } from "@/components/ui/Button";
@@ -209,8 +210,7 @@ export default function LoginPage() {
   // migration 20260529000001).
   const sendStudentVerificationEmail = async (): Promise<string | null> => {
     const trimmedEmail = email.trim().toLowerCase();
-    const domain = trimmedEmail.split("@")[1];
-    if (!trimmedEmail || !domain || !["ic.ac.uk", "imperial.ac.uk"].includes(domain)) {
+    if (!trimmedEmail || !isImperialEmail(trimmedEmail)) {
       return "Please use your Imperial email address (@imperial.ac.uk or @ic.ac.uk).";
     }
 

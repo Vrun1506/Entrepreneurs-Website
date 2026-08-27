@@ -6,12 +6,21 @@
   Code-only: no link, so Microsoft 365 Safe Links has no URL to pre-fetch and
   burn — same reason as confirm_signup.html and magic_link.html.
 
-  SENT TO BOTH MAILBOXES. With "Secure email change" enabled (Auth →
-  Providers → Email), Supabase sends this same body to the CURRENT address and
-  the NEW one, each with its own code, and applies the change only when both
-  are confirmed. So the copy names both addresses rather than saying "your
-  email" — whichever mailbox this lands in, the reader can see exactly what is
-  being changed and to what.
+  SENT TO BOTH MAILBOXES, BUT ONLY ONE CODE WORKS. With "Secure email change"
+  enabled (Auth → Providers → Email), Supabase sends this same body to the
+  CURRENT address and the NEW one, each with its own code. Measured against a
+  local stack: only the code delivered to the CURRENT address can be verified,
+  and verifying it applies the change outright. The code sent to the new
+  address is rejected. There is no both-must-confirm step in the OTP flow,
+  whatever the setting's name suggests.
+
+  That is the right way round for security — the code that authorises the move
+  goes to the mailbox the account already has, so a stolen session cannot
+  complete a change on its own — but it means the copy must not tell the
+  reader at the new address to enter their code. It cannot work.
+
+  The copy names both addresses so that whichever mailbox this lands in, the
+  reader can see exactly what is being changed and to what.
 
   Variables: {{ .Token }} = the 6-digit code for THIS recipient.
              {{ .Email }} = the current address. {{ .NewEmail }} = the new one.
@@ -71,8 +80,10 @@
         <tr>
           <td style="padding:8px 36px 0 36px;">
             <p style="margin:0;font-size:12px;line-height:1.6;color:#8a887f;">
-              Both addresses have to confirm before the change takes effect, so
-              you may need to check the other inbox too.
+              This code only works from {{ .Email }}, the address the account
+              uses now. If you are reading this at {{ .NewEmail }}, it is a
+              heads-up that the account is moving here &mdash; the code you need
+              is in the other inbox.
             </p>
           </td>
         </tr>
