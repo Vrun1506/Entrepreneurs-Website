@@ -3,12 +3,25 @@
 // Supabase passes through Postgres errors verbatim — fine for server
 // logs, awful for end users (e.g. "new row violates check constraint
 // profiles_grad_year_role_consistency"). This translator catches the
-// common ones and falls back to the raw message on misses (so we don't
-// hide unknown errors behind a generic "Something went wrong").
+// common ones by Postgres SQLSTATE code, message-content sniffing, or
+// the PGRST* codes PostgREST raises. Add cases as they show up.
 //
-// Detection is by Postgres SQLSTATE code, message-content sniffing, or
-// the PGRST* codes PostgREST raises. Add cases as they show up in
-// production.
+// UNMAPPED ERRORS DO NOT REACH THE USER. This used to fall through to
+// the raw message, on the reasoning that a real message beats a blank
+// "Something went wrong". That reasoning holds for the messages our own
+// SECURITY DEFINER functions raise — those are written for the user and
+// are passed through deliberately below — and fails for everything else:
+// an unmapped Postgres error carries constraint names, column names and,
+// on a unique violation, the conflicting *value*, straight into the UI.
+// submitContactTicket already states the rule this file was breaking —
+// "never surface the underlying error text (it can carry DB/network
+// internals)".
+//
+// So the raw text is logged and a generic string is returned. The
+// diagnostic is not lost; it just stops being shown to whoever tripped
+// it. When one turns up in the logs often enough to matter, map it here
+// — which is the same "add cases as they show up" loop as before, now
+// with the leak closed while you wait.
 
 type AnyError =
   | string
@@ -83,8 +96,11 @@ export function describeSupabaseError(err: AnyError): string {
     return "Network error. Check your connection and try again.";
   }
 
-  // Fall back to the raw server message — better than a generic blank.
-  return message || "Something went wrong.";
+  // Unmapped. Log the real thing, show the user a safe one.
+  if (message) {
+    console.error("Unmapped database error surfaced to a user:", { code, message });
+  }
+  return "Something went wrong. Please try again.";
 }
 
 // Constraints we want to translate by name. Add as needed.

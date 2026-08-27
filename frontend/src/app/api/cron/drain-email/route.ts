@@ -40,7 +40,14 @@ export const maxDuration = 60;
 const BATCH_SIZE = 20;
 const PER_SEND_GAP_MS = 600;       // 1.5 req/sec, under Resend's 2/sec
 const BACKOFF_429_MIN = 30;        // Wait at least 30 min after a rate-limit
-const PROVIDER_DEFAULT_FROM = "Foundry <onboarding@resend.dev>";
+// No default From address. `RESEND_FROM` is required config, not a
+// preference: Resend only accepts onboarding@resend.dev for mail to the
+// account owner's own inbox, so falling back to it does not degrade the
+// drain — it makes every send to every member fail, one 4xx at a time,
+// with the rows buried at max_attempts and nothing saying why. Failing
+// the whole batch loudly is the shorter path to the same diagnosis, and
+// it matches the rule the rest of the codebase follows: never
+// `process.env.X ?? "literal"` for required config.
 
 type ClaimedRow = {
   id:           string;
@@ -82,7 +89,13 @@ async function drain(req: NextRequest): Promise<NextResponse> {
       { status: 500 },
     );
   }
-  const fromAddress = process.env.RESEND_FROM ?? PROVIDER_DEFAULT_FROM;
+  const fromAddress = process.env.RESEND_FROM;
+  if (!fromAddress) {
+    return NextResponse.json(
+      { error: "RESEND_FROM is not configured" },
+      { status: 500 },
+    );
+  }
   const resend = new Resend(resendKey);
   const supabase = createServiceClient();
 

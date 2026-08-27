@@ -81,7 +81,7 @@ async function loadOpportunities(
   return {
     items: reportIfCapped("list_approved_opportunities", (oppsRes.data ?? []) as RpcRow[]).map(toOpportunity),
     bookmarkedIds: reportIfCapped("opportunity_bookmarks", bookmarksRes.data ?? []).map((r) => r.opportunity_id as string),
-    appliedIds: markedListingIds(actionsRes.data, "opportunity", "applied"),
+    appliedIds: markedListingIds(reportIfCapped("get_my_listing_actions", actionsRes.data ?? []), "opportunity", "applied"),
   };
 }
 

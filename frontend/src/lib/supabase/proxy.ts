@@ -39,13 +39,21 @@ export async function updateSession(request: NextRequest) {
   // Touching getUser() here causes @supabase/ssr to refresh the session
   // cookie if it's near expiry. Do not run code between createServerClient
   // and getUser() — it's a known auth race condition.
-  await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
 
-  // Coarse per-IP backstop on mutations (Next server actions are POSTs).
-  // No-op unless Upstash is configured; reads (GET/HEAD) never hit Redis.
-  // Cloudflare absorbs real floods at the edge — this is defence in depth.
+  // Backstop on mutations (Next server actions are POSTs). No-op unless
+  // Upstash is configured; reads (GET/HEAD) never hit Redis. Cloudflare
+  // absorbs real floods at the edge — this is defence in depth.
+  //
+  // Keyed on the account where there is one. Imperial students on campus
+  // share a public IP, so an IP key is a campus key: onboarding is a server
+  // action, and a signup wave after an announcement would spend one shared
+  // 60/min budget between everyone — handing legitimate students a 429 that
+  // reads as the site being broken, on the day it matters most.
   if (request.method !== "GET" && request.method !== "HEAD") {
-    const allowed = await allow("mutations", clientIp(request.headers));
+    const allowed = user
+      ? await allow("mutations", `u:${user.id}`)
+      : await allow("anonMutations", `ip:${clientIp(request.headers)}`);
     if (!allowed) {
       return new NextResponse("Too many requests. Please slow down and try again shortly.", { status: 429 });
     }

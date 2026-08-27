@@ -98,7 +98,7 @@ async function loadVcs(
 
   return {
     items,
-    appliedIds: markedListingIds(actionsRes.data, "vc_grant", "applied"),
+    appliedIds: markedListingIds(reportIfCapped("get_my_listing_actions", actionsRes.data ?? []), "vc_grant", "applied"),
   };
 }
 

@@ -1,4 +1,5 @@
 import AppNav from "@/components/AppNav";
+import { reportIfCapped } from "@/lib/supabase/rowCap";
 import { requireApprovedUser } from "@/lib/auth/guard";
 import MyActivityClient from "./MyActivityClient";
 
@@ -8,7 +9,7 @@ export default async function MyActivityPage() {
   const { data: rows, error } = await supabase.rpc("get_my_activity");
   if (error) console.error("Failed to load my-activity:", error);
 
-  const items = ((rows ?? []) as ActivityRow[]).map(toItem);
+  const items = (reportIfCapped("get_my_activity", rows ?? []) as ActivityRow[]).map(toItem);
 
   return (
     <div className="min-h-screen bg-bg-primary flex flex-col">
