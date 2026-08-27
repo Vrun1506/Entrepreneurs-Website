@@ -148,3 +148,137 @@ test.describe("admin profile lists are paged", () => {
     await expect(pager).toContainText("Page 2 of");
   });
 });
+
+// ════════════════════════════════════════════════════════════════════
+// Bulk approve and reject.
+//
+// This path had no coverage of any kind — no unit test, no E2E — and it
+// is the one an admin uses on a whole backlog at once. Added before the
+// one-pass refactor touched it, not after: a refactor of an untested
+// path is not verified by a green suite, because the suite has nothing
+// to say about it.
+//
+// The assertions go to the database rather than stopping at the toast.
+// "2 profiles updated." is rendered from a count the action returns, so
+// a version that approved one member and miscounted would still print
+// it. What has to be true is that every selected member changed status
+// AND that every one of them was queued an email — the second is the
+// half a batching refactor is most likely to drop, and the half nobody
+// notices until a member asks why they were never told.
+// ════════════════════════════════════════════════════════════════════
+
+test.describe("bulk review acts on every selected member", () => {
+  const BULK_PREFIX = "e2e-bulk";
+  const ids: string[] = [];
+  const emailOf = (i: number) => `${BULK_PREFIX}-${i}@imperial.ac.uk`;
+
+  test.beforeAll(async () => {
+    test.setTimeout(60_000);
+    const admin = service();
+
+    for (let i = 0; i < 4; i++) {
+      const { data, error } = await admin.auth.admin.createUser({
+        email: emailOf(i),
+        email_confirm: true,
+        user_metadata: { first_name: "Bulk", surname: `Member${i}`, role: "student" },
+      });
+      if (error) throw new Error(`bulk seed failed: ${error.message}`);
+      ids.push(data.user!.id);
+
+      // Backdated so these sort to the front of the queue, which is
+      // oldest-first. Without this they land on the last page and the
+      // test depends on how much else happens to be pending.
+      const { error: upErr } = await admin
+        .from("profiles")
+        .update({
+          first_name: "Bulk",
+          surname: `Member${i}`,
+          course: "MEng Bulk",
+          grad_year: 2030,
+          status: "pending_review",
+          created_at: `2020-01-0${i + 1}T00:00:00Z`,
+        })
+        .eq("id", data.user!.id);
+      if (upErr) throw new Error(`bulk seed profile failed: ${upErr.message}`);
+    }
+  });
+
+  test.afterAll(async () => {
+    const admin = service();
+    await admin.from("outbound_email").delete().in("to_address", [0, 1, 2, 3].map(emailOf));
+    await admin.from("admin_actions").delete().in("target_id", ids);
+    // The rejected two are already gone — reject_user is a full delete —
+    // so this tolerates a miss rather than failing the run on it.
+    await Promise.all(ids.map((id) => admin.auth.admin.deleteUser(id).catch(() => {})));
+  });
+
+  /** The checkbox belongs to the row whose card carries this member's name. */
+  const rowFor = (page: import("@playwright/test").Page, surname: string) =>
+    page.locator("div.flex.items-start.gap-3").filter({ hasText: surname });
+
+  test("approving a selection updates every one and queues every email", async ({ page }) => {
+    await page.goto("/admin/users");
+
+    await rowFor(page, "Member0").getByRole("checkbox").check();
+    await rowFor(page, "Member1").getByRole("checkbox").check();
+
+    await page.getByRole("button", { name: "Approve 2" }).click();
+    // Generous: the pre-refactor path is six sequential round trips per
+    // member, and this assertion is about correctness, not speed.
+    await expect(page.getByText("2 profiles updated.")).toBeVisible({ timeout: 30_000 });
+
+    const admin = service();
+    const { data: profiles } = await admin
+      .from("profiles")
+      .select("id, status")
+      .in("id", [ids[0], ids[1]]);
+    expect(profiles?.map((p) => p.status).sort()).toEqual(["approved", "approved"]);
+
+    const { data: mail } = await admin
+      .from("outbound_email")
+      .select("to_address, subject")
+      .in("to_address", [emailOf(0), emailOf(1)]);
+    expect(mail).toHaveLength(2);
+    for (const m of mail ?? []) expect(m.subject).toContain("welcome to Foundry");
+  });
+
+  // reject_user is a FULL DELETE, not a status flip: it cascades
+  // auth.users and keeps only an admin_actions row, whose `notes` is the
+  // reason. That is the only place the reason survives — profiles has no
+  // rejected_reason column, and the profile row itself is gone.
+  test("rejecting a selection deletes them and records the reason", async ({ page }) => {
+    const reason = "Not an Imperial affiliate";
+    await page.goto("/admin/users");
+
+    await rowFor(page, "Member2").getByRole("checkbox").check();
+    await rowFor(page, "Member3").getByRole("checkbox").check();
+
+    await page.getByRole("button", { name: "Reject\u2026" }).click();
+    await page.getByLabel("Rejection reason").fill(reason);
+    await page.getByRole("button", { name: "Reject 2" }).click();
+    await expect(page.getByText("2 profiles updated.")).toBeVisible({ timeout: 30_000 });
+
+    const admin = service();
+    const { data: profiles, error } = await admin
+      .from("profiles")
+      .select("id")
+      .in("id", [ids[2], ids[3]]);
+    expect(error).toBeNull();
+    expect(profiles).toEqual([]);
+
+    const { data: audit } = await admin
+      .from("admin_actions")
+      .select("target_id, notes")
+      .eq("action", "reject_user")
+      .in("target_id", [ids[2], ids[3]]);
+    expect(audit).toHaveLength(2);
+    for (const a of audit ?? []) expect(a.notes).toBe(reason);
+
+    const { data: mail } = await admin
+      .from("outbound_email")
+      .select("to_address, subject")
+      .in("to_address", [emailOf(2), emailOf(3)]);
+    expect(mail).toHaveLength(2);
+    for (const m of mail ?? []) expect(m.subject).toContain("Your Foundry application");
+  });
+});
