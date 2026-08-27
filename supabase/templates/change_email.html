@@ -3,27 +3,41 @@
   Used by updateUser({ email }) from account settings.
   Suggested subject: Confirm your new Foundry email
 
-  Code-only: no link, so Microsoft 365 Safe Links has no URL to pre-fetch and
-  burn — same reason as confirm_signup.html and magic_link.html.
+  No auth link, so Microsoft 365 Safe Links has no single-use URL to pre-fetch
+  and burn — same reason as confirm_signup.html and magic_link.html. The
+  contact-form link at the bottom is an ordinary page and carries no token, so
+  pre-fetching it costs nothing.
 
-  SENT TO BOTH MAILBOXES, BUT ONLY ONE CODE WORKS. With "Secure email change"
-  enabled (Auth → Providers → Email), Supabase sends this same body to the
-  CURRENT address and the NEW one, each with its own code. Measured against a
-  local stack: only the code delivered to the CURRENT address can be verified,
-  and verifying it applies the change outright. The code sent to the new
-  address is rejected. There is no both-must-confirm step in the OTP flow,
-  whatever the setting's name suggests.
+  SENT TO BOTH MAILBOXES, AND BOTH CODES ARE NEEDED. With "Secure email
+  change" enabled (Auth → Providers → Email), Supabase sends this same body to
+  the CURRENT address and to the NEW one, each carrying its own code.
+  Measured against a local stack configured to match the hosted project:
 
-  That is the right way round for security — the code that authorises the move
-  goes to the mailbox the account already has, so a stolen session cannot
-  complete a change on its own — but it means the copy must not tell the
-  reader at the new address to enter their code. It cannot work.
+    POST /verify {email: <current>, token: <old-inbox code>}
+      -> 200 {"msg":"Confirmation link accepted. Please proceed to confirm
+              link sent to the other email"} — the address has NOT moved yet
+    POST /verify {email: <new>, token: <new-inbox code>}
+      -> 200 with a session — the address moves here
 
-  The copy names both addresses so that whichever mailbox this lands in, the
-  reader can see exactly what is being changed and to what.
+  An earlier version of this file claimed only the current-address code worked
+  and told the reader at the new address not to bother. That was measured on a
+  stack with enable_confirmations off, which turns the handshake off entirely,
+  and it was wrong. Whichever mailbox this lands in, the code in it is needed.
 
-  Variables: {{ .Token }} = the 6-digit code for THIS recipient.
-             {{ .Email }} = the current address. {{ .NewEmail }} = the new one.
+  NO ADDRESSES ARE PRINTED, deliberately. {{ .Email }} and {{ .NewEmail }} are
+  both available and this template used to show both, on the reasoning that at
+  the old address it doubles as the account-takeover warning — "your account is
+  moving to X" is the one place a member would notice a redirect they did not
+  ask for. That was weighed against putting a second address in an inbox for
+  the lifetime of the mailbox, in a message that gets forwarded, quoted in
+  support threads and synced to whatever the member's provider syncs to, and
+  the data-protection call went the other way: the account this lands in is
+  identified by the fact that it landed there, so neither address needs
+  restating. The takeover warning is carried by the closing paragraph instead,
+  which is what a reader acts on either way.
+
+  Variables: {{ .Token }} = the 6-digit code for THIS recipient. {{ .Email }}
+             and {{ .NewEmail }} exist but are intentionally unused.
 
   The closing line is deliberately stronger than the "safely ignore" used in
   the other templates: an unrequested email change is an account-takeover
@@ -48,30 +62,14 @@
             <h1 style="margin:0 0 12px 0;font-size:19px;font-weight:600;color:#1a1a17;">Confirm your email change</h1>
             <p style="margin:0;font-size:14px;line-height:1.6;color:#55534c;">
               Someone asked to change the email address on this Foundry account.
-              Enter the code below to confirm it. It expires in 30 minutes.
+              A code has gone to the old address and another to the new one, and
+              both have to be entered to complete the change. Enter the code
+              below on your settings page. It expires in 30 minutes.
             </p>
           </td>
         </tr>
         <tr>
-          <td style="padding:20px 36px 0 36px;">
-            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#f8f7f3" style="background:#f8f7f3;border:1px solid #e6e3da;border-radius:10px;">
-              <tr>
-                <td style="padding:12px 16px 4px 16px;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#8a887f;">Current</td>
-              </tr>
-              <tr>
-                <td style="padding:0 16px 10px 16px;font-size:13px;color:#1a1a17;word-break:break-all;">{{ .Email }}</td>
-              </tr>
-              <tr>
-                <td style="padding:0 16px 4px 16px;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#8a887f;border-top:1px solid #e6e3da;padding-top:10px;">New</td>
-              </tr>
-              <tr>
-                <td style="padding:0 16px 14px 16px;font-size:13px;font-weight:600;color:#1a1a17;word-break:break-all;">{{ .NewEmail }}</td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:20px 36px 8px 36px;">
+          <td style="padding:24px 36px 8px 36px;">
             <div style="background:#faf6ea;border:1px solid #e7d9ad;border-radius:12px;padding:20px;text-align:center;font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;font-size:32px;font-weight:700;letter-spacing:0.3em;color:#1a1a17;">
               {{ .Token }}
             </div>
@@ -80,10 +78,9 @@
         <tr>
           <td style="padding:8px 36px 0 36px;">
             <p style="margin:0;font-size:12px;line-height:1.6;color:#8a887f;">
-              This code only works from {{ .Email }}, the address the account
-              uses now. If you are reading this at {{ .NewEmail }}, it is a
-              heads-up that the account is moving here &mdash; the code you need
-              is in the other inbox.
+              This is one of two codes. The other one has been sent to the
+              account&rsquo;s other address; the change only completes once both
+              have been entered.
             </p>
           </td>
         </tr>
@@ -91,10 +88,10 @@
           <td style="padding:20px 36px 32px 36px;">
             <p style="margin:0;font-size:12px;line-height:1.6;color:#8a887f;">
               <strong style="color:#55534c;">Didn&rsquo;t request this?</strong>
-              Don&rsquo;t enter the code. Sign in and change your password
-              straight away, then email
-              <a href="mailto:contact@imperialentrepreneurs.com" style="color:#b08d2f;">contact@imperialentrepreneurs.com</a>
-              &mdash; someone may have access to your account.
+              Don&rsquo;t enter either code. Someone may have access to your
+              account &mdash; sign in and change your password straight away,
+              then raise it with us through the
+              <a href="{{ .SiteURL }}/contact" style="color:#b08d2f;">contact form</a>.
             </p>
           </td>
         </tr>
