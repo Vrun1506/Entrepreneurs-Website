@@ -23,6 +23,11 @@ graphify-out/
 # Playwright MCP debug artifacts (console logs + page snapshots)
 .playwright-mcp/
 
+# VS Code Counter: timestamped line-count reports, one directory per run.
+# Generated output about the code rather than code, and it accumulates a
+# new directory every time the extension is run.
+.VSCodeCounter/
+
 # Supabase: track migrations + tests (the security model), ignore
 # CLI-local and secret artifacts only.
 supabase/.branches/
