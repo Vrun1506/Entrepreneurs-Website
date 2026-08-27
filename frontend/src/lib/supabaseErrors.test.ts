@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { describeSupabaseError } from "./supabaseErrors";
 
 describe("describeSupabaseError", () => {
@@ -79,7 +79,36 @@ describe("describeSupabaseError", () => {
     expect(describeSupabaseError({ message: "Failed to fetch" })).toMatch(/Network error/i);
   });
 
-  it("falls back to the raw message on an unknown code", () => {
-    expect(describeSupabaseError({ code: "99999", message: "weird thing" })).toBe("weird thing");
+  it("does NOT leak an unmapped database message to the user", () => {
+    // The whole point: constraint names, column names and, on a unique
+    // violation, the conflicting value used to arrive in the UI verbatim.
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const out = describeSupabaseError({
+      code: "99999",
+      message: 'duplicate key value violates unique constraint "profiles_signup_email_key" DETAIL: Key (signup_email)=(someone@imperial.ac.uk) already exists.',
+    });
+    expect(out).toBe("Something went wrong. Please try again.");
+    expect(out).not.toMatch(/imperial\.ac\.uk|constraint|Key \(/);
+    // ...but the diagnostic is still recorded for whoever is on call.
+    expect(spy).toHaveBeenCalledWith(
+      "Unmapped database error surfaced to a user:",
+      expect.objectContaining({ code: "99999" }),
+    );
+    spy.mockRestore();
+  });
+
+  it("still passes through the messages our own RPCs write for the user", () => {
+    // 42501 raised by a SECURITY DEFINER function with a human message is
+    // the one case where the server's wording is the useful wording.
+    expect(
+      describeSupabaseError({ code: "42501", message: "Only pending listings can be edited" }),
+    ).toBe("Only pending listings can be edited");
+    // Postgres's own RLS wording is not.
+    expect(
+      describeSupabaseError({
+        code: "42501",
+        message: "new row violates row-level security policy for table \"profiles\"",
+      }),
+    ).toBe("You don't have permission to do that.");
   });
 });
