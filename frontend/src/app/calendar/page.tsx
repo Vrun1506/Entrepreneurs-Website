@@ -1,4 +1,5 @@
 import AppNav from "@/components/AppNav";
+import { reportIfCapped } from "@/lib/supabase/rowCap";
 import { requireApprovedUser } from "@/lib/auth/guard";
 import CalendarClient, { type CalItem } from "./CalendarClient";
 
@@ -34,7 +35,7 @@ export default async function CalendarPage() {
     return clean(text) ? `${t} · ${text!.trim()}` : t;
   };
 
-  const activityItems: CalItem[] = ((activityRes.data ?? []) as ActivityRow[])
+  const activityItems: CalItem[] = (reportIfCapped("get_my_activity", activityRes.data ?? []) as ActivityRow[])
     .filter((r) => r.occurs_at != null)
     .map((r) => ({
       listingKind: r.listing_kind, listingId: r.listing_id,

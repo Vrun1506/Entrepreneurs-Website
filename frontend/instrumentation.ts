@@ -51,8 +51,12 @@ function assertProductionAbuseControls() {
 // Upstash database when it has none of its own. That works, but the two then
 // share one command quota — and the `submit` rate-limit bucket fails CLOSED,
 // so cache traffic exhausting the quota would start refusing submissions.
-// lib/cache.ts backs off after repeated failures to protect the limiter's
-// remaining budget, but the right fix is a separate database.
+//
+// Splitting them needs a second Upstash database, which the free tier does
+// not allow (one database, 500K commands a month). So this is a warning about
+// a state the project may deliberately be sitting in, not a misconfiguration
+// — it stays at warn level, and it names the quota to watch rather than only
+// the fix.
 function warnIfCacheSharesRateLimitDb() {
   if (process.env.NODE_ENV !== "production") return;
   if (process.env.VERCEL_ENV && process.env.VERCEL_ENV !== "production") return;
@@ -64,8 +68,10 @@ function warnIfCacheSharesRateLimitDb() {
   console.warn(
     "[startup] The response cache is sharing the rate limiter's Upstash database. " +
       "They draw on one command quota, and the `submit` rate-limit bucket fails CLOSED — " +
-      "so exhausting it with cache traffic would start refusing submissions. " +
-      "Set UPSTASH_CACHE_REDIS_REST_URL / UPSTASH_CACHE_REDIS_REST_TOKEN to separate them.",
+      "so exhausting it with cache traffic would start refusing submissions and contact " +
+      "messages. Watch the command count in the Upstash console; separating them means a " +
+      "second database (pay-as-you-go — the free tier allows one) and setting " +
+      "UPSTASH_CACHE_REDIS_REST_URL / UPSTASH_CACHE_REDIS_REST_TOKEN.",
   );
 }
 

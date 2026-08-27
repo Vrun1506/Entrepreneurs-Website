@@ -2,6 +2,15 @@
 
 import { useMemo, useState } from "react";
 import { Dialog, closeDialog } from "@/components/ui/Dialog";
+import {
+  dayKey,
+  londonDayKey,
+  formatDayKeyLong,
+  formatDateLong,
+  formatDateTimeLong,
+  formatMonthYear,
+  formatTime,
+} from "@/lib/dates";
 
 type ListingKind = "opportunity" | "event" | "vc_grant";
 type Role = "applied" | "going" | "organising" | "posted";
@@ -123,8 +132,10 @@ function ListView({ items, onSelect }: { items: CalItem[]; onSelect: (i: CalItem
   const groups = useMemo(() => {
     const map = new Map<string, CalItem[]>();
     for (const i of items) {
-      const d = new Date(i.occursAt);
-      const key = d.toISOString().slice(0, 10); // YYYY-MM-DD
+      // London calendar day, not UTC. toISOString() bucketed a 00:30 London
+      // event under the previous day, so the row sat under a heading it
+      // contradicted.
+      const key = londonDayKey(i.occursAt);
       const list = map.get(key) ?? [];
       list.push(i);
       map.set(key, list);
@@ -135,8 +146,7 @@ function ListView({ items, onSelect }: { items: CalItem[]; onSelect: (i: CalItem
   return (
     <div className="space-y-6">
       {groups.map((g) => {
-        const d = new Date(`${g.dateKey}T00:00:00`);
-        const dateLabel = d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+        const dateLabel = formatDayKeyLong(g.dateKey);
         return (
           <section key={g.dateKey}>
             <h2 className="text-[0.85rem] text-gold-light mb-2">{dateLabel}</h2>
@@ -151,10 +161,7 @@ function ListView({ items, onSelect }: { items: CalItem[]; onSelect: (i: CalItem
 }
 
 function ListRow({ item, onSelect }: { item: CalItem; onSelect: (i: CalItem) => void }) {
-  const d = new Date(item.occursAt);
-  const timeLabel = item.listingKind === "event"
-    ? d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })
-    : "Deadline";
+  const timeLabel = item.listingKind === "event" ? formatTime(item.occursAt) : "Deadline";
   return (
     <button
       type="button"
@@ -188,10 +195,13 @@ function ListRow({ item, onSelect }: { item: CalItem; onSelect: (i: CalItem) => 
 // month nav stays inside the same client component — no router round-
 // trips needed since the items array is already paginated client-side.
 function MonthView({ items, onSelect }: { items: CalItem[]; onSelect: (i: CalItem) => void }) {
-  const earliest = new Date(items[0].occursAt);
-  const [cursor, setCursor] = useState(new Date(earliest.getFullYear(), earliest.getMonth(), 1));
+  // The cursor is a London year/month, not a Date. A Date here would be a
+  // local-midnight one, and local midnight on the 1st is the previous month
+  // in any zone ahead of London — so the heading and the grid would name
+  // different months on a visitor's machine in Sydney.
+  const [cursor, setCursor] = useState<MonthCursor>(() => monthOf(items[0].occursAt));
 
-  const monthLabel = cursor.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+  const monthLabel = formatMonthYear(cursor.year, cursor.month);
   const grid = useMemo(() => buildMonthGrid(cursor, items), [cursor, items]);
 
   return (
@@ -199,7 +209,7 @@ function MonthView({ items, onSelect }: { items: CalItem[]; onSelect: (i: CalIte
       <div className="flex items-center gap-2 mb-4">
         <button
           type="button"
-          onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))}
+          onClick={() => setCursor((c) => shiftMonth(c, -1))}
           className="px-3 py-1.5 rounded-lg bg-transparent border border-border text-text-secondary text-[0.8rem] cursor-pointer hover:border-gold/40 hover:text-gold-light"
           aria-label="Previous month"
         >
@@ -208,7 +218,7 @@ function MonthView({ items, onSelect }: { items: CalItem[]; onSelect: (i: CalIte
         <div className="px-3 py-1.5 text-[0.9rem] text-text-primary">{monthLabel}</div>
         <button
           type="button"
-          onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))}
+          onClick={() => setCursor((c) => shiftMonth(c, 1))}
           className="px-3 py-1.5 rounded-lg bg-transparent border border-border text-text-secondary text-[0.8rem] cursor-pointer hover:border-gold/40 hover:text-gold-light"
           aria-label="Next month"
         >
@@ -249,10 +259,9 @@ function MonthView({ items, onSelect }: { items: CalItem[]; onSelect: (i: CalIte
 
 // ─── Detail dialog ─────────────────────────────────────────────────
 function DetailDialog({ item, onClose }: { item: CalItem; onClose: () => void }) {
-  const d = new Date(item.occursAt);
   const when = item.listingKind === "event"
-    ? d.toLocaleString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })
-    : `Deadline · ${d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}`;
+    ? formatDateTimeLong(item.occursAt)
+    : `Deadline · ${formatDateLong(item.occursAt)}`;
 
   return (
     <Dialog
@@ -319,19 +328,35 @@ function DetailDialog({ item, onClose }: { item: CalItem; onClose: () => void })
 
 type MonthCell = { day: number; inMonth: boolean; items: CalItem[] };
 
-function buildMonthGrid(cursor: Date, items: CalItem[]): MonthCell[] {
-  const year  = cursor.getFullYear();
-  const month = cursor.getMonth();
-  const first = new Date(year, month, 1);
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  // ISO week starts Monday. JS getDay: 0=Sun,...6=Sat. Convert to 0=Mon.
-  const startWeekday = (first.getDay() + 6) % 7;
+/** A calendar month. `month` is 1-12, matching the day keys in lib/dates. */
+type MonthCursor = { year: number; month: number };
 
-  // Items keyed by YYYY-MM-DD in local time.
+/** The London month an instant falls in. */
+function monthOf(occursAt: string): MonthCursor {
+  const [year, month] = londonDayKey(occursAt).split("-").map(Number);
+  return { year, month };
+}
+
+/** Months are counted, not date-arithmetic'd, so December can't wrap wrong. */
+function shiftMonth({ year, month }: MonthCursor, delta: number): MonthCursor {
+  const total = year * 12 + (month - 1) + delta;
+  return { year: Math.floor(total / 12), month: (total % 12) + 1 };
+}
+
+function buildMonthGrid(cursor: MonthCursor, items: CalItem[]): MonthCell[] {
+  const { year, month } = cursor;
+  // Pure calendar arithmetic, done in UTC so no runtime zone can shift it.
+  // Day 0 of a month is the last day of the one before it.
+  const daysInMonth     = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const prevMonthDays   = new Date(Date.UTC(year, month - 1, 0)).getUTCDate();
+  // ISO week starts Monday. getUTCDay: 0=Sun,...6=Sat. Convert to 0=Mon.
+  const startWeekday    = (new Date(Date.UTC(year, month - 1, 1)).getUTCDay() + 6) % 7;
+
+  // Keyed by London calendar day — the same key the list view groups on, so
+  // the two views cannot disagree about which day a row belongs to.
   const byDate = new Map<string, CalItem[]>();
   for (const i of items) {
-    const d = new Date(i.occursAt);
-    const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    const key = londonDayKey(i.occursAt);
     const list = byDate.get(key) ?? [];
     list.push(i);
     byDate.set(key, list);
@@ -339,12 +364,10 @@ function buildMonthGrid(cursor: Date, items: CalItem[]): MonthCell[] {
 
   const cells: MonthCell[] = [];
   for (let i = 0; i < startWeekday; i++) {
-    const d = new Date(year, month, -(startWeekday - 1 - i));
-    cells.push({ day: d.getDate(), inMonth: false, items: [] });
+    cells.push({ day: prevMonthDays - startWeekday + 1 + i, inMonth: false, items: [] });
   }
   for (let d = 1; d <= daysInMonth; d++) {
-    const key = `${year}-${month}-${d}`;
-    cells.push({ day: d, inMonth: true, items: byDate.get(key) ?? [] });
+    cells.push({ day: d, inMonth: true, items: byDate.get(dayKey(year, month, d)) ?? [] });
   }
   // Fill out to a multiple of 7.
   while (cells.length % 7 !== 0) {
