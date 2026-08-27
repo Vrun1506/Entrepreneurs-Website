@@ -223,7 +223,13 @@ enable_signup = true
 # addresses. If disabled, only the new email is required to confirm.
 double_confirm_changes = true
 # If enabled, users need to confirm their email address before signing in.
-enable_confirmations = false
+# ON in the hosted project. The local default is off, and off is not a
+# lenient version of on for the email-change flow — it is a different flow:
+# GoTrue skips the double-confirmation handshake entirely when autoconfirm
+# is set, so one code completes a change locally and two are required in
+# production. That divergence is what let #46 ship broken through a green
+# suite. Same argument as secure_password_change below.
+enable_confirmations = true
 # If enabled, users will need to reauthenticate or have logged in recently to change their password.
 # Mirrors the hosted project, where this is on. The local default is off,
 # and a settings form that only ever runs against the lenient setting is a

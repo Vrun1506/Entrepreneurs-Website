@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
@@ -9,34 +10,54 @@ import { isImperialEmail } from "@/lib/auth/imperialEmail";
 // ════════════════════════════════════════════════════════════════════
 // Change your email address.
 //
-// HOW GOTRUE ACTUALLY BEHAVES HERE, measured against the local stack
-// rather than assumed, because the documented behaviour and the observed
-// behaviour differ for this flow.
+// HOW GOTRUE ACTUALLY BEHAVES HERE, measured against a local stack whose
+// auth config matches the hosted project. The previous version of this
+// file described the opposite behaviour and shipped broken, so the
+// measurement is recorded here rather than summarised.
 //
-// With double_confirm_changes on, updateUser({ email }) writes the
-// pending address to email_change and sends a 6-digit code to BOTH
-// mailboxes. Only the code sent to the CURRENT address is usable:
-// verifying it applies the change immediately and clears both tokens.
-// The code sent to the new address is rejected — with either address in
-// the request — so there is no second step to ask for. A form that asked
-// for both codes could never be completed.
+// updateUser({ email }) writes the pending address to email_change and
+// sends a 6-digit code to BOTH mailboxes. With "Secure email change" on
+// (it is, in the hosted project) each code confirms one side and BOTH are
+// required:
 //
-// WHY THAT IS STILL SAFE, and why there is no password step. The code
-// that authorises the change goes to the mailbox the account already
-// has. Someone on a stolen session can start a change to an address they
-// control, but the code they receive there does nothing; they need the
-// existing inbox. That is the reauthentication. A password would be a
-// second lock on the same door, and it would have to be skipped for
-// Google-only accounts — which have no password identity — i.e. skipped
-// exactly where it was meant to help.
+//   POST /verify { email: <current>, token: <old-inbox code> }
+//     -> 200 {"code":"200","msg":"Confirmation link accepted. Please
+//             proceed to confirm link sent to the other email"}
+//        no user, no session. email_change_confirm_status 0 -> 1.
+//        THE ADDRESS HAS NOT CHANGED.
 //
-// WHAT THE FLOW DOES NOT PROVE is that the member can read the NEW
-// mailbox, because the code sent there cannot be verified. A typo would
-// therefore move the account to an address nobody can receive mail at.
-// Hence the confirm field: it catches the mistake this flow cannot.
+//   POST /verify { email: <new>, token: <new-inbox code> }
+//     -> 200 with a user and a session. auth.users.email now moves.
+//
+// TWO CONSEQUENCES, both of which the first version of this form got
+// wrong.
+//
+// The new-address code is NOT unverifiable. It has to be sent addressed
+// to the NEW address, because GoTrue looks that token up by email_change
+// while the current-address token is looked up by email. Sending it with
+// the current address fails, which is what "it cannot be verified" was
+// mistakenly concluded from.
+//
+// A 200 IS NOT SUCCESS. The single-confirmation response is a 200, so
+// supabase-js returns error: null and the old code treated that as a
+// completed change — it showed a success screen while the account had not
+// moved, and the member was then told to sign in with an address that did
+// not exist. Nothing below reports success on the absence of an error;
+// it reports success when the returned user actually carries the new
+// address.
+//
+// WHY BOTH INBOXES IS THE RIGHT SHAPE. The old-address code is what stops
+// someone on a stolen session moving the account to an address they
+// control. The new-address code is what stops a typo moving the account
+// to an address nobody can read. Neither alone covers both.
+//
+// There is no password step: Google accounts have no password identity,
+// so it would have to be skipped exactly where it was meant to help. The
+// old inbox is the reauthentication.
 //
 // The domain check runs before updateUser rather than relying on the DB
-// trigger, because the trigger fires on the final write. See
+// trigger, because the trigger fires on the final write — by which point
+// the member has already been asked for two codes. See
 // lib/auth/imperialEmail.ts.
 // ════════════════════════════════════════════════════════════════════
 
@@ -55,7 +76,13 @@ export default function EmailChangeForm({
   const [stage, setStage] = useState<Stage>("idle");
   const [newEmail, setNewEmail] = useState("");
   const [confirmEmail, setConfirmEmail] = useState("");
-  const [code, setCode] = useState("");
+  const [codeCurrent, setCodeCurrent] = useState("");
+  const [codeNew, setCodeNew] = useState("");
+  // A verified code is spent. If the second one then fails, resubmitting
+  // the first would be rejected as invalid and the member could never
+  // finish. Remembering which side has landed keeps a retry to the code
+  // that is actually outstanding.
+  const [currentConfirmed, setCurrentConfirmed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -65,6 +92,13 @@ export default function EmailChangeForm({
 
   const pending = newEmail.trim().toLowerCase();
 
+  const finish = () => {
+    setStage("done");
+    setCodeCurrent("");
+    setCodeNew("");
+    router.refresh();
+  };
+
   const handleRequest = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -73,6 +107,9 @@ export default function EmailChangeForm({
       setError("Please enter a valid email address.");
       return;
     }
+    // Redundant against the code we send to the new address — a typo cannot
+    // complete the change either way — but it stops the code being posted to
+    // a stranger's inbox in the first place.
     if (pending !== confirmEmail.trim().toLowerCase()) {
       setError("The two addresses don't match.");
       return;
@@ -93,6 +130,7 @@ export default function EmailChangeForm({
       setError(updateError.message);
       return;
     }
+    setCurrentConfirmed(false);
     setStage("codes");
   };
 
@@ -101,24 +139,49 @@ export default function EmailChangeForm({
     setError("");
     setIsLoading(true);
 
-    // The current address, not the new one: GoTrue looks the account up by
-    // the email in the request, and until the change lands no account has
-    // the new address.
-    const { error: verifyError } = await supabase.auth.verifyOtp({
-      email: currentEmail.trim().toLowerCase(),
-      token: code.trim(),
-      type: "email_change",
-    });
-    setIsLoading(false);
-    if (verifyError) {
-      setError(friendlyCodeError(verifyError.message));
-      return;
-    }
+    try {
+      if (!currentConfirmed) {
+        // Addressed to the CURRENT address: GoTrue finds this token by
+        // auth.users.email.
+        const { data, error: err } = await supabase.auth.verifyOtp({
+          email: currentEmail.trim().toLowerCase(),
+          token: codeCurrent.trim(),
+          type: "email_change",
+        });
+        if (err) {
+          setError(friendlyCodeError(err.message, "old"));
+          return;
+        }
+        // A project with "Secure email change" turned off applies the change
+        // on this one code and hands back a session, leaving nothing to
+        // confirm. Checking the returned address rather than assuming the
+        // setting is what keeps this form correct either way.
+        if (data.user?.email?.toLowerCase() === pending) {
+          finish();
+          return;
+        }
+        setCurrentConfirmed(true);
+      }
 
-    setStage("done");
-    setCode("");
-    // The header renders the signed-in address, so it is now stale.
-    router.refresh();
+      // Addressed to the NEW address: GoTrue finds this token by
+      // auth.users.email_change, so the current address will not match it.
+      const { data, error: err } = await supabase.auth.verifyOtp({
+        email: pending,
+        token: codeNew.trim(),
+        type: "email_change",
+      });
+      if (err) {
+        setError(friendlyCodeError(err.message, "new"));
+        return;
+      }
+      if (data.user?.email?.toLowerCase() !== pending) {
+        setError("We couldn't complete the change. Start again to get a new pair of codes.");
+        return;
+      }
+      finish();
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (stage === "done") {
@@ -126,7 +189,7 @@ export default function EmailChangeForm({
       <div className="space-y-3 rounded-2xl bg-bg-card border border-border-subtle p-8">
         <div className="text-[0.95rem] font-medium text-text-primary">Email address</div>
         <div className="px-4 py-3 rounded-lg bg-gold-muted border border-gold/30 text-[0.8rem] text-gold-light leading-relaxed">
-          Your email address is now <span className="font-medium">{pending}</span>. Use it next time you sign in.
+          Your email address has been changed. Use the new address next time you sign in.
         </div>
       </div>
     );
@@ -142,14 +205,12 @@ export default function EmailChangeForm({
         <p className="text-[0.8rem] text-text-muted leading-relaxed">
           {stage === "idle" ? (
             <>
-              We&apos;ll send a code to your old email address to confirm it&apos;s you. Check the new
-              address carefully — it&apos;s where you&apos;ll sign in afterwards.
+              We&apos;ll send a code to your old address and another to the new one. Both are needed:
+              the first confirms it&apos;s you, the second confirms you can read the new inbox.
               {role === "student" && " Student accounts must stay on an Imperial address."}
             </>
           ) : (
-            <>
-              Enter the code we sent to your old email address. It expires in 30 minutes.
-            </>
+            <>Enter both codes to complete the change. They expire in 30 minutes.</>
           )}
         </p>
       </div>
@@ -191,29 +252,61 @@ export default function EmailChangeForm({
           />
         </div>
       ) : (
-        <div>
-          <label htmlFor="email-change-code" className="block text-[0.75rem] text-text-muted mb-1.5">
-            Code sent to your old email address
-          </label>
-          <input
-            id="email-change-code"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            maxLength={6}
-            value={code}
-            onChange={(ev) => setCode(ev.target.value.replace(/\D/g, ""))}
-            className={codeCls}
-            placeholder="000000"
-            required
-          />
-          <p className="mt-2 text-[0.75rem] text-text-muted leading-relaxed">
-            Changing to <span className="text-text-secondary">{pending}</span>.
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="code-current" className="block text-[0.75rem] text-text-muted mb-1.5">
+              Code sent to your old email address
+            </label>
+            <input
+              id="code-current"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              value={codeCurrent}
+              onChange={(ev) => setCodeCurrent(ev.target.value.replace(/\D/g, ""))}
+              className={codeCls}
+              placeholder="000000"
+              disabled={currentConfirmed}
+              required={!currentConfirmed}
+            />
+            {currentConfirmed && (
+              <p className="mt-2 text-[0.75rem] text-gold-light">
+                Confirmed. Only the code sent to your new address is still needed.
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label htmlFor="code-new" className="block text-[0.75rem] text-text-muted mb-1.5">
+              Code sent to your new email address
+            </label>
+            <input
+              id="code-new"
+              inputMode="numeric"
+              autoComplete="off"
+              maxLength={6}
+              value={codeNew}
+              onChange={(ev) => setCodeNew(ev.target.value.replace(/\D/g, ""))}
+              className={codeCls}
+              placeholder="000000"
+              required
+            />
+          </div>
+
+          {/* An unrequested email change is an account-takeover signal, so the
+              way out has to be on the screen at the moment it is noticed. */}
+          <p className="text-[0.75rem] text-text-muted leading-relaxed">
+            Didn&apos;t ask for this? Don&apos;t enter the codes —{" "}
+            <Link href="/contact" className="text-gold hover:text-gold-light">
+              contact the team
+            </Link>{" "}
+            and we&apos;ll secure the account.
           </p>
         </div>
       )}
 
       <Button type="submit" loading={isLoading} variant="primary" size="md">
-        {stage === "idle" ? "Send code" : "Confirm change"}
+        {stage === "idle" ? "Send codes" : "Confirm change"}
       </Button>
     </form>
   );
@@ -226,15 +319,18 @@ export default function EmailChangeForm({
  * "Token has expired or is invalid" — so splitting them into separate
  * messages means guessing, and guessing "expired" tells someone who just
  * mistyped to start over when they only needed to retype. One message
- * that covers both is the honest version.
+ * that covers both is the honest version. `which` is named because two
+ * code fields are on screen and "that code is incorrect" no longer says
+ * which one to look at.
  */
-function friendlyCodeError(raw: string): string {
+function friendlyCodeError(raw: string, which: "old" | "new"): string {
   const e = raw.toLowerCase();
+  const field = which === "old" ? "old" : "new";
   if (e.includes("rate") || e.includes("too many")) {
     return "Too many attempts. Wait a moment and try again.";
   }
   if (e.includes("expired") || e.includes("invalid") || e.includes("token")) {
-    return "That code is incorrect or has expired. Check it, or start again to get a new one.";
+    return `The code for your ${field} email address is incorrect or has expired. Check it, or start again to get a new pair.`;
   }
-  return "We couldn't verify that code. Please try again.";
+  return `We couldn't verify the code for your ${field} email address. Please try again.`;
 }

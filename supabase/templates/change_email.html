@@ -3,24 +3,31 @@
   Used by updateUser({ email }) from account settings.
   Suggested subject: Confirm your new Foundry email
 
-  Code-only: no link, so Microsoft 365 Safe Links has no URL to pre-fetch and
-  burn — same reason as confirm_signup.html and magic_link.html.
+  No auth link, so Microsoft 365 Safe Links has no single-use URL to pre-fetch
+  and burn — same reason as confirm_signup.html and magic_link.html. The
+  contact-form link at the bottom is an ordinary page and carries no token, so
+  pre-fetching it costs nothing.
 
-  SENT TO BOTH MAILBOXES, BUT ONLY ONE CODE WORKS. With "Secure email change"
-  enabled (Auth → Providers → Email), Supabase sends this same body to the
-  CURRENT address and the NEW one, each with its own code. Measured against a
-  local stack: only the code delivered to the CURRENT address can be verified,
-  and verifying it applies the change outright. The code sent to the new
-  address is rejected. There is no both-must-confirm step in the OTP flow,
-  whatever the setting's name suggests.
+  SENT TO BOTH MAILBOXES, AND BOTH CODES ARE NEEDED. With "Secure email
+  change" enabled (Auth → Providers → Email), Supabase sends this same body to
+  the CURRENT address and to the NEW one, each carrying its own code.
+  Measured against a local stack configured to match the hosted project:
 
-  That is the right way round for security — the code that authorises the move
-  goes to the mailbox the account already has, so a stolen session cannot
-  complete a change on its own — but it means the copy must not tell the
-  reader at the new address to enter their code. It cannot work.
+    POST /verify {email: <current>, token: <old-inbox code>}
+      -> 200 {"msg":"Confirmation link accepted. Please proceed to confirm
+              link sent to the other email"} — the address has NOT moved yet
+    POST /verify {email: <new>, token: <new-inbox code>}
+      -> 200 with a session — the address moves here
+
+  An earlier version of this file claimed only the current-address code worked
+  and told the reader at the new address not to bother. That was measured on a
+  stack with enable_confirmations off, which turns the handshake off entirely,
+  and it was wrong. Whichever mailbox this lands in, the code in it is needed.
 
   The copy names both addresses so that whichever mailbox this lands in, the
-  reader can see exactly what is being changed and to what.
+  reader can see exactly what is being changed and to what. At the current
+  address that is the account-takeover warning: it is the only place the member
+  learns where their account is being moved to.
 
   Variables: {{ .Token }} = the 6-digit code for THIS recipient.
              {{ .Email }} = the current address. {{ .NewEmail }} = the new one.
@@ -48,7 +55,9 @@
             <h1 style="margin:0 0 12px 0;font-size:19px;font-weight:600;color:#1a1a17;">Confirm your email change</h1>
             <p style="margin:0;font-size:14px;line-height:1.6;color:#55534c;">
               Someone asked to change the email address on this Foundry account.
-              Enter the code below to confirm it. It expires in 30 minutes.
+              A code has gone to the old address and another to the new one, and
+              both have to be entered to complete the change. Enter the code
+              below on your settings page. It expires in 30 minutes.
             </p>
           </td>
         </tr>
@@ -80,10 +89,9 @@
         <tr>
           <td style="padding:8px 36px 0 36px;">
             <p style="margin:0;font-size:12px;line-height:1.6;color:#8a887f;">
-              This code only works from {{ .Email }}, the address the account
-              uses now. If you are reading this at {{ .NewEmail }}, it is a
-              heads-up that the account is moving here &mdash; the code you need
-              is in the other inbox.
+              This is one of two codes. The other one has been sent to the
+              account&rsquo;s other address; the change only completes once both
+              have been entered.
             </p>
           </td>
         </tr>
@@ -91,10 +99,10 @@
           <td style="padding:20px 36px 32px 36px;">
             <p style="margin:0;font-size:12px;line-height:1.6;color:#8a887f;">
               <strong style="color:#55534c;">Didn&rsquo;t request this?</strong>
-              Don&rsquo;t enter the code. Sign in and change your password
-              straight away, then email
-              <a href="mailto:contact@imperialentrepreneurs.com" style="color:#b08d2f;">contact@imperialentrepreneurs.com</a>
-              &mdash; someone may have access to your account.
+              Don&rsquo;t enter either code. Someone may have access to your
+              account &mdash; sign in and change your password straight away,
+              then raise it with us through the
+              <a href="{{ .SiteURL }}/contact" style="color:#b08d2f;">contact form</a>.
             </p>
           </td>
         </tr>
