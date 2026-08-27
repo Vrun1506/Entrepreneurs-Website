@@ -150,7 +150,7 @@ export default function EmailChangeForm({
           ) : (
             <>
               Enter the code we sent to <span className="text-text-secondary">{currentEmail}</span>. It
-              expires in an hour.
+              expires in 30 minutes.
             </>
           )}
         </p>
