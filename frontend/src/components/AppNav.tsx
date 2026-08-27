@@ -66,7 +66,7 @@ export default function AppNav({
           {isAdmin && (
             <Link
               href="/admin"
-              className="ml-2 px-4 py-1.5 rounded-full text-[0.8rem] text-gold no-underline transition-colors duration-150 border border-gold/30 hover:border-gold/60 hover:text-gold-light"
+              className="ml-2 px-4 py-1.5 rounded-full text-[0.8rem] text-gold no-underline transition-colors duration-150 bg-gold/[0.08] border border-gold/60 hover:bg-gold/[0.14] hover:text-gold-light"
             >
               ← Admin
             </Link>
@@ -81,7 +81,7 @@ export default function AppNav({
             onClick={() => setMobileOpen((v) => !v)}
             aria-label={mobileOpen ? "Close menu" : "Open menu"}
             aria-expanded={mobileOpen}
-            className="w-11 h-11 rounded-lg border border-border bg-transparent text-text-secondary cursor-pointer flex items-center justify-center transition-colors hover:border-gold/40 hover:text-text-primary"
+            className="w-11 h-11 rounded-lg bg-white/[0.05] border border-border-strong text-text-primary cursor-pointer flex items-center justify-center transition-colors hover:bg-white/[0.10] hover:border-gold/50"
           >
             {mobileOpen ? <CloseIcon /> : <MenuIcon />}
           </button>

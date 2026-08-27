@@ -79,7 +79,7 @@ export default function DeleteAccountSection({ email }: { email: string }) {
               type="button"
               onClick={() => { setOpen(false); setConfirmText(""); setError(""); }}
               disabled={isLoading}
-              className="px-4 py-2 rounded-lg bg-transparent border border-border text-text-muted text-[0.8rem] cursor-pointer transition-colors hover:text-text-primary disabled:opacity-50"
+              className="px-4 py-2 rounded-lg bg-white/[0.05] border border-border-strong text-text-primary text-[0.8rem] cursor-pointer transition-colors hover:bg-white/[0.10] disabled:opacity-50"
             >
               Cancel
             </button>

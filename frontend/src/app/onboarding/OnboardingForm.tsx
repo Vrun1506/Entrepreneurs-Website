@@ -205,7 +205,7 @@ export default function OnboardingForm({ role, firstName, surname, skills, secto
                   type="button"
                   onClick={handleBack}
                   disabled={isLoading}
-                  className="px-5 py-3 rounded-xl bg-white/[0.03] border border-border text-[0.85rem] text-text-secondary hover:border-border-strong hover:text-text-primary cursor-pointer transition-colors duration-150 disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="px-5 py-3 rounded-xl bg-white/[0.05] border border-border-strong text-text-primary text-[0.85rem] hover:bg-white/[0.10] cursor-pointer transition-colors duration-150 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   Back
                 </button>

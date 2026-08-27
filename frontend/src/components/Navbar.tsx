@@ -61,7 +61,7 @@ function HamburgerButton({ open, onClick }: { open: boolean; onClick: () => void
     <button
       onClick={onClick}
       aria-label="Toggle menu"
-      className="md:hidden flex flex-col gap-1 border border-border rounded-lg p-1.5 bg-transparent cursor-pointer"
+      className="md:hidden flex flex-col gap-1 border border-border-strong rounded-lg p-1.5 bg-white/[0.05] cursor-pointer"
     >
       <span className={`block w-[18px] h-px bg-text-secondary rounded transition-all duration-200 ${open ? "rotate-45 translate-x-0.5 translate-y-[5px]" : ""}`} />
       <span className={`block w-[18px] h-px bg-text-secondary rounded transition-all duration-200 ${open ? "opacity-0" : ""}`} />

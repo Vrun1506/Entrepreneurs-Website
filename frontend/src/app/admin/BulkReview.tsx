@@ -111,7 +111,7 @@ export function BulkReview<T>({ items, getId, renderCard, bulkApprove, bulkRejec
                   type="button"
                   disabled={pending}
                   onClick={() => setRejecting(true)}
-                  className="px-4 py-2 rounded-full bg-transparent border border-border text-text-secondary text-[0.8rem] cursor-pointer hover:border-[#ff6b6b]/50 hover:text-[#ff6b6b] disabled:opacity-60"
+                  className="px-4 py-2 rounded-full bg-white/[0.05] border border-border-strong text-text-secondary text-[0.8rem] cursor-pointer transition-colors hover:bg-[#ff4d4d]/10 hover:border-[#ff4d4d]/50 hover:text-[#ff6b6b] disabled:opacity-60"
                 >
                   Reject…
                 </button>

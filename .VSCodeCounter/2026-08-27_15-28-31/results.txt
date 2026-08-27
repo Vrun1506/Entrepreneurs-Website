@@ -1,0 +1,434 @@
+Date : 2026-08-27 15:28:31
+Directory : /Users/varunnayak/Downloads/EntrepreneursWebsite
+Total : 310 files,  31239 codes, 5082 comments, 4816 blanks, all 41137 lines
+
+Languages
++--------------------+------------+------------+------------+------------+------------+
+| language           | files      | code       | comment    | blank      | total      |
++--------------------+------------+------------+------------+------------+------------+
+| TypeScript JSX     |        106 |     10,789 |        850 |      1,184 |     12,823 |
+| TypeScript         |        109 |      7,312 |      2,126 |      1,081 |     10,519 |
+| MS SQL             |         57 |      6,241 |      1,868 |        797 |      8,906 |
+| YAML               |          7 |      5,644 |        102 |      1,448 |      7,194 |
+| Markdown           |         13 |        765 |          0 |        253 |      1,018 |
+| HTML               |          4 |        199 |         61 |          4 |        264 |
+| JavaScript         |          4 |         99 |         27 |         19 |        145 |
+| PostCSS            |          1 |         98 |         48 |         25 |        171 |
+| JSON               |          2 |         48 |          0 |          2 |         50 |
+| JSON with Comments |          1 |         34 |          0 |          1 |         35 |
+| XML                |          5 |          5 |          0 |          0 |          5 |
+| Python             |          1 |          5 |          0 |          2 |          7 |
++--------------------+------------+------------+------------+------------+------------+
+
+Directories
++---------------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                                                                            | files      | code       | comment    | blank      | total      |
++---------------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                                                                               |        310 |     31,239 |      5,082 |      4,816 |     41,137 |
+| . (Files)                                                                                                                       |          2 |          7 |          0 |          4 |         11 |
+| .github                                                                                                                         |          5 |        312 |         71 |         57 |        440 |
+| .github/workflows                                                                                                               |          5 |        312 |         71 |         57 |        440 |
+| backend                                                                                                                         |          1 |          5 |          0 |          2 |          7 |
+| docs                                                                                                                            |         10 |        735 |          0 |        235 |        970 |
+| docs (Files)                                                                                                                    |          3 |        272 |          0 |        115 |        387 |
+| docs/compliance                                                                                                                 |          7 |        463 |          0 |        120 |        583 |
+| frontend                                                                                                                        |        230 |     23,707 |      3,070 |      3,711 |     30,488 |
+| frontend (Files)                                                                                                                |         15 |      5,632 |        114 |      1,442 |      7,188 |
+| frontend/e2e                                                                                                                    |         12 |      1,061 |        319 |        197 |      1,577 |
+| frontend/public                                                                                                                 |          5 |          5 |          0 |          0 |          5 |
+| frontend/scripts                                                                                                                |          1 |         46 |         13 |          8 |         67 |
+| frontend/src                                                                                                                    |        196 |     16,962 |      2,620 |      2,063 |     21,645 |
+| frontend/src (Files)                                                                                                            |          1 |         10 |          3 |          3 |         16 |
+| frontend/src/app                                                                                                                |         99 |      9,484 |        825 |      1,125 |     11,434 |
+| frontend/src/app (Files)                                                                                                        |          8 |        462 |         89 |         62 |        613 |
+| frontend/src/app/admin                                                                                                          |         30 |      2,200 |         87 |        264 |      2,551 |
+| frontend/src/app/admin (Files)                                                                                                  |          5 |        296 |         11 |         35 |        342 |
+| frontend/src/app/admin/community                                                                                                |          3 |        390 |         16 |         45 |        451 |
+| frontend/src/app/admin/events                                                                                                   |          5 |        279 |          6 |         33 |        318 |
+| frontend/src/app/admin/events (Files)                                                                                           |          4 |        243 |          6 |         28 |        277 |
+| frontend/src/app/admin/events/new                                                                                               |          1 |         36 |          0 |          5 |         41 |
+| frontend/src/app/admin/graduates                                                                                                |          3 |        291 |         14 |         36 |        341 |
+| frontend/src/app/admin/opportunities                                                                                            |          5 |        331 |          6 |         38 |        375 |
+| frontend/src/app/admin/opportunities (Files)                                                                                    |          4 |        294 |          6 |         33 |        333 |
+| frontend/src/app/admin/opportunities/new                                                                                        |          1 |         37 |          0 |          5 |         42 |
+| frontend/src/app/admin/users                                                                                                    |          4 |        349 |         28 |         46 |        423 |
+| frontend/src/app/admin/vcs                                                                                                      |          5 |        264 |          6 |         31 |        301 |
+| frontend/src/app/admin/vcs (Files)                                                                                              |          4 |        239 |          6 |         28 |        273 |
+| frontend/src/app/admin/vcs/new                                                                                                  |          1 |         25 |          0 |          3 |         28 |
+| frontend/src/app/api                                                                                                            |          2 |        232 |         55 |         33 |        320 |
+| frontend/src/app/api/cron                                                                                                       |          2 |        232 |         55 |         33 |        320 |
+| frontend/src/app/api/cron/drain-email                                                                                           |          2 |        232 |         55 |         33 |        320 |
+| frontend/src/app/auth                                                                                                           |          2 |         84 |         32 |         17 |        133 |
+| frontend/src/app/auth/callback                                                                                                  |          1 |         44 |         16 |          9 |         69 |
+| frontend/src/app/auth/confirm                                                                                                   |          1 |         40 |         16 |          8 |         64 |
+| frontend/src/app/calendar                                                                                                       |          3 |        427 |         48 |         51 |        526 |
+| frontend/src/app/community                                                                                                      |          3 |        469 |         58 |         47 |        574 |
+| frontend/src/app/contact                                                                                                        |          3 |        272 |         30 |         29 |        331 |
+| frontend/src/app/cookies                                                                                                        |          1 |        133 |          4 |         15 |        152 |
+| frontend/src/app/events                                                                                                         |          7 |        625 |         48 |         88 |        761 |
+| frontend/src/app/events (Files)                                                                                                 |          4 |        355 |         35 |         44 |        434 |
+| frontend/src/app/events/[id]                                                                                                    |          1 |         61 |          8 |          9 |         78 |
+| frontend/src/app/events/[id]/edit                                                                                               |          1 |         61 |          8 |          9 |         78 |
+| frontend/src/app/events/new                                                                                                     |          2 |        209 |          5 |         35 |        249 |
+| frontend/src/app/login                                                                                                          |          1 |      1,019 |        103 |         85 |      1,207 |
+| frontend/src/app/my-activity                                                                                                    |          3 |        199 |         19 |         23 |        241 |
+| frontend/src/app/my-bookmarks                                                                                                   |          2 |         79 |         18 |          8 |        105 |
+| frontend/src/app/my-submissions                                                                                                 |          4 |        314 |         45 |         36 |        395 |
+| frontend/src/app/onboarding                                                                                                     |          2 |        438 |          4 |         34 |        476 |
+| frontend/src/app/opportunities                                                                                                  |          7 |        760 |         59 |         90 |        909 |
+| frontend/src/app/opportunities (Files)                                                                                          |          4 |        425 |         50 |         45 |        520 |
+| frontend/src/app/opportunities/[id]                                                                                             |          1 |         65 |          3 |          7 |         75 |
+| frontend/src/app/opportunities/[id]/edit                                                                                        |          1 |         65 |          3 |          7 |         75 |
+| frontend/src/app/opportunities/new                                                                                              |          2 |        270 |          6 |         38 |        314 |
+| frontend/src/app/pending                                                                                                        |          1 |         57 |          1 |          8 |         66 |
+| frontend/src/app/privacy                                                                                                        |          1 |        180 |          4 |         20 |        204 |
+| frontend/src/app/profile                                                                                                        |          3 |        319 |         16 |         37 |        372 |
+| frontend/src/app/rejected                                                                                                       |          1 |         48 |          1 |          8 |         57 |
+| frontend/src/app/reset-password                                                                                                 |          3 |        134 |         11 |         22 |        167 |
+| frontend/src/app/settings                                                                                                       |          4 |        369 |         48 |         54 |        471 |
+| frontend/src/app/terms                                                                                                          |          1 |        154 |          4 |         19 |        177 |
+| frontend/src/app/vcs                                                                                                            |          7 |        510 |         41 |         75 |        626 |
+| frontend/src/app/vcs (Files)                                                                                                    |          4 |        295 |         39 |         39 |        373 |
+| frontend/src/app/vcs/[id]                                                                                                       |          1 |         50 |          0 |          6 |         56 |
+| frontend/src/app/vcs/[id]/edit                                                                                                  |          1 |         50 |          0 |          6 |         56 |
+| frontend/src/app/vcs/new                                                                                                        |          2 |        165 |          2 |         30 |        197 |
+| frontend/src/components                                                                                                         |         29 |      2,208 |        308 |        253 |      2,769 |
+| frontend/src/components (Files)                                                                                                 |         16 |      1,341 |        103 |        144 |      1,588 |
+| frontend/src/components/analytics                                                                                               |          1 |         33 |         15 |         12 |         60 |
+| frontend/src/components/filters                                                                                                 |          1 |        243 |         31 |         18 |        292 |
+| frontend/src/components/forms                                                                                                   |          7 |        364 |         61 |         49 |        474 |
+| frontend/src/components/ui                                                                                                      |          4 |        227 |         98 |         30 |        355 |
+| frontend/src/lib                                                                                                                |         67 |      5,260 |      1,484 |        682 |      7,426 |
+| frontend/src/lib (Files)                                                                                                        |         28 |      3,097 |        596 |        326 |      4,019 |
+| frontend/src/lib/actions                                                                                                        |          1 |         38 |         18 |          6 |         62 |
+| frontend/src/lib/admin                                                                                                          |          1 |         16 |         11 |          2 |         29 |
+| frontend/src/lib/auth                                                                                                           |          3 |        102 |         62 |         26 |        190 |
+| frontend/src/lib/data                                                                                                           |         17 |      1,174 |        509 |        166 |      1,849 |
+| frontend/src/lib/filters                                                                                                        |          1 |         95 |         56 |         19 |        170 |
+| frontend/src/lib/listings                                                                                                       |          4 |        276 |         86 |         38 |        400 |
+| frontend/src/lib/supabase                                                                                                       |          7 |        149 |         84 |         35 |        268 |
+| frontend/src/lib/validation                                                                                                     |          5 |        313 |         62 |         64 |        439 |
+| frontend/test                                                                                                                   |          1 |          1 |          4 |          1 |          6 |
+| scripts                                                                                                                         |          1 |         33 |         12 |          6 |         51 |
+| supabase                                                                                                                        |         61 |      6,440 |      1,929 |        801 |      9,170 |
+| supabase/migrations                                                                                                             |         55 |      5,137 |      1,592 |        685 |      7,414 |
+| supabase/templates                                                                                                              |          4 |        199 |         61 |          4 |        264 |
+| supabase/tests                                                                                                                  |          2 |      1,104 |        276 |        112 |      1,492 |
++---------------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++---------------------------------------------------------------------------------------------------------------------------------+--------------------+------------+------------+------------+------------+
+| filename                                                                                                                        | language           | code       | comment    | blank      | total      |
++---------------------------------------------------------------------------------------------------------------------------------+--------------------+------------+------------+------------+------------+
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/.github/workflows/ci.yml                                                       | YAML               |        217 |         43 |         38 |        298 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/.github/workflows/codeql.yml                                                   | YAML               |         26 |          3 |          6 |         35 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/.github/workflows/prod-smoke.yml                                               | YAML               |         27 |         12 |          3 |         42 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/.github/workflows/secret-scan.yml                                              | YAML               |         19 |          6 |          5 |         30 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/.github/workflows/zap-baseline.yml                                             | YAML               |         23 |          7 |          5 |         35 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/CLAUDE.md                                                                      | Markdown           |          7 |          0 |          3 |         10 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/README.md                                                                      | Markdown           |          0 |          0 |          1 |          1 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/backend/server.py                                                              | Python             |          5 |          0 |          2 |          7 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/docs/compliance/01-architecture-data-flow-map.md                               | Markdown           |        100 |          0 |         23 |        123 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/docs/compliance/02-ropa.md                                                     | Markdown           |        112 |          0 |         19 |        131 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/docs/compliance/03-third-party-dpa-register.md                                 | Markdown           |         31 |          0 |          6 |         37 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/docs/compliance/04-internal-data-handling-protocol.md                          | Markdown           |         67 |          0 |         20 |         87 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/docs/compliance/05-data-breach-incident-response-plan.md                       | Markdown           |         63 |          0 |         22 |         85 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/docs/compliance/06-info-items-checklist.md                                     | Markdown           |         62 |          0 |         23 |         85 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/docs/compliance/README.md                                                      | Markdown           |         28 |          0 |          7 |         35 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/docs/google-oauth-custom-domain.md                                             | Markdown           |        164 |          0 |         56 |        220 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/docs/ict-consent-email.md                                                      | Markdown           |         55 |          0 |         28 |         83 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/docs/ict-consent-overview.md                                                   | Markdown           |         53 |          0 |         31 |         84 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/README.md                                                             | Markdown           |         23 |          0 |         14 |         37 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/e2e/a11y.spec.ts                                                      | TypeScript         |         39 |         20 |          5 |         64 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/e2e/admin.spec.ts                                                     | TypeScript         |         92 |         32 |         27 |        151 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/e2e/auth.spec.ts                                                      | TypeScript         |        186 |         36 |         34 |        256 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/e2e/dialog.spec.ts                                                    | TypeScript         |         59 |         18 |         12 |         89 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/e2e/fixtures.ts                                                       | TypeScript         |         36 |          8 |          5 |         49 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/e2e/global-setup.ts                                                   | TypeScript         |        126 |         32 |         16 |        174 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/e2e/member.spec.ts                                                    | TypeScript         |        147 |         25 |         26 |        198 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/e2e/public.spec.ts                                                    | TypeScript         |         65 |         14 |         12 |         91 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/e2e/ratelimit.spec.ts                                                 | TypeScript         |         65 |         30 |         13 |        108 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/e2e/urlfilters.spec.ts                                                | TypeScript         |        125 |         58 |         27 |        210 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/e2e/validation.spec.ts                                                | TypeScript         |         29 |         10 |          8 |         47 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/e2e/workflow.spec.ts                                                  | TypeScript         |         92 |         36 |         12 |        140 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/eslint.config.mjs                                                     | JavaScript         |         14 |          2 |          3 |         19 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/instrumentation-client.ts                                             | TypeScript         |         13 |          6 |          4 |         23 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/instrumentation.ts                                                    | TypeScript         |         44 |         26 |          9 |         79 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/next.config.ts                                                        | TypeScript         |         40 |          0 |          4 |         44 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/package.json                                                          | JSON               |         44 |          0 |          1 |         45 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/playwright.config.ts                                                  | TypeScript         |         44 |         34 |          4 |         82 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/pnpm-lock.yaml                                                        | YAML               |      5,300 |          0 |      1,390 |      6,690 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/pnpm-workspace.yaml                                                   | YAML               |         32 |         31 |          1 |         64 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/postcss.config.mjs                                                    | JavaScript         |          6 |          0 |          2 |          8 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/public/file.svg                                                       | XML                |          1 |          0 |          0 |          1 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/public/globe.svg                                                      | XML                |          1 |          0 |          0 |          1 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/public/next.svg                                                       | XML                |          1 |          0 |          0 |          1 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/public/vercel.svg                                                     | XML                |          1 |          0 |          0 |          1 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/public/window.svg                                                     | XML                |          1 |          0 |          0 |          1 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/scripts/verify-ratelimit.mjs                                          | JavaScript         |         46 |         13 |          8 |         67 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/sentry.edge.config.ts                                                 | TypeScript         |         10 |          4 |          3 |         17 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/sentry.server.config.ts                                               | TypeScript         |         10 |          9 |          3 |         22 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/admin/BulkReview.tsx                                          | TypeScript JSX     |        141 |          4 |         14 |        159 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/admin/SignOutButton.tsx                                       | TypeScript JSX     |         22 |          3 |          5 |         30 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/admin/bulkTypes.ts                                            | TypeScript         |          3 |          0 |          1 |          4 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/admin/community/CommunityAdminClient.tsx                      | TypeScript JSX     |        250 |          9 |         27 |        286 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/admin/community/actions.ts                                    | TypeScript         |         41 |          3 |          7 |         51 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/admin/community/page.tsx                                      | TypeScript JSX     |         99 |          4 |         11 |        114 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/admin/events/EventReviewCard.tsx                              | TypeScript JSX     |        169 |          0 |         12 |        181 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/admin/events/EventsReview.tsx                                 | TypeScript JSX     |         18 |          0 |          4 |         22 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/admin/events/actions.ts                                       | TypeScript         |         18 |          6 |          7 |         31 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/admin/events/new/page.tsx                                     | TypeScript JSX     |         36 |          0 |          5 |         41 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/admin/events/page.tsx                                         | TypeScript JSX     |         38 |          0 |          5 |         43 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/admin/graduates/GraduatesClient.tsx                           | TypeScript JSX     |        178 |          0 |         16 |        194 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/admin/graduates/actions.ts                                    | TypeScript         |         82 |         13 |         16 |        111 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/admin/graduates/page.tsx                                      | TypeScript JSX     |         31 |          1 |          4 |         36 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/admin/layout.tsx                                              | TypeScript JSX     |         10 |          4 |          5 |         19 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/admin/opportunities/OpportunitiesReview.tsx                   | TypeScript JSX     |         18 |          0 |          4 |         22 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/admin/opportunities/OpportunityReviewCard.tsx                 | TypeScript JSX     |        218 |          0 |         17 |        235 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/admin/opportunities/actions.ts                                | TypeScript         |         18 |          6 |          7 |         31 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/admin/opportunities/new/page.tsx                              | TypeScript JSX     |         37 |          0 |          5 |         42 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/admin/opportunities/page.tsx                                  | TypeScript JSX     |         40 |          0 |          5 |         45 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/admin/page.tsx                                                | TypeScript JSX     |        120 |          0 |         10 |        130 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/admin/users/UserCard.tsx                                      | TypeScript JSX     |        152 |          0 |         13 |        165 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/admin/users/UsersReview.tsx                                   | TypeScript JSX     |         39 |          4 |          6 |         49 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/admin/users/actions.ts                                        | TypeScript         |         91 |         20 |         16 |        127 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/admin/users/page.tsx                                          | TypeScript JSX     |         67 |          4 |         11 |         82 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/admin/vcs/VcReviewCard.tsx                                    | TypeScript JSX     |        165 |          0 |         12 |        177 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/admin/vcs/VcsReview.tsx                                       | TypeScript JSX     |         18 |          0 |          4 |         22 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/admin/vcs/actions.ts                                          | TypeScript         |         18 |          6 |          7 |         31 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/admin/vcs/new/page.tsx                                        | TypeScript JSX     |         25 |          0 |          3 |         28 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/admin/vcs/page.tsx                                            | TypeScript JSX     |         38 |          0 |          5 |         43 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/api/cron/drain-email/route.test.ts                            | TypeScript         |         44 |          3 |          8 |         55 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/api/cron/drain-email/route.ts                                 | TypeScript         |        188 |         52 |         25 |        265 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/auth/callback/route.ts                                        | TypeScript         |         44 |         16 |          9 |         69 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/auth/confirm/route.ts                                         | TypeScript         |         40 |         16 |          8 |         64 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/calendar/CalendarClient.tsx                                   | TypeScript JSX     |        316 |         25 |         38 |        379 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/calendar/loading.tsx                                          | TypeScript JSX     |         22 |         16 |          2 |         40 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/calendar/page.tsx                                             | TypeScript JSX     |         89 |          7 |         11 |        107 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/community/CommunityClient.tsx                                 | TypeScript JSX     |        356 |         39 |         36 |        431 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/community/loading.tsx                                         | TypeScript JSX     |         22 |         16 |          2 |         40 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/community/page.tsx                                            | TypeScript JSX     |         91 |          3 |          9 |        103 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/contact/ContactForm.tsx                                       | TypeScript JSX     |        137 |          7 |         14 |        158 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/contact/actions.ts                                            | TypeScript         |         57 |         19 |          9 |         85 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/contact/page.tsx                                              | TypeScript JSX     |         78 |          4 |          6 |         88 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/cookies/page.tsx                                              | TypeScript JSX     |        133 |          4 |         15 |        152 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/error.tsx                                                     | TypeScript JSX     |         57 |          2 |          9 |         68 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/events/EventsClient.tsx                                       | TypeScript JSX     |        258 |          7 |         29 |        294 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/events/[id]/edit/page.tsx                                     | TypeScript JSX     |         61 |          8 |          9 |         78 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/events/actions.ts                                             | TypeScript         |         12 |         10 |          5 |         27 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/events/loading.tsx                                            | TypeScript JSX     |         22 |         16 |          2 |         40 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/events/new/EventForm.tsx                                      | TypeScript JSX     |        176 |          5 |         30 |        211 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/events/new/page.tsx                                           | TypeScript JSX     |         33 |          0 |          5 |         38 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/events/page.tsx                                               | TypeScript JSX     |         63 |          2 |          8 |         73 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/global-error.tsx                                              | TypeScript JSX     |         58 |          6 |          2 |         66 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/globals.css                                                   | PostCSS            |         98 |         48 |         25 |        171 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/layout.tsx                                                    | TypeScript JSX     |        119 |         21 |         10 |        150 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/login/page.tsx                                                | TypeScript JSX     |      1,019 |        103 |         85 |      1,207 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/my-activity/MyActivityClient.tsx                              | TypeScript JSX     |        150 |          3 |         17 |        170 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/my-activity/loading.tsx                                       | TypeScript JSX     |         22 |         16 |          2 |         40 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/my-activity/page.tsx                                          | TypeScript JSX     |         27 |          0 |          4 |         31 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/my-bookmarks/loading.tsx                                      | TypeScript JSX     |         22 |         16 |          2 |         40 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/my-bookmarks/page.tsx                                         | TypeScript JSX     |         57 |          2 |          6 |         65 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/my-submissions/MySubmissionsClient.tsx                        | TypeScript JSX     |        202 |         13 |         15 |        230 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/my-submissions/actions.ts                                     | TypeScript         |         39 |         14 |         13 |         66 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/my-submissions/loading.tsx                                    | TypeScript JSX     |         22 |         16 |          2 |         40 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/my-submissions/page.tsx                                       | TypeScript JSX     |         51 |          2 |          6 |         59 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/not-found.tsx                                                 | TypeScript JSX     |         74 |          4 |          9 |         87 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/onboarding/OnboardingForm.tsx                                 | TypeScript JSX     |        407 |          2 |         27 |        436 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/onboarding/page.tsx                                           | TypeScript JSX     |         31 |          2 |          7 |         40 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/opportunities/OpportunitiesClient.tsx                         | TypeScript JSX     |        268 |         18 |         23 |        309 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/opportunities/[id]/edit/page.tsx                              | TypeScript JSX     |         65 |          3 |          7 |         75 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/opportunities/actions.ts                                      | TypeScript         |         46 |         15 |         11 |         72 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/opportunities/loading.tsx                                     | TypeScript JSX     |         22 |         16 |          2 |         40 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/opportunities/new/OpportunityForm.tsx                         | TypeScript JSX     |        238 |          6 |         33 |        277 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/opportunities/new/page.tsx                                    | TypeScript JSX     |         32 |          0 |          5 |         37 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/opportunities/page.tsx                                        | TypeScript JSX     |         89 |          1 |          9 |         99 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/page.tsx                                                      | TypeScript JSX     |         22 |          0 |          1 |         23 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/pending/page.tsx                                              | TypeScript JSX     |         57 |          1 |          8 |         66 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/privacy/page.tsx                                              | TypeScript JSX     |        180 |          4 |         20 |        204 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/profile/ProfileForm.tsx                                       | TypeScript JSX     |        248 |          2 |         26 |        276 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/profile/actions.ts                                            | TypeScript         |         10 |         13 |          4 |         27 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/profile/page.tsx                                              | TypeScript JSX     |         61 |          1 |          7 |         69 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/rejected/page.tsx                                             | TypeScript JSX     |         48 |          1 |          8 |         57 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/reset-password/ResetPasswordForm.tsx                          | TypeScript JSX     |        101 |          3 |         14 |        118 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/reset-password/actions.ts                                     | TypeScript         |          6 |          3 |          3 |         12 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/reset-password/page.tsx                                       | TypeScript JSX     |         27 |          5 |          5 |         37 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/robots.ts                                                     | TypeScript         |         15 |          5 |          3 |         23 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/settings/DeleteAccountSection.tsx                             | TypeScript JSX     |         82 |          0 |         10 |         92 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/settings/PasswordChangeForm.tsx                               | TypeScript JSX     |        142 |         33 |         21 |        196 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/settings/SessionsSection.tsx                                  | TypeScript JSX     |         65 |         13 |          9 |         87 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/settings/page.tsx                                             | TypeScript JSX     |         80 |          2 |         14 |         96 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/sitemap.ts                                                    | TypeScript         |         19 |          3 |          3 |         25 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/terms/page.tsx                                                | TypeScript JSX     |        154 |          4 |         19 |        177 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/vcs/VcsClient.tsx                                             | TypeScript JSX     |        198 |          6 |         24 |        228 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/vcs/[id]/edit/page.tsx                                        | TypeScript JSX     |         50 |          0 |          6 |         56 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/vcs/actions.ts                                                | TypeScript         |         12 |         10 |          5 |         27 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/vcs/loading.tsx                                               | TypeScript JSX     |         22 |         16 |          2 |         40 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/vcs/new/VcForm.tsx                                            | TypeScript JSX     |        140 |          2 |         26 |        168 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/vcs/new/page.tsx                                              | TypeScript JSX     |         25 |          0 |          4 |         29 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/app/vcs/page.tsx                                                  | TypeScript JSX     |         63 |          7 |          8 |         78 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/components/AddToCalendarMenu.tsx                                  | TypeScript JSX     |         83 |         12 |         11 |        106 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/components/AppNav.tsx                                             | TypeScript JSX     |        159 |          8 |         15 |        182 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/components/Apply.tsx                                              | TypeScript JSX     |        151 |         13 |         18 |        182 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/components/BrandLogo.tsx                                          | TypeScript JSX     |         46 |         12 |          4 |         62 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/components/Community.tsx                                          | TypeScript JSX     |        124 |          7 |         17 |        148 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/components/Events.tsx                                             | TypeScript JSX     |        110 |          3 |         12 |        125 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/components/Footer.tsx                                             | TypeScript JSX     |         60 |          2 |          8 |         70 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/components/Hero.tsx                                               | TypeScript JSX     |         65 |          9 |          7 |         81 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/components/ListingGoneNotice.tsx                                  | TypeScript JSX     |         24 |          3 |          2 |         29 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/components/ListingPageShell.tsx                                   | TypeScript JSX     |         49 |         12 |          2 |         63 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/components/MarkActionPill.tsx                                     | TypeScript JSX     |         64 |         11 |          9 |         84 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/components/Navbar.tsx                                             | TypeScript JSX     |        133 |          2 |         13 |        148 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/components/Opportunities.tsx                                      | TypeScript JSX     |        111 |          3 |         13 |        127 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/components/SocialLinks.tsx                                        | TypeScript JSX     |         72 |          0 |          5 |         77 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/components/SubmittedBanner.tsx                                    | TypeScript JSX     |         23 |          3 |          4 |         30 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/components/WhoWeAre.tsx                                           | TypeScript JSX     |         67 |          3 |          4 |         74 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/components/analytics/PostHogProvider.tsx                          | TypeScript JSX     |         33 |         15 |         12 |         60 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/components/filters/FilterBar.tsx                                  | TypeScript JSX     |        243 |         31 |         18 |        292 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/components/forms/Banners.tsx                                      | TypeScript JSX     |         21 |          4 |          4 |         29 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/components/forms/ChipGroup.tsx                                    | TypeScript JSX     |         38 |          0 |          3 |         41 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/components/forms/Field.tsx                                        | TypeScript JSX     |         44 |         32 |          5 |         81 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/components/forms/SearchableMultiSelect.tsx                        | TypeScript JSX     |        151 |         14 |         14 |        179 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/components/forms/SignupDisclosures.tsx                            | TypeScript JSX     |         57 |          4 |          6 |         67 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/components/forms/TurnstileWidget.tsx                              | TypeScript JSX     |         51 |          5 |         15 |         71 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/components/forms/styles.ts                                        | TypeScript         |          2 |          2 |          2 |          6 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/components/ui/Button.tsx                                          | TypeScript JSX     |         53 |         28 |          7 |         88 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/components/ui/Dialog.tsx                                          | TypeScript JSX     |         46 |         38 |         10 |         94 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/components/ui/Pager.tsx                                           | TypeScript JSX     |         42 |         10 |          6 |         58 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/components/ui/Skeleton.tsx                                        | TypeScript JSX     |         86 |         22 |          7 |        115 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/actions/guardSubmission.ts                                    | TypeScript         |         38 |         18 |          6 |         62 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/admin/bulk.ts                                                 | TypeScript         |         16 |         11 |          2 |         29 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/analytics.ts                                                  | TypeScript         |         20 |         24 |          4 |         48 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/auth/actionAuth.ts                                            | TypeScript         |         34 |         10 |          7 |         51 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/auth/guard.ts                                                 | TypeScript         |         50 |         28 |         14 |         92 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/auth/status.ts                                                | TypeScript         |         18 |         24 |          5 |         47 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/cache.test.ts                                                 | TypeScript         |        147 |         10 |         33 |        190 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/cache.ts                                                      | TypeScript         |         95 |        130 |         22 |        247 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/calendar.test.ts                                              | TypeScript         |         55 |          2 |          9 |         66 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/calendar.ts                                                   | TypeScript         |         95 |         40 |         14 |        149 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/csp.test.ts                                                   | TypeScript         |         54 |          2 |          9 |         65 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/csp.ts                                                        | TypeScript         |         44 |         13 |         11 |         68 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/data/activity.test.ts                                         | TypeScript         |         34 |          4 |          4 |         42 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/data/activity.ts                                              | TypeScript         |         69 |         38 |          9 |        116 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/data/admin.test.ts                                            | TypeScript         |         63 |          8 |          8 |         79 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/data/admin.ts                                                 | TypeScript         |        309 |        112 |         42 |        463 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/data/directory.test.ts                                        | TypeScript         |         41 |          2 |          5 |         48 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/data/directory.ts                                             | TypeScript         |        128 |         72 |         21 |        221 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/data/events.test.ts                                           | TypeScript         |         36 |          0 |          4 |         40 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/data/events.ts                                                | TypeScript         |         55 |         16 |          6 |         77 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/data/opportunities.test.ts                                    | TypeScript         |         57 |          6 |          7 |         70 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/data/opportunities.ts                                         | TypeScript         |         87 |         41 |          9 |        137 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/data/ownListings.ts                                           | TypeScript         |         49 |         38 |          7 |         94 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/data/profiles.ts                                              | TypeScript         |         16 |         22 |          5 |         43 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/data/query.test.ts                                            | TypeScript         |         59 |         10 |         13 |         82 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/data/query.ts                                                 | TypeScript         |         32 |         68 |          7 |        107 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/data/taxonomy.ts                                              | TypeScript         |         34 |         38 |          9 |         81 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/data/vcs.test.ts                                              | TypeScript         |         33 |          3 |          4 |         40 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/data/vcs.ts                                                   | TypeScript         |         72 |         31 |          6 |        109 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/database.overrides.ts                                         | TypeScript         |         40 |         40 |         15 |         95 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/database.types.ts                                             | TypeScript         |      1,406 |          0 |         11 |      1,417 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/dates.test.ts                                                 | TypeScript         |         99 |         20 |         18 |        137 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/dates.ts                                                      | TypeScript         |         80 |         46 |         19 |        145 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/email.ts                                                      | TypeScript         |        337 |         54 |         32 |        423 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/filters/useUrlFilters.ts                                      | TypeScript         |         95 |         56 |         19 |        170 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/gradYears.test.ts                                             | TypeScript         |         40 |          1 |          7 |         48 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/gradYears.ts                                                  | TypeScript         |         26 |         15 |          6 |         47 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/listingActions.ts                                             | TypeScript         |         29 |         12 |          7 |         48 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/listings/actionRow.ts                                         | TypeScript         |         17 |          6 |          3 |         26 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/listings/admin.ts                                             | TypeScript         |         71 |         19 |         14 |        104 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/listings/registry.ts                                          | TypeScript         |        148 |         48 |         11 |        207 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/listings/user.ts                                              | TypeScript         |         40 |         13 |         10 |         63 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/motion.ts                                                     | TypeScript         |          4 |          6 |          2 |         12 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/ratelimit.test.ts                                             | TypeScript         |         87 |          7 |         15 |        109 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/ratelimit.ts                                                  | TypeScript         |         51 |         59 |         14 |        124 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/result.test.ts                                                | TypeScript         |         17 |          1 |          5 |         23 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/result.ts                                                     | TypeScript         |         12 |          3 |          4 |         19 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/siteUrl.ts                                                    | TypeScript         |          7 |         13 |          4 |         24 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/supabase/browser.ts                                           | TypeScript         |          6 |          9 |          4 |         19 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/supabase/client.ts                                            | TypeScript         |          8 |          0 |          2 |         10 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/supabase/proxy.ts                                             | TypeScript         |         42 |         16 |          7 |         65 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/supabase/rowCap.test.ts                                       | TypeScript         |         42 |          5 |         12 |         59 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/supabase/rowCap.ts                                            | TypeScript         |         13 |         39 |          4 |         56 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/supabase/server.ts                                            | TypeScript         |         25 |          3 |          3 |         31 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/supabase/service.ts                                           | TypeScript         |         13 |         12 |          3 |         28 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/supabaseErrors.test.ts                                        | TypeScript         |         95 |          8 |         12 |        115 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/supabaseErrors.ts                                             | TypeScript         |         78 |         47 |         13 |        138 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/text.test.ts                                                  | TypeScript         |         67 |          0 |         14 |         81 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/text.ts                                                       | TypeScript         |         27 |         25 |          7 |         59 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/turnstile.test.ts                                             | TypeScript         |         44 |          2 |          8 |         54 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/turnstile.ts                                                  | TypeScript         |         18 |          5 |          6 |         29 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/useListingFreshness.ts                                        | TypeScript         |         23 |         11 |          5 |         39 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/validation/contact.ts                                         | TypeScript         |          8 |          7 |          3 |         18 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/validation/fields.test.ts                                     | TypeScript         |         45 |          0 |          7 |         52 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/validation/fields.ts                                          | TypeScript         |         27 |         28 |          7 |         62 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/validation/listings.test.ts                                   | TypeScript         |        153 |          1 |         34 |        188 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/lib/validation/listings.ts                                        | TypeScript         |         80 |         26 |         13 |        119 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/src/proxy.ts                                                          | TypeScript         |         10 |          3 |          3 |         16 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/test/server-only-stub.ts                                              | TypeScript         |          1 |          4 |          1 |          6 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/tsconfig.json                                                         | JSON with Comments |         34 |          0 |          1 |         35 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/vercel.json                                                           | JSON               |          4 |          0 |          1 |          5 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/frontend/vitest.config.ts                                                      | TypeScript         |         14 |          2 |          2 |         18 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/scripts/prod-smoke.mjs                                                         | JavaScript         |         33 |         12 |          6 |         51 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260527000001_initial_schema.sql                          | MS SQL             |        281 |         29 |         41 |        351 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260527000002_rls_policies.sql                            | MS SQL             |        192 |         36 |         35 |        263 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260527000003_admin_functions.sql                         | MS SQL             |        173 |         18 |         27 |        218 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260527000004_seed_data.sql                               | MS SQL             |         23 |          6 |          3 |         32 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260527000005_oauth_provider_role.sql                     | MS SQL             |         38 |          8 |          8 |         54 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260527000006_restrict_azure_to_imperial.sql              | MS SQL             |         45 |          7 |          9 |         61 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260527000007_relax_grad_year_for_onboarding.sql          | MS SQL             |          8 |         11 |          3 |         22 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260527000008_parse_oauth_full_name.sql                   | MS SQL             |         58 |         23 |         10 |         91 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260527000009_onboarding_support.sql                      | MS SQL             |        186 |         30 |         25 |        241 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260528000010_github_url.sql                              | MS SQL             |        149 |         11 |         24 |        184 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260528000011_delete_my_account.sql                       | MS SQL             |         17 |         10 |          4 |         31 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260528000012_name_min_length.sql                         | MS SQL             |         74 |         11 |          9 |         94 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260528000013_listing_status_expired.sql                  | MS SQL             |          1 |          7 |          2 |         10 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260528000014_opportunities_expansion.sql                 | MS SQL             |         44 |         26 |         13 |         83 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260528000015_events.sql                                  | MS SQL             |         78 |          8 |         15 |        101 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260528000016_listings_rpcs.sql                           | MS SQL             |        407 |         25 |         41 |        473 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260528000017_opportunities_expire_cron.sql               | MS SQL             |         33 |         15 |          6 |         54 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260528000018_admin_signup_emails.sql                     | MS SQL             |         17 |          8 |          4 |         29 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260529000001_email_domain_full_lifecycle.sql             | MS SQL             |         88 |         33 |         17 |        138 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260529000002_relax_name_min_length.sql                   | MS SQL             |         71 |          9 |          9 |         89 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260529000003_onboarding_expansion.sql                    | MS SQL             |        196 |         39 |         31 |        266 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260529000004_delete_my_account_full_cleanup.sql          | MS SQL             |         19 |         35 |          5 |         59 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260529000005_expire_events_and_vcs_grants.sql            | MS SQL             |         78 |         29 |         13 |        120 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260529000006_listing_reject_returns_poster.sql           | MS SQL             |        117 |         18 |         22 |        157 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260529000007_admin_delete_user_rpcs.sql                  | MS SQL             |         90 |         36 |         21 |        147 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260529000008_user_can_delete_own_rejected_listings.sql   | MS SQL             |         12 |         10 |          4 |         26 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260529000009_user_update_opportunity_rpc.sql             | MS SQL             |         76 |         13 |          9 |         98 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260530000001_user_can_delete_own_listings_any_status.sql | MS SQL             |         12 |         15 |          4 |         31 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260530000002_protect_contact_email.sql                   | MS SQL             |        278 |         44 |          8 |        330 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260530000003_outbound_email_queue.sql                    | MS SQL             |        196 |         77 |         27 |        300 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260530000004_approve_user_returns_email.sql              | MS SQL             |         30 |         14 |          7 |         51 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260530000005_opportunity_bookmarks.sql                   | MS SQL             |         92 |         18 |          9 |        119 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260530000006_listing_analytics.sql                       | MS SQL             |         76 |         38 |          9 |        123 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260531000001_reject_user_full_delete.sql                 | MS SQL             |         48 |         33 |         11 |         92 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260531000002_listing_events_orphan_cleanup.sql           | MS SQL             |         26 |         19 |          6 |         51 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260531000003_lock_status_to_role.sql                     | MS SQL             |         86 |         41 |         12 |        139 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260531000004_revoke_enqueue_outbound_email.sql           | MS SQL             |          4 |         17 |          3 |         24 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260531000005_user_listing_actions.sql                    | MS SQL             |        187 |         65 |         21 |        273 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260601000000_fix_onboarding_status_guc.sql               | MS SQL             |         85 |         42 |         13 |        140 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260602000001_listing_stats_distinct_clicks.sql           | MS SQL             |         38 |         18 |          3 |         59 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260602000002_purge_rejected_listings.sql                 | MS SQL             |         50 |         24 |          8 |         82 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260602000003_validate_profile_name_chars.sql             | MS SQL             |         90 |         29 |         11 |        130 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260602000004_cap_url_lengths.sql                         | MS SQL             |         30 |         33 |          7 |         70 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260603000001_role_lock_and_grad_year_bounds.sql          | MS SQL             |        217 |         57 |         25 |        299 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260603000002_event_society_flag.sql                      | MS SQL             |        130 |         38 |         14 |        182 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260608000001_lock_internal_function_grants.sql           | MS SQL             |         55 |         67 |          7 |        129 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260608000002_capture_and_lock_rls_auto_enable.sql        | MS SQL             |         30 |         28 |          3 |         61 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260610000000_admin_create_require_profile.sql            | MS SQL             |        173 |         28 |         17 |        218 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260826000001_user_update_event_and_vc_rpcs.sql           | MS SQL             |        101 |         41 |         10 |        152 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260826000002_directory_card_rpc.sql                      | MS SQL             |         42 |         27 |          3 |         72 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260826000003_directory_pagination.sql                    | MS SQL             |        182 |         68 |          9 |        259 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260826000004_admin_profile_pagination.sql                | MS SQL             |        229 |         59 |         12 |        300 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260827000001_revoke_anon_admin_rpcs.sql                  | MS SQL             |         33 |         43 |          4 |         80 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260827000002_index_cascade_fks.sql                       | MS SQL             |         10 |         49 |          6 |         65 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/migrations/20260827000003_bound_listing_events.sql                    | MS SQL             |         36 |         49 |          6 |         91 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/templates/change_email.html                                           | HTML               |         70 |         26 |          1 |         97 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/templates/confirm_signup.html                                         | HTML               |         40 |         11 |          1 |         52 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/templates/magic_link.html                                             | HTML               |         39 |         11 |          1 |         51 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/templates/reset_password.html                                         | HTML               |         50 |         13 |          1 |         64 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/tests/rls_smoke.sql                                                   | MS SQL             |        973 |        240 |         98 |      1,311 |
+| /Users/varunnayak/Downloads/EntrepreneursWebsite/supabase/tests/verify_prod_schema.sql                                          | MS SQL             |        131 |         36 |         14 |        181 |
+| Total                                                                                                                           |                    |     31,239 |      5,082 |      4,816 |     41,137 |
++---------------------------------------------------------------------------------------------------------------------------------+--------------------+------------+------------+------------+------------+
