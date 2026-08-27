@@ -68,18 +68,44 @@ export function failOpen(bucket: RateBucket): boolean {
   return bucket !== "submit";
 }
 
-// Returns true when the request is allowed. Allows everything when rate
-// limiting is disabled (no Upstash env). On an unexpected Redis error the
-// outcome is bucket-dependent — see failOpen().
-export async function allow(bucket: RateBucket, identifier: string): Promise<boolean> {
+/**
+ * Why this is three values and not a boolean.
+ *
+ * "limited" and "unavailable" are the same answer to the request and a
+ * completely different answer to the person. `submit` fails CLOSED, so a
+ * Redis outage — or a command quota spent, which on the free tier the
+ * response cache shares (see lib/cache.ts) — refuses submissions while
+ * telling the member they are posting too frequently. That message is
+ * false, it blames them for an outage, and it gives whoever is on call
+ * nothing to go on: the failure looks exactly like the feature working.
+ *
+ * Callers that fail closed should distinguish the two. Callers that fail
+ * open can keep using allow() below.
+ */
+export type RateDecision = "allowed" | "limited" | "unavailable";
+
+// Allows everything when rate limiting is disabled (no Upstash env) — the
+// documented local/CI behaviour.
+export async function check(bucket: RateBucket, identifier: string): Promise<RateDecision> {
   const inst = instance(bucket);
-  if (!inst) return true;
+  if (!inst) return "allowed";
   try {
     const { success } = await inst.limit(identifier);
-    return success;
-  } catch {
-    return failOpen(bucket);
+    return success ? "allowed" : "limited";
+  } catch (e) {
+    // Swallowing this was the reason a fail-closed submission looked like a
+    // rate limit. It is logged here for every bucket; the callers that fail
+    // closed also report it, because for them it is an outage.
+    console.error(`ratelimit: the "${bucket}" bucket is unreachable`, e);
+    return "unavailable";
   }
+}
+
+// Returns true when the request is allowed. On an unexpected Redis error the
+// outcome is bucket-dependent — see failOpen().
+export async function allow(bucket: RateBucket, identifier: string): Promise<boolean> {
+  const decision = await check(bucket, identifier);
+  return decision === "unavailable" ? failOpen(bucket) : decision === "allowed";
 }
 
 // Best-effort client IP from proxy headers (Vercel/Cloudflare set these).

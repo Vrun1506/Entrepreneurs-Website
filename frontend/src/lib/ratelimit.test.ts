@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { allow, clientIp, failOpen } from "./ratelimit";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { allow, check, clientIp, failOpen } from "./ratelimit";
 
 describe("clientIp", () => {
   it("prefers cf-connecting-ip over x-forwarded-for (spoof-resistant behind Cloudflare)", () => {
@@ -43,5 +43,66 @@ describe("failOpen (behaviour when the limiter backend is unreachable)", () => {
 
   it("fails CLOSED for the security-sensitive submit bucket", () => {
     expect(failOpen("submit")).toBe(false);
+  });
+});
+
+describe("check", () => {
+  it("reports 'allowed' when rate limiting is disabled (no Upstash env)", async () => {
+    expect(await check("submit", "user-1")).toBe("allowed");
+    expect(await check("mutations", "u:user-1")).toBe("allowed");
+  });
+});
+
+// The distinction the three-valued decision exists for: an unreachable
+// limiter and a member who really is posting too fast produce the same
+// refusal on a fail-closed bucket, and must not produce the same message.
+// Nothing else in the suite can reach this path, because the test env has no
+// Upstash to fail — so it is built here.
+describe("check when the limiter backend throws", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.doUnmock("@upstash/ratelimit");
+    vi.doUnmock("@upstash/redis");
+    vi.resetModules();
+    vi.restoreAllMocks();
+  });
+
+  async function loadWithBrokenRedis() {
+    vi.resetModules();
+    vi.stubEnv("UPSTASH_REDIS_REST_URL", "https://example.upstash.io");
+    vi.stubEnv("UPSTASH_REDIS_REST_TOKEN", "test-token");
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.doMock("@upstash/redis", () => ({ Redis: class {} }));
+    vi.doMock("@upstash/ratelimit", () => ({
+      Ratelimit: class {
+        static slidingWindow = () => ({});
+        limit() {
+          return Promise.reject(new Error("ECONNREFUSED"));
+        }
+      },
+    }));
+    return import("./ratelimit");
+  }
+
+  it("says 'unavailable' rather than 'limited'", async () => {
+    const rl = await loadWithBrokenRedis();
+    expect(await rl.check("submit", "user-1")).toBe("unavailable");
+    expect(await rl.check("mutations", "u:user-1")).toBe("unavailable");
+  });
+
+  it("still fails closed on submit and open on the mutation buckets", async () => {
+    const rl = await loadWithBrokenRedis();
+    expect(await rl.allow("submit", "user-1")).toBe(false);
+    expect(await rl.allow("mutations", "u:user-1")).toBe(true);
+    expect(await rl.allow("anonMutations", "ip:1.2.3.4")).toBe(true);
+  });
+
+  it("logs the outage — a swallowed error is how this went unnoticed", async () => {
+    const rl = await loadWithBrokenRedis();
+    await rl.check("submit", "user-1");
+    expect(console.error).toHaveBeenCalledWith(
+      expect.stringContaining('"submit" bucket is unreachable'),
+      expect.any(Error),
+    );
   });
 });

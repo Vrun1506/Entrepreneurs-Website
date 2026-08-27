@@ -1,6 +1,7 @@
 import "server-only";
 import { getActionAuth } from "@/lib/auth/actionAuth";
-import { allow } from "@/lib/ratelimit";
+import * as Sentry from "@sentry/nextjs";
+import { check } from "@/lib/ratelimit";
 import { verifyTurnstile } from "@/lib/turnstile";
 import { ok, err, type Result } from "@/lib/result";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
@@ -38,8 +39,21 @@ export async function guardSubmission(args: {
     if (!(await verifyTurnstile(args.turnstileToken))) {
       return err("Verification failed. Please complete the challenge and try again.");
     }
-    if (!(await allow("submit", user.id))) {
+    const decision = await check("submit", user.id);
+    if (decision === "limited") {
       return err("You're posting too frequently. Please try again later.");
+    }
+    if (decision === "unavailable") {
+      // The `submit` bucket fails closed, so this refusal is real — but it is
+      // an outage, not the member's doing. Saying "too frequently" here would
+      // blame them for it and leave nobody looking at the limiter. On the free
+      // Upstash tier the response cache shares this database's command quota,
+      // which makes "quota spent" one of the ways to arrive here.
+      Sentry.captureMessage(
+        "submit rate-limit bucket unreachable — submissions are being refused (fail-closed)",
+        { level: "error", tags: { bucket: "submit", surface: "guardSubmission" } },
+      );
+      return err("We can't accept submissions right now. Please try again in a few minutes.");
     }
   }
 

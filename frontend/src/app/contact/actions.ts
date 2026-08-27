@@ -5,7 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { sendContactConfirmation, sendContactTicket } from "@/lib/email";
 import { contactSchema } from "@/lib/validation/contact";
 import { validate } from "@/lib/validation/listings";
-import { allow, clientIp } from "@/lib/ratelimit";
+import * as Sentry from "@sentry/nextjs";
+import { check, clientIp } from "@/lib/ratelimit";
 import { verifyTurnstile } from "@/lib/turnstile";
 
 type Result = { ok: true } | { ok: false; error: string };
@@ -29,8 +30,19 @@ export async function submitContactTicket(input: unknown): Promise<Result> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   const rlKey = user?.id ?? clientIp(await headers());
-  if (!(await allow("submit", rlKey))) {
+  const decision = await check("submit", rlKey);
+  if (decision === "limited") {
     return { ok: false, error: "You're sending messages too frequently. Please try again later." };
+  }
+  if (decision === "unavailable") {
+    // Fails closed, like every `submit` caller. This is the contact form, so
+    // the person being turned away may have no other way to reach the society
+    // — worth an alert rather than a log line nobody reads.
+    Sentry.captureMessage(
+      "submit rate-limit bucket unreachable — the contact form is refusing messages (fail-closed)",
+      { level: "error", tags: { bucket: "submit", surface: "contact" } },
+    );
+    return { ok: false, error: "We can't take messages right now. Please try again in a few minutes." };
   }
 
   try {
