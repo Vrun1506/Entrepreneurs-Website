@@ -41,8 +41,8 @@ export function BrandLogo({
       <Image
         src="/entrepreneurs-logo.png"
         alt="Imperial Entrepreneurs"
-        width={4832}
-        height={2540}
+        width={2416}
+        height={1270}
         priority={priority}
         loading={priority ? undefined : "lazy"}
         className={`${HEIGHT[size]} w-auto`}
