@@ -69,7 +69,7 @@ async function loadEvents(supabase: SupabaseClient<Database>): Promise<EventsDat
 
   return {
     items: reportIfCapped("list_approved_events", (evRes.data ?? []) as RpcRow[]).map(toEvent),
-    goingIds: markedListingIds(actionsRes.data, "event", "going"),
+    goingIds: markedListingIds(reportIfCapped("get_my_listing_actions", actionsRes.data ?? []), "event", "going"),
   };
 }
 

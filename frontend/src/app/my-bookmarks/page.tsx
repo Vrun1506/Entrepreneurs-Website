@@ -20,7 +20,7 @@ export default async function MyBookmarksPage() {
 
   const items = reportIfCapped("list_my_bookmarked_opportunities", (bookmarkRes.data ?? []) as RpcRow[]).map(toOpportunity);
   const bookmarkedIds = items.map((i) => i.id);
-  const appliedIds = markedListingIds(actionsRes.data, "opportunity", "applied");
+  const appliedIds = markedListingIds(reportIfCapped("get_my_listing_actions", actionsRes.data ?? []), "opportunity", "applied");
 
   return (
     <div className="min-h-screen bg-bg-primary flex flex-col">
