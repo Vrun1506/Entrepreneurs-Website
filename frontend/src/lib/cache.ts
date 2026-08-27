@@ -21,13 +21,32 @@ import { Redis } from "@upstash/redis";
 // cached here, and anything per-user (bookmarks, listing actions,
 // submissions) obviously isn't either.
 //
-// QUOTA COUPLING. By default this shares the rate limiter's Upstash
-// database, because that is the instance the project already has. The
-// two then draw on one command quota, and the `submit` rate-limit bucket
-// fails CLOSED — so exhausting the quota with cache traffic would start
-// refusing submissions. Setting UPSTASH_CACHE_REDIS_REST_URL/TOKEN
-// points the cache at a separate database and removes that coupling;
-// that is the recommended production setup.
+// QUOTA COUPLING — READ THIS BEFORE ADDING CACHE TRAFFIC.
+//
+// By default this shares the rate limiter's Upstash database, because
+// that is the instance the project already has. The two then draw on one
+// command quota, and the `submit` rate-limit bucket fails CLOSED — so
+// spending the quota on cache traffic starts refusing listing
+// submissions and contact-form messages. A cache problem becomes a
+// submissions outage.
+//
+// Setting UPSTASH_CACHE_REDIS_REST_URL/TOKEN points the cache at a
+// separate database and removes the coupling entirely. That is the right
+// production setup and it is NOT available on Upstash's free tier, which
+// allows one database and 500K commands a month. Splitting means moving
+// to pay-as-you-go ($0.20 per 100K commands; the extra database itself is
+// free up to ten). Until then the coupling is real and the three things
+// standing in for the split are:
+//
+//   * the breaker below, which stops calling Redis after repeated
+//     failures so a spent quota leaves what's left to the limiter;
+//   * the boot warning in instrumentation.ts;
+//   * lib/ratelimit.ts's `unavailable` decision, so that if the quota
+//     does go, the refusal says so instead of telling members they are
+//     posting too fast.
+//
+// None of those is a substitute for a second database. They make the
+// failure survivable and audible, which is a different claim.
 //
 // LATENCY. A cache only helps if it answers faster than the query it is
 // standing in front of, and the directory query is ~22ms at 1,200
@@ -62,11 +81,11 @@ const READ_TIMEOUT_MS = 100;
 
 /**
  * After this many consecutive failures the cache stops calling Redis for
- * a cooldown. Two reasons, and the first is the important one: by
- * default this shares the rate limiter's Upstash database, and the
- * `submit` bucket fails CLOSED — so cache traffic burning through a
- * command quota would start refusing submissions. Backing off leaves the
- * remaining budget to the limiter. The second is plain latency: there is
+ * a cooldown. Two reasons, and the first is the important one: while
+ * this shares the rate limiter's Upstash database — which on the free
+ * tier it must — the `submit` bucket fails CLOSED, so cache traffic
+ * burning through a command quota would start refusing submissions.
+ * Backing off leaves the remaining budget to the limiter. The second is plain latency: there is
  * no sense paying the timeout on every render while Redis is unhealthy.
  */
 const BREAKER_THRESHOLD = 3;
