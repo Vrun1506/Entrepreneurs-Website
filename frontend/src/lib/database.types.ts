@@ -97,6 +97,30 @@ export type Database = {
         }
         Relationships: []
       }
+      email_change_log: {
+        Row: {
+          changed_at: string
+          id: string
+          new_email: string
+          old_email: string
+          user_id: string
+        }
+        Insert: {
+          changed_at?: string
+          id?: string
+          new_email: string
+          old_email: string
+          user_id: string
+        }
+        Update: {
+          changed_at?: string
+          id?: string
+          new_email?: string
+          old_email?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       events: {
         Row: {
           approved_at: string | null
