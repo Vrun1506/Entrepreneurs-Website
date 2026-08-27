@@ -225,7 +225,18 @@ double_confirm_changes = true
 # If enabled, users need to confirm their email address before signing in.
 enable_confirmations = false
 # If enabled, users will need to reauthenticate or have logged in recently to change their password.
-secure_password_change = false
+# Mirrors the hosted project, where this is on. The local default is off,
+# and a settings form that only ever runs against the lenient setting is a
+# form nobody has tested. PasswordChangeForm re-authenticates with
+# signInWithPassword before updateUser, which creates a session seconds
+# old, so the 24-hour recency window is always satisfied — but that is a
+# property worth a test rather than an argument.
+#
+# NOT reproducible here: "Require current password when updating", which is
+# also on in the hosted project. Supabase CLI 2.105.0 has no config key for
+# it, so the only coverage is that PasswordChangeForm sends current_password
+# (see 8c2883d) and a manual password change against production.
+secure_password_change = true
 # Controls the minimum amount of time that must pass before sending another signup confirmation or password reset email.
 max_frequency = "1s"
 # Number of characters used in the email OTP.
