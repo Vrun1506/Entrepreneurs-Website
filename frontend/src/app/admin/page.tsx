@@ -1,25 +1,14 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { pendingCounts } from "@/lib/data/admin";
 import SignOutButton from "./SignOutButton";
 
 export default async function AdminPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  const [
-    { count: pendingProfiles },
-    { count: pendingOpportunities },
-    { count: pendingEvents },
-    { count: pendingVcs },
-  ] = await Promise.all([
-    supabase.from("profiles").select("id",     { count: "exact", head: true }).eq("status", "pending_review"),
-    supabase.from("opportunities").select("id", { count: "exact", head: true }).eq("status", "pending"),
-    supabase.from("events").select("id",        { count: "exact", head: true }).eq("status", "pending"),
-    supabase.from("vcs_grants").select("id",    { count: "exact", head: true }).eq("status", "pending"),
-  ]);
-
-  const totalPending =
-    (pendingProfiles ?? 0) + (pendingOpportunities ?? 0) + (pendingEvents ?? 0) + (pendingVcs ?? 0);
+  const counts = await pendingCounts(supabase);
+  const totalPending = counts.total;
 
   return (
     <main id="main-content" tabIndex={-1} className="min-h-screen bg-bg-primary text-text-primary px-8 py-12">
@@ -58,25 +47,25 @@ export default async function AdminPage() {
           <QueueLink
             href="/admin/users"
             title="Pending alumni profiles"
-            count={pendingProfiles ?? 0}
+            count={counts.profiles}
             hint="Manual verification"
           />
           <QueueLink
             href="/admin/opportunities"
             title="Pending opportunities"
-            count={pendingOpportunities ?? 0}
+            count={counts.opportunities}
             hint="Review queue"
           />
           <QueueLink
             href="/admin/events"
             title="Pending events"
-            count={pendingEvents ?? 0}
+            count={counts.events}
             hint="Review queue"
           />
           <QueueLink
             href="/admin/vcs"
             title="Pending VCs / grants"
-            count={pendingVcs ?? 0}
+            count={counts.vcs}
             hint="Review queue"
           />
         </div>

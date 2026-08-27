@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { posterName } from "@/lib/data/profiles";
 import EventForm from "@/app/events/new/EventForm";
 
 export default async function AdminNewEventPage() {
@@ -8,11 +9,7 @@ export default async function AdminNewEventPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("first_name, surname")
-    .eq("id", user.id)
-    .single();
+  const poster = await posterName(supabase, user.id);
 
   return (
     <main id="main-content" tabIndex={-1} className="min-h-screen bg-bg-primary text-text-primary px-8 py-12">
@@ -34,7 +31,7 @@ export default async function AdminNewEventPage() {
 
         <EventForm
           signupEmail={user.email ?? ""}
-          defaultOrganiser={`${profile?.first_name ?? ""} ${profile?.surname ?? ""}`.trim()}
+          defaultOrganiser={poster?.displayName ?? ""}
           mode="admin"
         />
       </div>

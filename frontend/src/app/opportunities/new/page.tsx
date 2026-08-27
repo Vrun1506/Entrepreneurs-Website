@@ -1,14 +1,12 @@
 import AppNav from "@/components/AppNav";
 import { requireApprovedUser } from "@/lib/auth/guard";
+import { listTaxonomy } from "@/lib/data/taxonomy";
 import OpportunityForm from "./OpportunityForm";
 
 export default async function NewOpportunityPage() {
   const { supabase, user, isAdmin } = await requireApprovedUser();
 
-  const [{ data: skills }, { data: sectors }] = await Promise.all([
-    supabase.from("skills").select("id, name").order("name"),
-    supabase.from("sectors").select("id, name").order("name"),
-  ]);
+  const { skills, sectors } = await listTaxonomy(supabase);
 
   return (
     <div className="min-h-screen bg-bg-primary flex flex-col">
@@ -27,8 +25,8 @@ export default async function NewOpportunityPage() {
 
           <OpportunityForm
             signupEmail={user.email ?? ""}
-            skills={skills ?? []}
-            sectors={sectors ?? []}
+            skills={skills}
+            sectors={sectors}
             mode="user"
           />
         </div>

@@ -1,17 +1,14 @@
 import { redirect } from "next/navigation";
 import AppNav from "@/components/AppNav";
 import { requireApprovedUser } from "@/lib/auth/guard";
+import { posterName } from "@/lib/data/profiles";
 import EventForm from "./EventForm";
 
 export default async function NewEventPage() {
   const { supabase, user, isAdmin } = await requireApprovedUser();
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("first_name, surname")
-    .eq("id", user.id)
-    .single();
-  if (!profile) redirect("/login");
+  const poster = await posterName(supabase, user.id);
+  if (!poster) redirect("/login");
 
   return (
     <div className="min-h-screen bg-bg-primary flex flex-col">
@@ -30,7 +27,7 @@ export default async function NewEventPage() {
 
           <EventForm
             signupEmail={user.email ?? ""}
-            defaultOrganiser={`${profile.first_name} ${profile.surname}`.trim()}
+            defaultOrganiser={poster.displayName}
             mode="user"
           />
         </div>
