@@ -151,7 +151,7 @@ function Row({ item, onUnmark }: { item: ActivityItem; onUnmark: () => void }) {
           <button
             type="button"
             onClick={onUnmark}
-            className="px-3 py-1.5 rounded-lg bg-transparent border border-border text-text-muted text-[0.75rem] cursor-pointer transition-colors hover:border-[#ff4d4d]/40 hover:text-[#ff8b8b]"
+            className="px-3 py-1.5 rounded-lg bg-white/[0.05] border border-border-strong text-text-secondary text-[0.75rem] cursor-pointer transition-colors hover:bg-[#ff4d4d]/10 hover:border-[#ff4d4d]/50 hover:text-[#ff8b8b]"
           >
             Unmark
           </button>

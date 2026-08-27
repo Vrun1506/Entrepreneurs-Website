@@ -174,7 +174,7 @@ function ConfirmModal({
             type="button"
             onClick={onCancel}
             disabled={pending}
-            className="px-4 py-2 rounded-lg bg-transparent border border-border text-text-secondary text-[0.85rem] cursor-pointer transition-colors hover:text-text-primary disabled:opacity-50"
+            className="px-4 py-2 rounded-lg bg-white/[0.05] border border-border-strong text-text-primary text-[0.85rem] cursor-pointer transition-colors hover:bg-white/[0.10] disabled:opacity-50"
           >
             Cancel
           </button>

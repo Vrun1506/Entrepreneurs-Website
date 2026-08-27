@@ -193,7 +193,7 @@ function Row({ type, item }: { type: ListingType; item: Item }) {
                 type="button"
                 onClick={() => setConfirming(false)}
                 disabled={pending}
-                className="px-3 py-1.5 rounded-lg bg-transparent border border-border text-text-muted text-[0.75rem] cursor-pointer transition-colors hover:text-text-primary disabled:opacity-50"
+                className="px-3 py-1.5 rounded-lg bg-white/[0.05] border border-border-strong text-text-primary text-[0.75rem] cursor-pointer transition-colors hover:bg-white/[0.10] disabled:opacity-50"
               >
                 Cancel
               </button>
