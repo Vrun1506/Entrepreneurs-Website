@@ -53,7 +53,25 @@ export default function PasswordChangeForm({ hasPassword, email }: { hasPassword
       return;
     }
 
-    const { error: updateError } = await supabase.auth.updateUser({ password });
+    // current_password is the *server-side* half of the same check, enforced by
+    // GoTrue rather than by this component. Both are here on purpose, because
+    // each covers a case the other does not:
+    //
+    //   * The check above runs in the browser. A hijacked session that calls
+    //     updateUser directly never executes it.
+    //   * current_password is ignored by GoTrue unless "Require current password
+    //     when updating" is enabled (Auth → Sign In / Providers → Email). Tested
+    //     against a local stack with it off: an update sent with a deliberately
+    //     wrong current_password was accepted and the password did change. So on
+    //     its own this field is not a guarantee either — it is a guarantee only
+    //     while that dashboard toggle stays on, and a toggle can be flipped by
+    //     someone who does not know it is load-bearing.
+    //
+    // Together they hold in both directions, which is why neither was dropped.
+    const { error: updateError } = await supabase.auth.updateUser({
+      password,
+      current_password: currentPassword,
+    });
     if (updateError) {
       setError(updateError.message);
       setIsLoading(false);
