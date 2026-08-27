@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
+import { TurnstileWidget, turnstileConfigured } from "@/components/forms/TurnstileWidget";
 
 export default function PasswordChangeForm({ hasPassword, email }: { hasPassword: boolean; email: string }) {
   const supabase = createClient();
@@ -13,6 +14,22 @@ export default function PasswordChangeForm({ hasPassword, email }: { hasPassword
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
+
+  // The reauth below is a signInWithPassword, and GoTrue applies its captcha
+  // gate to every endpoint that mints a session — /token included. Without a
+  // token here, turning on Attack Protection → CAPTCHA would make this form
+  // fail at the reauth and report "Current password is incorrect", which is
+  // the one message guaranteed to send someone looking in the wrong place.
+  //
+  // A token is single-use and the call spends it whether it succeeds or
+  // fails, so the widget is remounted after every attempt via the nonce.
+  // Otherwise one mistyped password leaves the form unusable until reload.
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileNonce, setTurnstileNonce] = useState(0);
+  const refreshTurnstile = () => {
+    setTurnstileToken("");
+    setTurnstileNonce((n) => n + 1);
+  };
 
   const inputCls =
     "w-full px-4 py-3 bg-white/[0.03] border border-border rounded-lg text-[0.85rem] text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]";
@@ -37,6 +54,10 @@ export default function PasswordChangeForm({ hasPassword, email }: { hasPassword
       setError("Passwords don't match.");
       return;
     }
+    if (turnstileConfigured && !turnstileToken) {
+      setError("Please complete the verification challenge below.");
+      return;
+    }
 
     setIsLoading(true);
 
@@ -46,14 +67,35 @@ export default function PasswordChangeForm({ hasPassword, email }: { hasPassword
     const { error: reauthError } = await supabase.auth.signInWithPassword({
       email,
       password: currentPassword,
+      options: { captchaToken: turnstileToken || undefined },
     });
+    // Spent either way — mint a fresh one before anything can return.
+    refreshTurnstile();
     if (reauthError) {
       setError("Current password is incorrect.");
       setIsLoading(false);
       return;
     }
 
-    const { error: updateError } = await supabase.auth.updateUser({ password });
+    // current_password is the *server-side* half of the same check, enforced by
+    // GoTrue rather than by this component. Both are here on purpose, because
+    // each covers a case the other does not:
+    //
+    //   * The check above runs in the browser. A hijacked session that calls
+    //     updateUser directly never executes it.
+    //   * current_password is ignored by GoTrue unless "Require current password
+    //     when updating" is enabled (Auth → Sign In / Providers → Email). Tested
+    //     against a local stack with it off: an update sent with a deliberately
+    //     wrong current_password was accepted and the password did change. So on
+    //     its own this field is not a guarantee either — it is a guarantee only
+    //     while that dashboard toggle stays on, and a toggle can be flipped by
+    //     someone who does not know it is load-bearing.
+    //
+    // Together they hold in both directions, which is why neither was dropped.
+    const { error: updateError } = await supabase.auth.updateUser({
+      password,
+      current_password: currentPassword,
+    });
     if (updateError) {
       setError(updateError.message);
       setIsLoading(false);
@@ -133,6 +175,12 @@ export default function PasswordChangeForm({ hasPassword, email }: { hasPassword
           required
         />
       </div>
+
+      {turnstileConfigured && (
+        <div className="flex justify-center">
+          <TurnstileWidget key={turnstileNonce} onToken={setTurnstileToken} />
+        </div>
+      )}
 
       <Button
         type="submit"
