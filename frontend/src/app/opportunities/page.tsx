@@ -1,13 +1,16 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import ListingPageShell from "@/components/ListingPageShell";
 import { Skeleton, FilterBarSkeleton, RowListSkeleton } from "@/components/ui/Skeleton";
-import type { Database } from "@/lib/database.overrides";
 import { requireApprovedUser } from "@/lib/auth/guard";
-import { markedListingIds } from "@/lib/listings/actionRow";
+import { markedIds } from "@/lib/data/activity";
+import {
+  listApprovedOpportunities,
+  bookmarkedOpportunityIds,
+  type Opportunity,
+} from "@/lib/data/opportunities";
+import type { Db } from "@/lib/data/query";
 import OpportunitiesClient from "./OpportunitiesClient";
-import { reportIfCapped } from "@/lib/supabase/rowCap";
 
 export default async function OpportunitiesPage({
   searchParams,
@@ -55,34 +58,18 @@ export default async function OpportunitiesPage({
 }
 
 type OpportunitiesData = {
-  items: ReturnType<typeof toOpportunity>[];
+  items: Opportunity[];
   bookmarkedIds: string[];
   appliedIds: string[];
 };
 
-async function loadOpportunities(
-  supabase: SupabaseClient<Database>,
-  userId: string,
-): Promise<OpportunitiesData> {
-  // Go through the SECURITY DEFINER RPC so contact_email is masked in
-  // the database, not at the app layer. Migration 20260530000002. It also
-  // filters to application_deadline >= current_date, so expired roles drop
-  // out without anyone having to prune them.
-  const [oppsRes, bookmarksRes, actionsRes] = await Promise.all([
-    supabase.rpc("list_approved_opportunities"),
-    supabase.from("opportunity_bookmarks").select("opportunity_id").eq("user_id", userId),
-    supabase.rpc("get_my_listing_actions"),
+async function loadOpportunities(supabase: Db, userId: string): Promise<OpportunitiesData> {
+  const [items, bookmarkedIds, appliedIds] = await Promise.all([
+    listApprovedOpportunities(supabase),
+    bookmarkedOpportunityIds(supabase, userId),
+    markedIds(supabase, "opportunity", "applied"),
   ]);
-
-  if (oppsRes.error) console.error("Failed to load opportunities:", oppsRes.error);
-  if (bookmarksRes.error) console.error("Failed to load bookmarks:", bookmarksRes.error);
-  if (actionsRes.error) console.error("Failed to load listing actions:", actionsRes.error);
-
-  return {
-    items: reportIfCapped("list_approved_opportunities", (oppsRes.data ?? []) as RpcRow[]).map(toOpportunity),
-    bookmarkedIds: reportIfCapped("opportunity_bookmarks", bookmarksRes.data ?? []).map((r) => r.opportunity_id as string),
-    appliedIds: markedListingIds(reportIfCapped("get_my_listing_actions", actionsRes.data ?? []), "opportunity", "applied"),
-  };
+  return { items, bookmarkedIds, appliedIds };
 }
 
 async function OpportunityCount({ data }: { data: Promise<OpportunitiesData> }) {
@@ -108,55 +95,4 @@ async function BookmarksLink({ data }: { data: Promise<OpportunitiesData> }) {
 async function OpportunityList({ data }: { data: Promise<OpportunitiesData> }) {
   const { items, bookmarkedIds, appliedIds } = await data;
   return <OpportunitiesClient items={items} bookmarkedIds={bookmarkedIds} appliedIds={appliedIds} />;
-}
-
-type RpcRow = {
-  id: string;
-  position_name: string;
-  company: string;
-  pay: string;
-  location_type: "remote" | "hybrid" | "onsite";
-  location_text: string | null;
-  description: string;
-  start_month: number;
-  start_year: number;
-  application_deadline: string;
-  contact_email: string | null;
-  contact_email_visible: boolean;
-  apply_method: "email" | "link";
-  apply_url: string | null;
-  posted_by: string;
-  created_at: string;
-  poster_first_name: string | null;
-  poster_surname: string | null;
-  poster_linkedin_url: string | null;
-  skill_names: string[];
-  sector_names: string[];
-};
-
-function toOpportunity(r: RpcRow) {
-  return {
-    id: r.id,
-    positionName: r.position_name,
-    company: r.company,
-    pay: r.pay,
-    locationType: r.location_type,
-    locationText: r.location_text,
-    description: r.description,
-    startMonth: r.start_month,
-    startYear: r.start_year,
-    applicationDeadline: r.application_deadline,
-    // contact_email is already masked by the RPC when visibility is off
-    // and the caller isn't the poster / admin.
-    contactEmail: r.contact_email,
-    applyMethod: r.apply_method,
-    applyUrl: r.apply_url,
-    postedBy: {
-      firstName:   r.poster_first_name ?? "",
-      surname:     r.poster_surname    ?? "",
-      linkedinUrl: r.poster_linkedin_url,
-    },
-    skills:  r.skill_names  ?? [],
-    sectors: r.sector_names ?? [],
-  };
 }

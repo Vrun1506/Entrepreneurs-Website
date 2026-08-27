@@ -1,13 +1,11 @@
 import { Suspense } from "react";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import ListingPageShell from "@/components/ListingPageShell";
-import { requireApprovedUser } from "@/lib/auth/guard";
-import { markedListingIds } from "@/lib/listings/actionRow";
-import { cached } from "@/lib/cache";
 import { Skeleton, FilterBarSkeleton, RowListSkeleton } from "@/components/ui/Skeleton";
-import type { Database } from "@/lib/database.overrides";
+import { requireApprovedUser } from "@/lib/auth/guard";
+import { markedIds } from "@/lib/data/activity";
+import { listApprovedVcs, type Vc } from "@/lib/data/vcs";
+import type { Db } from "@/lib/data/query";
 import VcsClient from "./VcsClient";
-import { reportIfCapped } from "@/lib/supabase/rowCap";
 
 export default async function VcsPage({
   searchParams,
@@ -54,52 +52,18 @@ export default async function VcsPage({
 }
 
 type VcsData = {
-  items: ReturnType<typeof toVc>[];
+  items: Vc[];
   appliedIds: string[];
 };
 
-async function loadVcs(
-  supabase: SupabaseClient<Database>,
-  isAdmin: boolean,
-): Promise<VcsData> {
-  // Only the listing rows are cached. They are identical for every
-  // approved member — vcs_grants carries no per-caller masking, unlike
-  // opportunities and events, whose contact_email depends on who is
-  // asking and which is why those two lists are not cached at all.
-  //
-  // get_my_listing_actions is per-user by definition and is always read
-  // live; putting it inside the cached call would show one member another
-  // member's "applied" pills.
-  const [items, actionsRes] = await Promise.all([
-    cached(
-      "vcs",
-      async () => {
-        const res = await supabase
-          .from("vcs_grants")
-          .select(`
-            id, kind, name, description, link,
-            amount, deadline, stage,
-            posted_by, created_at,
-            profiles:posted_by ( first_name, surname )
-          `)
-          .eq("status", "approved")
-          .order("created_at", { ascending: false });
-        if (res.error) console.error("Failed to load vcs_grants:", res.error);
-        return reportIfCapped("vcs_grants (approved)", (res.data ?? []) as unknown as RawRow[]).map(toVc);
-      },
-      // Don't cache an empty result: the loader falls back to [] on a
-      // Supabase error, and pinning that would blank the page for the TTL.
-      { skip: isAdmin, isCacheable: (rows) => rows.length > 0 },
-    ),
-    supabase.rpc("get_my_listing_actions"),
+async function loadVcs(supabase: Db, isAdmin: boolean): Promise<VcsData> {
+  // The listing rows are cached; get_my_listing_actions is per-user by
+  // definition and is always read live. See lib/data/vcs.ts.
+  const [items, appliedIds] = await Promise.all([
+    listApprovedVcs(supabase, isAdmin),
+    markedIds(supabase, "vc_grant", "applied"),
   ]);
-
-  if (actionsRes.error) console.error("Failed to load listing actions:", actionsRes.error);
-
-  return {
-    items,
-    appliedIds: markedListingIds(reportIfCapped("get_my_listing_actions", actionsRes.data ?? []), "vc_grant", "applied"),
-  };
+  return { items, appliedIds };
 }
 
 async function VcCount({ data }: { data: Promise<VcsData> }) {
@@ -110,41 +74,4 @@ async function VcCount({ data }: { data: Promise<VcsData> }) {
 async function VcList({ data }: { data: Promise<VcsData> }) {
   const { items, appliedIds } = await data;
   return <VcsClient items={items} appliedIds={appliedIds} />;
-}
-
-// The double-cast in the loader survives the move to generated types on
-// purpose. supabase-js infers an embedded relation as an array, but
-// PostgREST returns a single object for a many-to-one FK like posted_by —
-// and the multi-line select string also defeats its type-level parser,
-// degrading every scalar to `any`. The real fix is a flat RPC, as
-// list_approved_opportunities/_events already use.
-type RawRow = {
-  id: string;
-  kind: "vc" | "grant";
-  name: string;
-  description: string;
-  link: string;
-  amount: string | null;
-  deadline: string | null;
-  stage: string | null;
-  posted_by: string;
-  created_at: string;
-  profiles: { first_name: string; surname: string } | null;
-};
-
-function toVc(r: RawRow) {
-  return {
-    id: r.id,
-    kind: r.kind,
-    name: r.name,
-    description: r.description,
-    link: r.link,
-    amount: r.amount,
-    deadline: r.deadline,
-    stage: r.stage,
-    postedBy: {
-      firstName: r.profiles?.first_name ?? "",
-      surname:   r.profiles?.surname    ?? "",
-    },
-  };
 }
