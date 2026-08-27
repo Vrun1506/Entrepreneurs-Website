@@ -8,7 +8,7 @@ import { ListingGoneNotice } from "@/components/ListingGoneNotice";
 import { MarkActionPill } from "@/components/MarkActionPill";
 import { AddToCalendarMenu } from "@/components/AddToCalendarMenu";
 import { recordListingEvent } from "@/lib/analytics";
-import { formatDateWeekday } from "@/lib/dates";
+import { formatDateWeekday, formatTime } from "@/lib/dates";
 
 type FoundryEvent = {
   id: string;
@@ -148,9 +148,8 @@ function EventCard({ ev, going, onDismiss }: { ev: FoundryEvent; going: boolean;
     }
   }, [open, check, ev.id]);
 
-  const dt = new Date(ev.eventAt);
-  const dateLabel = formatDateWeekday(dt);
-  const timeLabel = dt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  const dateLabel = formatDateWeekday(ev.eventAt);
+  const timeLabel = formatTime(ev.eventAt);
 
   const isOnline = ONLINE_RE.test(ev.location);
 
