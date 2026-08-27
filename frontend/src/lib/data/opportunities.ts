@@ -97,10 +97,40 @@ export async function listApprovedOpportunities(db: Db): Promise<Opportunity[]> 
   return data.map(toOpportunity);
 }
 
+/**
+ * The current user's bookmarked opportunities, still open.
+ *
+ * The reason toOpportunity was written to serve two RPCs: this returns
+ * the same shape as list_approved_opportunities (plus a `bookmarked_at`
+ * nothing renders), so /my-bookmarks and /opportunities render from one
+ * mapper instead of the two byte-identical copies they had before.
+ *
+ * Same SECURITY DEFINER masking of contact_email (migrations
+ * 20260530000002 and 20260530000005).
+ */
+export async function listBookmarkedOpportunities(db: Db): Promise<Opportunity[]> {
+  const data = await rows("list_my_bookmarked_opportunities", () =>
+    db.rpc("list_my_bookmarked_opportunities"),
+  );
+  return data.map(toOpportunity);
+}
+
 /** Ids of the opportunities this user has bookmarked. */
 export async function bookmarkedOpportunityIds(db: Db, userId: string): Promise<string[]> {
   const data = await rows("opportunity_bookmarks", () =>
     db.from("opportunity_bookmarks").select("opportunity_id").eq("user_id", userId),
   );
   return data.map((r) => r.opportunity_id);
+}
+
+/**
+ * The one opportunity the poster is editing, or null.
+ *
+ * Same SECURITY DEFINER contract as eventForEdit: the RPC enforces
+ * caller = poster, so an id belonging to someone else comes back empty.
+ */
+export async function opportunityForEdit(db: Db, id: string) {
+  const data = await rows("get_opportunity_for_edit", () =>
+    db.rpc("get_opportunity_for_edit", { p_id: id }));
+  return data[0] ?? null;
 }

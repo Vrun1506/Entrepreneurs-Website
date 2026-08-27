@@ -1,15 +1,12 @@
 import AppNav from "@/components/AppNav";
-import { reportIfCapped } from "@/lib/supabase/rowCap";
 import { requireApprovedUser } from "@/lib/auth/guard";
+import { myActivity } from "@/lib/data/activity";
 import MyActivityClient from "./MyActivityClient";
 
 export default async function MyActivityPage() {
   const { supabase, isAdmin } = await requireApprovedUser();
 
-  const { data: rows, error } = await supabase.rpc("get_my_activity");
-  if (error) console.error("Failed to load my-activity:", error);
-
-  const items = (reportIfCapped("get_my_activity", rows ?? []) as ActivityRow[]).map(toItem);
+  const items = await myActivity(supabase);
 
   return (
     <div className="min-h-screen bg-bg-primary flex flex-col">
@@ -30,30 +27,4 @@ export default async function MyActivityPage() {
       </main>
     </div>
   );
-}
-
-type ActivityRow = {
-  listing_kind: "opportunity" | "event" | "vc_grant";
-  listing_id:   string;
-  action_type:  "applied" | "going";
-  marked_at:    string;
-  title:        string;
-  subtitle:     string | null;
-  status:       string;
-  occurs_at:    string | null;
-  url:          string | null;
-};
-
-function toItem(r: ActivityRow) {
-  return {
-    listingKind: r.listing_kind,
-    listingId:   r.listing_id,
-    actionType:  r.action_type,
-    markedAt:    r.marked_at,
-    title:       r.title,
-    subtitle:    r.subtitle,
-    status:      r.status,
-    occursAt:    r.occurs_at,
-    url:         r.url,
-  };
 }

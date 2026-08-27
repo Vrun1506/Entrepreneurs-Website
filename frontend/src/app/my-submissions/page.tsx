@@ -1,47 +1,39 @@
 import AppNav from "@/components/AppNav";
 import { requireApprovedUser } from "@/lib/auth/guard";
+import { myListingStats, statsKey } from "@/lib/data/activity";
+import { mySubmissions } from "@/lib/data/ownListings";
 import MySubmissionsClient from "./MySubmissionsClient";
 
 export default async function MySubmissionsPage() {
   const { supabase, user, isAdmin } = await requireApprovedUser();
 
-  const [oppRes, evRes, vcRes, statsRes] = await Promise.all([
-    supabase.from("opportunities").select("id, position_name, company, status, created_at, rejected_reason").eq("posted_by", user.id).order("created_at", { ascending: false }),
-    supabase.from("events").select("id, title, status, created_at, rejected_reason").eq("posted_by", user.id).order("created_at", { ascending: false }),
-    supabase.from("vcs_grants").select("id, name, kind, status, created_at, rejected_reason").eq("posted_by", user.id).order("created_at", { ascending: false }),
-    supabase.rpc("get_my_listing_stats"),
+  const [own, stats] = await Promise.all([
+    mySubmissions(supabase, user.id),
+    myListingStats(supabase),
   ]);
 
-  type ListingStatus = "pending" | "approved" | "rejected" | "expired";
-  type Stat = { views: number; clicks: number };
+  // A listing has no stats row until someone views or clicks it, so an
+  // absent key is a real zero rather than a missing read.
+  const statFor = (kind: "opportunity" | "event" | "vc_grant", id: string) =>
+    stats.get(statsKey(kind, id)) ?? { views: 0, clicks: 0 };
 
-  const statsByKey = new Map<string, Stat>();
-  for (const r of (statsRes.data ?? []) as { listing_kind: string; listing_id: string; view_count: number; click_count: number }[]) {
-    statsByKey.set(`${r.listing_kind}:${r.listing_id}`, {
-      views:  r.view_count  ?? 0,
-      clicks: r.click_count ?? 0,
-    });
-  }
-  const statFor = (kind: "opportunity" | "event" | "vc_grant", id: string): Stat =>
-    statsByKey.get(`${kind}:${id}`) ?? { views: 0, clicks: 0 };
-
-  const opportunities = (oppRes.data ?? []).map((r) => ({
-    id: r.id as string, title: r.position_name as string, subtitle: r.company as string,
-    status: r.status as ListingStatus, createdAt: r.created_at as string,
-    rejectedReason: r.rejected_reason as string | null,
-    stats: statFor("opportunity", r.id as string),
+  const opportunities = own.opportunities.map((r) => ({
+    id: r.id, title: r.position_name, subtitle: r.company,
+    status: r.status, createdAt: r.created_at,
+    rejectedReason: r.rejected_reason,
+    stats: statFor("opportunity", r.id),
   }));
-  const events = (evRes.data ?? []).map((r) => ({
-    id: r.id as string, title: r.title as string, subtitle: null,
-    status: r.status as ListingStatus, createdAt: r.created_at as string,
-    rejectedReason: r.rejected_reason as string | null,
-    stats: statFor("event", r.id as string),
+  const events = own.events.map((r) => ({
+    id: r.id, title: r.title, subtitle: null,
+    status: r.status, createdAt: r.created_at,
+    rejectedReason: r.rejected_reason,
+    stats: statFor("event", r.id),
   }));
-  const vcs = (vcRes.data ?? []).map((r) => ({
-    id: r.id as string, title: r.name as string, subtitle: r.kind as string,
-    status: r.status as ListingStatus, createdAt: r.created_at as string,
-    rejectedReason: r.rejected_reason as string | null,
-    stats: statFor("vc_grant", r.id as string),
+  const vcs = own.vcs.map((r) => ({
+    id: r.id, title: r.name, subtitle: r.kind,
+    status: r.status, createdAt: r.created_at,
+    rejectedReason: r.rejected_reason,
+    stats: statFor("vc_grant", r.id),
   }));
 
   return (

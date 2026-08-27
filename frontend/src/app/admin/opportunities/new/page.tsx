@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { listTaxonomy } from "@/lib/data/taxonomy";
 import OpportunityForm from "@/app/opportunities/new/OpportunityForm";
 
 export default async function AdminNewOpportunityPage() {
@@ -8,10 +9,7 @@ export default async function AdminNewOpportunityPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [{ data: skills }, { data: sectors }] = await Promise.all([
-    supabase.from("skills").select("id, name").order("name"),
-    supabase.from("sectors").select("id, name").order("name"),
-  ]);
+  const { skills, sectors } = await listTaxonomy(supabase);
 
   return (
     <main id="main-content" tabIndex={-1} className="min-h-screen bg-bg-primary text-text-primary px-8 py-12">
@@ -33,8 +31,8 @@ export default async function AdminNewOpportunityPage() {
 
         <OpportunityForm
           signupEmail={user.email ?? ""}
-          skills={skills ?? []}
-          sectors={sectors ?? []}
+          skills={skills}
+          sectors={sectors}
           mode="admin"
         />
       </div>

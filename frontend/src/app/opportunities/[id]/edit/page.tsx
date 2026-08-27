@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import AppNav from "@/components/AppNav";
 import { requireApprovedUser } from "@/lib/auth/guard";
+import { listTaxonomy, opportunityTaxonomy } from "@/lib/data/taxonomy";
+import { opportunityForEdit } from "@/lib/data/opportunities";
 import OpportunityForm, { type OpportunityInitialValues } from "../../new/OpportunityForm";
 
 type Params = { id: string };
@@ -12,36 +14,32 @@ export default async function EditOpportunityPage({ params }: { params: Promise<
 
   // SECURITY DEFINER RPC enforces caller = poster and returns
   // contact_email accordingly (migration 20260530000002).
-  const [rowRes, skillsRes, sectorsRes, oppSkillsRes, oppSectorsRes] = await Promise.all([
-    supabase.rpc("get_opportunity_for_edit", { p_id: id }),
-    supabase.from("skills").select("id, name").order("name"),
-    supabase.from("sectors").select("id, name").order("name"),
-    supabase.from("opportunity_skills").select("skill_id").eq("opportunity_id", id),
-    supabase.from("opportunity_sectors").select("sector_id").eq("opportunity_id", id),
+  const [row, taxonomy, selected] = await Promise.all([
+    opportunityForEdit(supabase, id),
+    listTaxonomy(supabase),
+    opportunityTaxonomy(supabase, id),
   ]);
 
-  const rowData = Array.isArray(rowRes.data) ? rowRes.data[0] : rowRes.data;
-  if (!rowData) notFound();
-  const row = rowData;
+  if (!row) notFound();
   // posted_by check happens inside the RPC; status still gates editability.
   if (row.status !== "pending") notFound();
 
   const initialValues: OpportunityInitialValues = {
-    positionName:        row.position_name as string,
-    company:             row.company as string,
-    pay:                 row.pay as string,
-    locationType:        row.location_type as "remote" | "hybrid" | "onsite",
-    locationText:        (row.location_text as string | null) ?? "",
-    description:         row.description as string,
+    positionName:        row.position_name,
+    company:             row.company,
+    pay:                 row.pay,
+    locationType:        row.location_type,
+    locationText:        row.location_text ?? "",
+    description:         row.description,
     startMonth:          String(row.start_month),
     startYear:           String(row.start_year),
-    applicationDeadline: row.application_deadline as string,
-    contactEmail:        row.contact_email as string,
-    contactEmailVisible: row.contact_email_visible as boolean,
-    applyMethod:         row.apply_method as "email" | "link",
-    applyUrl:            (row.apply_url as string | null) ?? "",
-    skillIds:            (oppSkillsRes.data ?? []).map((r) => r.skill_id as number),
-    sectorIds:           (oppSectorsRes.data ?? []).map((r) => r.sector_id as number),
+    applicationDeadline: row.application_deadline,
+    contactEmail:        row.contact_email,
+    contactEmailVisible: row.contact_email_visible,
+    applyMethod:         row.apply_method,
+    applyUrl:            row.apply_url ?? "",
+    skillIds:            selected.skillIds,
+    sectorIds:           selected.sectorIds,
   };
 
   return (
@@ -63,8 +61,8 @@ export default async function EditOpportunityPage({ params }: { params: Promise<
           </div>
           <OpportunityForm
             signupEmail={user.email ?? ""}
-            skills={skillsRes.data ?? []}
-            sectors={sectorsRes.data ?? []}
+            skills={taxonomy.skills}
+            sectors={taxonomy.sectors}
             mode="user"
             editingId={id}
             initialValues={initialValues}

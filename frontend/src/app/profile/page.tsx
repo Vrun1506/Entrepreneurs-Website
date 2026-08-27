@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import AppNav from "@/components/AppNav";
+import { listTaxonomy, profileTaxonomy } from "@/lib/data/taxonomy";
 import ProfileForm from "./ProfileForm";
 
 export default async function ProfilePage() {
@@ -10,12 +11,10 @@ export default async function ProfilePage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [profileRes, skillsRes, sectorsRes, profSkillsRes, profSectorsRes, isAdminRes] = await Promise.all([
+  const [profileRes, taxonomy, selected, isAdminRes] = await Promise.all([
     supabase.from("profiles").select("role, status, first_name, surname, course, grad_year, linkedin_url, github_url, portfolio_url, bio, working_on").eq("id", user.id).single(),
-    supabase.from("skills").select("id, name").order("name"),
-    supabase.from("sectors").select("id, name").order("name"),
-    supabase.from("profile_skills").select("skill_id").eq("profile_id", user.id),
-    supabase.from("profile_sectors").select("sector_id").eq("profile_id", user.id),
+    listTaxonomy(supabase),
+    profileTaxonomy(supabase, user.id),
     supabase.rpc("is_admin"),
   ]);
 
@@ -57,10 +56,10 @@ export default async function ProfilePage() {
             portfolioUrl={profile.portfolio_url ?? ""}
             bio={profile.bio ?? ""}
             workingOn={profile.working_on ?? ""}
-            skills={skillsRes.data ?? []}
-            sectors={sectorsRes.data ?? []}
-            selectedSkills={(profSkillsRes.data ?? []).map((r) => r.skill_id)}
-            selectedSectors={(profSectorsRes.data ?? []).map((r) => r.sector_id)}
+            skills={taxonomy.skills}
+            sectors={taxonomy.sectors}
+            selectedSkills={selected.skillIds}
+            selectedSectors={selected.sectorIds}
           />
         </div>
       </main>
