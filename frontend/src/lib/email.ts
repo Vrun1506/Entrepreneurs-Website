@@ -101,11 +101,13 @@ function escapeHtml(s: string): string {
 }
 
 // ─── Profile acceptance ─────────────────────────────────────────────
-export async function sendAcceptanceEmail(opts: {
-  to: string;
+// Rendered separately from sending, like renderGraduationEmail below, so
+// the bulk approve path can build many of these and hand them to
+// enqueueEmailsBulk in one round trip instead of one insert per member.
+export function renderAcceptanceEmail(opts: {
   firstName: string | null;
   communityUrl: string;
-}): Promise<void> {
+}): { subject: string; text: string; html: string } {
   const greeting = opts.firstName ? `Hi ${escapeName(opts.firstName)},` : "Hi,";
   const subject = "You're in — welcome to Foundry";
   const text = [
@@ -150,14 +152,28 @@ export async function sendAcceptanceEmail(opts: {
     </div>
   `;
 
+  return { subject, text, html };
+}
+
+export async function sendAcceptanceEmail(opts: {
+  to: string;
+  firstName: string | null;
+  communityUrl: string;
+}): Promise<void> {
+  const { subject, text, html } = renderAcceptanceEmail({
+    firstName:    opts.firstName,
+    communityUrl: opts.communityUrl,
+  });
   await enqueueEmail({ to: opts.to, subject, text, html, replyTo: contactInbox() });
 }
 
+/** Reply-to for the acceptance email, exported for the bulk path. */
+export const acceptanceReplyTo = contactInbox;
+
 // ─── Profile rejection ──────────────────────────────────────────────
-export async function sendRejectionEmail(opts: {
-  to: string;
+export function renderRejectionEmail(opts: {
   firstName: string | null;
-}): Promise<void> {
+}): { subject: string; text: string; html: string } {
   const greeting = opts.firstName ? `Hi ${escapeName(opts.firstName)},` : "Hi,";
   const subject = "Your Foundry application";
   const text = [
@@ -182,8 +198,19 @@ export async function sendRejectionEmail(opts: {
     </div>
   `;
 
+  return { subject, text, html };
+}
+
+export async function sendRejectionEmail(opts: {
+  to: string;
+  firstName: string | null;
+}): Promise<void> {
+  const { subject, text, html } = renderRejectionEmail({ firstName: opts.firstName });
   await enqueueEmail({ to: opts.to, subject, text, html, replyTo: appealsInbox() });
 }
+
+/** Reply-to for the rejection email, exported for the bulk path. */
+export const rejectionReplyTo = appealsInbox;
 
 // ─── Account removed by admin ───────────────────────────────────────
 export async function sendAccountRemovalEmail(opts: {
