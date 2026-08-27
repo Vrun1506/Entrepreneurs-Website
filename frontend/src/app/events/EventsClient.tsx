@@ -9,19 +9,7 @@ import { MarkActionPill } from "@/components/MarkActionPill";
 import { AddToCalendarMenu } from "@/components/AddToCalendarMenu";
 import { recordListingEvent } from "@/lib/analytics";
 import { formatDateWeekday, formatTime } from "@/lib/dates";
-
-type FoundryEvent = {
-  id: string;
-  title: string;
-  description: string;
-  lumaLink: string;
-  eventAt: string;
-  location: string;
-  organiserName: string;
-  contactEmail: string | null;
-  isSocietyEvent: boolean;
-  postedBy: { firstName: string; surname: string; linkedinUrl: string | null };
-};
+import type { FoundryEvent } from "@/lib/data/events";
 
 const MODES = [
   { value: "all",       label: "All" },

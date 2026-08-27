@@ -10,25 +10,7 @@ import { recordListingEvent } from "@/lib/analytics";
 import { formatDate } from "@/lib/dates";
 import { scrollBehavior } from "@/lib/motion";
 import { toggleOpportunityBookmark } from "./actions";
-
-type Opportunity = {
-  id: string;
-  positionName: string;
-  company: string;
-  pay: string;
-  locationType: "remote" | "hybrid" | "onsite";
-  locationText: string | null;
-  description: string;
-  startMonth: number;
-  startYear: number;
-  applicationDeadline: string;
-  contactEmail: string | null;
-  applyMethod: "email" | "link";
-  applyUrl: string | null;
-  postedBy: { firstName: string; surname: string; linkedinUrl: string | null };
-  skills: string[];
-  sectors: string[];
-};
+import type { Opportunity } from "@/lib/data/opportunities";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
