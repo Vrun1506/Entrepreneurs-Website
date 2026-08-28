@@ -23,7 +23,7 @@ export default async function MyBookmarksPage() {
       <main id="main-content" tabIndex={-1} className="flex-1 px-4 sm:px-8 py-10 sm:py-12">
         <div className="max-w-[1200px] mx-auto">
           <div className="mb-8 flex items-start justify-between gap-4 flex-wrap">
-            <div className="border-t border-border pt-6">
+            <div className="rule-draw pt-6">
               <p className="label-wide text-text-secondary mb-3 md:mb-0">Bookmarks</p>
               <h1 className="font-display text-text-primary leading-[1.1] tracking-tight text-[clamp(1.75rem,3.5vw,2.5rem)] md:col-start-2 md:row-start-1">
                 Saved opportunities

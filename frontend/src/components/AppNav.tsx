@@ -140,7 +140,7 @@ function NavLink({ href, label, active }: { href: string; label: string; active:
       {label}
       {/* Sits on the header's bottom rule, so the active tab reads as
           connected to the page below it rather than as a floating capsule. */}
-      {active && <span aria-hidden className="absolute -bottom-[13px] left-3 right-3 h-px bg-accent" />}
+      {active && <span aria-hidden className="underline-draw absolute -bottom-[13px] left-3 right-3 h-px bg-accent" />}
     </Link>
   );
 }

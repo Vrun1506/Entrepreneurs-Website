@@ -110,9 +110,7 @@ export default function Community() {
           </h2>
         </SectionHead>
 
-        <div className="grid grid-cols-1 items-start gap-x-10 gap-y-14 lg:grid-cols-[10rem_1fr_1.35fr]">
-          <div className="hidden lg:block" />
-
+        <div className="grid grid-cols-1 items-start gap-x-16 gap-y-14 lg:grid-cols-[1fr_1.3fr]">
           <div>
             <p className="mb-9 max-w-[52ch] text-[0.9rem] leading-[1.75] text-text-secondary">
               Your profile shows what you&apos;re building, what you&apos;re good at, and what
@@ -120,14 +118,14 @@ export default function Community() {
               the right people at the right time.
             </p>
 
-            <div className="mb-7 border-t border-border pt-6">
+            <div className="mb-7">
               <p className="label-wide mb-3 text-text-muted">Skills · pick up to 5</p>
               <div className="flex flex-wrap gap-1.5">
                 {SKILLS.map((s) => <Chip key={s} label={s} active={ACTIVE_SKILLS.has(s)} />)}
               </div>
             </div>
 
-            <div className="border-t border-border pt-6">
+            <div>
               <p className="label-wide mb-3 text-text-muted">Sector focus · pick up to 2</p>
               <div className="flex flex-wrap gap-1.5">
                 {SECTORS.map((s) => <Chip key={s} label={s} active={ACTIVE_SECTORS.has(s)} />)}

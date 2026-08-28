@@ -47,7 +47,7 @@ function Step({ step, title, desc }: typeof STEPS[number]) {
 // on a rule instead — which is also how a spec sheet shows a blank to fill.
 function MockField({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="border-t border-border pt-6">
+    <div>
       <p className="label-wide mb-2 text-text-muted">{label}</p>
       <p className="border-b border-border-strong pb-2 text-[0.85rem] text-text-secondary">{value}</p>
       {hint && <p className="mt-2 text-[0.7rem] leading-relaxed text-text-muted">{hint}</p>}
@@ -85,7 +85,7 @@ function FormPreview() {
           hint="Students: @imperial.ac.uk or @ic.ac.uk. Alumni: sign in with Google, admin-verified before access."
         />
 
-        <div className="border-t border-border pt-6">
+        <div>
           <p className="label-wide mb-2 text-text-muted">I am a…</p>
           <div className="flex flex-wrap gap-1.5">
             {ROLE_OPTIONS.map((r) => (
@@ -116,7 +116,8 @@ function FormPreview() {
 /* ── Section ──────────────────────────────────────────────────────── */
 export default function Apply() {
   return (
-    <section id="apply" className="mx-auto max-w-[1200px] px-8 py-24 pb-32">
+    <section id="apply" className="px-8 py-24 pb-32">
+      <div className="mx-auto max-w-[1200px]">
       {/* Treatment 5 of 5: a heavy pair, then the tail dropped all the way to
           the field-label register. The shortest line gets the smallest type,
           which is the opposite of what a headline usually does — and the
@@ -129,9 +130,7 @@ export default function Apply() {
         </h2>
       </SectionHead>
 
-      <div className="grid grid-cols-1 items-start gap-x-10 gap-y-14 md:grid-cols-[10rem_1fr] lg:grid-cols-[10rem_1fr_1fr]">
-        <div className="hidden md:block" />
-
+      <div className="grid grid-cols-1 items-start gap-x-16 gap-y-14 lg:grid-cols-[1fr_1fr]">
         <div>
           <p className="mb-9 max-w-[54ch] text-[0.95rem] leading-[1.75] text-text-secondary">
             Current students get in instantly with an Imperial email. Alumni sign in
@@ -157,6 +156,7 @@ export default function Apply() {
         </div>
 
         <FormPreview />
+      </div>
       </div>
     </section>
   );

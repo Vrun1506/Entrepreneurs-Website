@@ -105,7 +105,14 @@ export function FilterPanel({
         </span>
       </div>
 
-      <div id={panelId} hidden={!open} className="rounded-lg border border-border bg-bg-card p-5 space-y-5">
+      <div
+        id={panelId}
+        hidden={!open}
+        // The class is applied only while open, so React remounting the
+        // attribute is what fires the animation. Left on permanently it
+        // would run once, invisibly, behind `hidden`.
+        className={`rounded-lg border border-border bg-bg-card p-5 space-y-5 ${open ? "anim-panel" : ""}`}
+      >
         {children}
       </div>
     </div>

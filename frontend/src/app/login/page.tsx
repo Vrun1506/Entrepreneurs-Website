@@ -699,7 +699,7 @@ function RoleButton({ title, onClick }: { title: string; onClick: () => void }) 
     >
       <div className="flex items-center justify-between gap-3">
         <div className="text-[0.9rem] font-medium text-text-primary">{title}</div>
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0 text-text-muted transition-colors group-hover:text-text-primary">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0 text-text-muted transition-[color,transform] duration-150 group-hover:translate-x-0.5 group-hover:text-text-primary">
             <line x1="4" y1="12" x2="19" y2="12" /><polyline points="13 6 19 12 13 18" />
           </svg>
       </div>

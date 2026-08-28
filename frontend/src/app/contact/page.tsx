@@ -55,7 +55,7 @@ export default async function ContactPage() {
               ← Settings
             </Link>
           )}
-          <div className="mb-10 border-t border-border pt-6">
+          <div className="mb-10 rule-draw pt-6">
             <p className="label-wide text-text-secondary mb-3">Contact</p>
             <h1 className="font-display text-text-primary leading-[1.1] tracking-tight text-[clamp(1.75rem,3.5vw,2.5rem)]">
               Get in touch

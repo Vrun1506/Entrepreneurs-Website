@@ -74,7 +74,7 @@ export function Dialog({
           rather than the container testing event.target, so a drag that
           starts inside the panel and ends outside doesn't dismiss it. */}
       <div className={`w-full h-full ${containerClassName}`} onClick={() => ref.current?.close()}>
-        <div className={className} onClick={(e) => e.stopPropagation()}>
+        <div className={`anim-dialog ${className}`} onClick={(e) => e.stopPropagation()}>
           {children}
         </div>
       </div>
