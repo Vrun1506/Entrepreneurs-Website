@@ -1,17 +1,27 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import AppShell from "@/components/app/AppShell";
+import NewestMembers from "@/components/members/NewestMembers";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { requireApprovedUser } from "@/lib/auth/guard";
+import { newestMembers } from "@/lib/data/directory";
 import { listApprovedEvents } from "@/lib/data/events";
 import { listApprovedOpportunities } from "@/lib/data/opportunities";
-import { formatDateTime } from "@/lib/dates";
+import { listApprovedVcs } from "@/lib/data/vcs";
+import { formatDate, formatDateTime } from "@/lib/dates";
 
 // ════════════════════════════════════════════════════════════════════
 // Foundry · Home
 //
-// The landing surface behind auth. Two live sections — what's on soon and
-// what's been posted — plus search.
+// The landing surface behind auth: who has just joined, and the three
+// most recently added listings of each kind, each with a way through to
+// the full page.
+//
+// "Most recently added" is created_at, not the event date or the
+// deadline — those are what the listing pages sort by, and repeating
+// them here would make /home a shorter copy of /events rather than a
+// digest of what is new. The underlying RPCs still drop past events and
+// expired roles, so nothing dead surfaces.
 //
 // The prototype also shows a "Connection requests" block. There is no
 // connections table, so it is not here: a card that renders nothing, or
@@ -19,8 +29,15 @@ import { formatDateTime } from "@/lib/dates";
 // decoration. It goes in when intro_requests does.
 // ════════════════════════════════════════════════════════════════════
 
+/** Most recently added first. Ties keep their incoming order. */
+function newestFirst<T extends { createdAt: string }>(items: T[], n: number): T[] {
+  return [...items]
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+    .slice(0, n);
+}
+
 export default async function HomePage() {
-  const { supabase, user } = await requireApprovedUser();
+  const { supabase, user, isAdmin } = await requireApprovedUser();
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -32,59 +49,48 @@ export default async function HomePage() {
     profile?.preferred_name?.trim() || profile?.first_name?.trim() || "there";
   const fullName = [profile?.first_name, profile?.surname].filter(Boolean).join(" ");
 
-  // Started, not awaited — the two sections resolve in the same tick.
+  // Started, not awaited — the four sections resolve in the same tick.
+  const members = newestMembers(supabase);
   const events = listApprovedEvents(supabase);
   const opps = listApprovedOpportunities(supabase);
+  const vcs = listApprovedVcs(supabase, isAdmin);
 
   return (
     <AppShell active="home" name={fullName || name}>
       <div className="mx-auto w-full max-w-[1100px] px-6 py-10 sm:px-10">
         <header className="mb-12">
           <p className="mb-1 text-[0.8rem] text-text-muted">Hello,</p>
-          <h1 className="mb-7 font-display text-[clamp(2rem,4.5vw,3rem)] leading-[1.05] tracking-tight text-text-primary">
+          <h1 className="font-display text-[clamp(2rem,4.5vw,3rem)] leading-[1.05] tracking-tight text-text-primary">
             {name}
           </h1>
-
-          <form action="/members" method="get" role="search" className="flex max-w-[34rem] gap-2">
-            <label htmlFor="q" className="sr-only">
-              Search members
-            </label>
-            <input
-              id="q"
-              name="q"
-              type="search"
-              placeholder="Search members by name, skill or course"
-              className="min-w-0 flex-1 rounded-lg border border-border bg-white/[0.03] px-4 py-2.5 text-[0.85rem] text-text-primary transition-colors duration-150 placeholder:text-text-muted focus:border-accent focus:bg-white/[0.05]"
-            />
-            <button
-              type="submit"
-              className="shrink-0 cursor-pointer rounded-lg border border-border-strong bg-white/[0.06] px-5 py-2.5 text-[0.825rem] text-text-primary transition-colors duration-150 hover:border-accent hover:bg-white/[0.10]"
-            >
-              Search
-            </button>
-          </form>
         </header>
 
-        <Section
-          title="Upcoming events"
-          blurb="Foundry gatherings and member meetups"
-          href="/events"
-          hrefLabel="All events"
-        >
+        <Suspense fallback={<StripSkeleton />}>
+          <Newest data={members} />
+        </Suspense>
+
+        <Section title="Events" blurb="Foundry gatherings and member meetups">
           <Suspense fallback={<CardsSkeleton />}>
             <Events data={events} />
           </Suspense>
+          <ViewAll href="/events" label="Events" />
         </Section>
 
         <Section
           title="Opportunities"
           blurb="Roles, projects and introductions shared by members"
-          href="/opportunities"
-          hrefLabel="All opportunities"
         >
           <Suspense fallback={<CardsSkeleton />}>
             <Opportunities data={opps} />
           </Suspense>
+          <ViewAll href="/opportunities" label="Opportunities" />
+        </Section>
+
+        <Section title="VCs and Grants" blurb="Funding routes open to Foundry founders">
+          <Suspense fallback={<CardsSkeleton />}>
+            <Vcs data={vcs} />
+          </Suspense>
+          <ViewAll href="/vcs" label="VCs and Grants" />
         </Section>
       </div>
     </AppShell>
@@ -94,34 +100,38 @@ export default async function HomePage() {
 function Section({
   title,
   blurb,
-  href,
-  hrefLabel,
   children,
 }: {
   title: string;
   blurb: string;
-  href: string;
-  hrefLabel: string;
   children: React.ReactNode;
 }) {
   return (
     <section className="mb-14">
-      <div className="mb-5 flex items-end justify-between gap-4 border-b border-border-subtle pb-3">
-        <div className="min-w-0">
-          <h2 className="font-display text-[1.4rem] leading-tight tracking-tight text-text-primary">
-            {title}
-          </h2>
-          <p className="mt-0.5 text-[0.825rem] text-text-muted">{blurb}</p>
-        </div>
-        <Link
-          href={href}
-          className="shrink-0 rounded-lg border border-border-strong bg-white/[0.04] px-3.5 py-1.5 text-[0.775rem] text-text-secondary no-underline transition-colors duration-150 hover:border-accent hover:text-text-primary"
-        >
-          {hrefLabel} →
-        </Link>
+      <div className="mb-5 border-b border-border-subtle pb-3">
+        <h2 className="font-display text-[1.4rem] leading-tight tracking-tight text-text-primary">
+          {title}
+        </h2>
+        <p className="mt-0.5 text-[0.825rem] text-text-muted">{blurb}</p>
       </div>
       {children}
     </section>
+  );
+}
+
+/** The way through to the full listing. A bordered control, not bare text —
+ *  it is the one thing on this page you are meant to click after reading. */
+function ViewAll({ href, label }: { href: string; label: string }) {
+  return (
+    <div className="mt-5">
+      <Link
+        href={href}
+        className="inline-flex items-center gap-2 rounded-lg border border-border-strong bg-white/[0.04] px-4 py-2 text-[0.8rem] text-text-primary no-underline transition-colors duration-150 hover:border-accent hover:bg-white/[0.08]"
+      >
+        View all {label}
+        <span aria-hidden>→</span>
+      </Link>
+    </div>
   );
 }
 
@@ -135,6 +145,16 @@ function CardsSkeleton() {
   );
 }
 
+function StripSkeleton() {
+  return (
+    <div className="mb-10 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      {[0, 1, 2, 3, 4].map((i) => (
+        <Skeleton key={i} className="h-24 w-full" />
+      ))}
+    </div>
+  );
+}
+
 function Empty({ children }: { children: React.ReactNode }) {
   return (
     <p className="rounded-lg border border-border bg-white/[0.02] px-5 py-6 text-[0.85rem] text-text-secondary">
@@ -143,64 +163,102 @@ function Empty({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** The card shell all three listing kinds share on this page. */
+function Card({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <li>
+      <Link
+        href={href}
+        className="block h-full rounded-lg border border-border bg-bg-card p-5 no-underline transition-colors duration-150 hover:border-border-strong hover:bg-bg-card-hover"
+      >
+        {children}
+      </Link>
+    </li>
+  );
+}
+
+function Grid({ children }: { children: React.ReactNode }) {
+  return <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{children}</ul>;
+}
+
+async function Newest({ data }: { data: ReturnType<typeof newestMembers> }) {
+  return <NewestMembers newest={await data} />;
+}
+
 async function Events({ data }: { data: ReturnType<typeof listApprovedEvents> }) {
-  const all = await data;
-  const soon = all.slice(0, 3);
-  if (soon.length === 0) {
+  const latest = newestFirst(await data, 3);
+  if (latest.length === 0) {
     return <Empty>Nothing scheduled yet. Post the first one from the Events page.</Empty>;
   }
   return (
-    <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      {soon.map((e) => (
-        <li key={e.id}>
-          <Link
-            href={`/events/${e.id}`}
-            className="block h-full rounded-lg border border-border bg-bg-card p-5 no-underline transition-colors duration-150 hover:border-border-strong hover:bg-bg-card-hover"
-          >
-            {e.isSocietyEvent && (
-              <span className="mb-3 inline-block rounded border border-signal/40 bg-signal-muted px-2 py-0.5 text-[0.65rem] font-medium uppercase tracking-[0.1em] text-signal">
-                Foundry event
-              </span>
-            )}
-            <p className="mb-1.5 font-mono text-[0.7rem] uppercase tracking-[0.08em] text-text-muted">
-              {formatDateTime(e.eventAt)}
-            </p>
-            <p className="mb-2 text-[0.95rem] font-medium leading-snug text-text-primary">
-              {e.title}
-            </p>
-            <p className="text-[0.775rem] text-text-secondary">{e.location}</p>
-          </Link>
-        </li>
+    <Grid>
+      {latest.map((e) => (
+        <Card key={e.id} href={`/events/${e.id}`}>
+          {e.isSocietyEvent && (
+            <span className="mb-3 inline-block rounded border border-signal/40 bg-signal-muted px-2 py-0.5 text-[0.65rem] font-medium uppercase tracking-[0.1em] text-signal">
+              Foundry event
+            </span>
+          )}
+          <p className="mb-1.5 font-mono text-[0.7rem] uppercase tracking-[0.08em] text-text-muted">
+            {formatDateTime(e.eventAt)}
+          </p>
+          <p className="mb-2 text-[0.95rem] font-medium leading-snug text-text-primary">
+            {e.title}
+          </p>
+          <p className="text-[0.775rem] text-text-secondary">{e.location}</p>
+        </Card>
       ))}
-    </ul>
+    </Grid>
   );
 }
 
 async function Opportunities({ data }: { data: ReturnType<typeof listApprovedOpportunities> }) {
-  const all = await data;
-  const latest = all.slice(0, 3);
+  const latest = newestFirst(await data, 3);
   if (latest.length === 0) {
     return <Empty>No open opportunities right now. Post one from the Opportunities page.</Empty>;
   }
   return (
-    <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <Grid>
       {latest.map((o) => (
-        <li key={o.id}>
-          <Link
-            href={`/opportunities/${o.id}`}
-            className="block h-full rounded-lg border border-border bg-bg-card p-5 no-underline transition-colors duration-150 hover:border-border-strong hover:bg-bg-card-hover"
-          >
-            <p className="mb-1.5 font-mono text-[0.7rem] uppercase tracking-[0.08em] text-text-muted">
-              {o.locationType}
-              {o.locationText ? ` · ${o.locationText}` : ""}
-            </p>
-            <p className="mb-2 text-[0.95rem] font-medium leading-snug text-text-primary">
-              {o.positionName}
-            </p>
-            <p className="text-[0.775rem] text-text-secondary">{o.company}</p>
-          </Link>
-        </li>
+        <Card key={o.id} href={`/opportunities/${o.id}`}>
+          <p className="mb-1.5 font-mono text-[0.7rem] uppercase tracking-[0.08em] text-text-muted">
+            {o.locationType}
+            {o.locationText ? ` · ${o.locationText}` : ""}
+          </p>
+          <p className="mb-2 text-[0.95rem] font-medium leading-snug text-text-primary">
+            {o.positionName}
+          </p>
+          <p className="text-[0.775rem] text-text-secondary">{o.company}</p>
+        </Card>
       ))}
-    </ul>
+    </Grid>
+  );
+}
+
+// listApprovedVcs already returns created_at descending, so this is a
+// slice rather than a re-sort — and Vc deliberately does not carry
+// createdAt to the client, so there is nothing here to sort on anyway.
+async function Vcs({ data }: { data: ReturnType<typeof listApprovedVcs> }) {
+  const latest = (await data).slice(0, 3);
+  if (latest.length === 0) {
+    return <Empty>No VCs or grants listed yet. Suggest one from the Grants &amp; VCs page.</Empty>;
+  }
+  return (
+    <Grid>
+      {latest.map((v) => (
+        <Card key={v.id} href={`/vcs?q=${encodeURIComponent(v.name)}`}>
+          <p className="mb-1.5 font-mono text-[0.7rem] uppercase tracking-[0.08em] text-text-muted">
+            {v.kind === "vc" ? "VC" : "Grant"}
+            {v.stage ? ` · ${v.stage}` : ""}
+          </p>
+          <p className="mb-2 text-[0.95rem] font-medium leading-snug text-text-primary">
+            {v.name}
+          </p>
+          <p className="text-[0.775rem] text-text-secondary">
+            {v.amount ?? (v.deadline ? `Closes ${formatDate(v.deadline)}` : "Rolling applications")}
+          </p>
+        </Card>
+      ))}
+    </Grid>
   );
 }

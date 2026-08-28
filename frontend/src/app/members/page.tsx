@@ -87,11 +87,10 @@ async function Directory({
   data: Promise<DirectoryPage>;
   filters: MemberFilters;
 }) {
-  const { members, newest, facets, matching } = await data;
+  const { members, facets, matching } = await data;
   return (
     <MembersClient
       members={members}
-      newest={newest}
       facets={facets}
       filters={filters}
       matching={matching}
