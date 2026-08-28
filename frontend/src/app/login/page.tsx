@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cleanName, isValidName } from "@/lib/text";
@@ -9,8 +9,10 @@ import { SignupDisclosures } from "@/components/forms/SignupDisclosures";
 import { TurnstileWidget, turnstileConfigured } from "@/components/forms/TurnstileWidget";
 import { isImperialEmail } from "@/lib/auth/imperialEmail";
 import { BrandLogo } from "@/components/BrandLogo";
+import Starfield from "@/components/Starfield";
 import { destinationForStatus } from "@/lib/auth/status";
 import { Button } from "@/components/ui/Button";
+import { AFFILIATIONS, type Affiliation } from "@/lib/intake/steps";
 
 // Auth error text reaches us partly via ?error= in the URL, which is
 // attacker-controllable — rendering it verbatim is a phishing/content-spoof
@@ -37,29 +39,13 @@ function friendlyVerifyError(raw: string): string {
 }
 
 /* ── Decorative background ────────────────────────────────────────── */
+// The auth pages used to sit on two gold radial-gradient glows and a 64px
+// two-axis grid overlay. Neither came from anywhere: the glow was ambient
+// decoration and the grid was a graph-paper texture over a page that is not
+// graph paper. The starfield is the one background this brand actually owns,
+// and it makes /login continuous with the hero rather than a different site.
 function BackgroundEffects() {
-  return (
-    <>
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -top-[20%] -right-[15%] w-[600px] h-[600px] rounded-full"
-        style={{ background: "radial-gradient(circle, rgba(201,168,76,0.05) 0%, transparent 65%)" }}
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -bottom-[25%] -left-[10%] w-[500px] h-[500px] rounded-full"
-        style={{ background: "radial-gradient(circle, rgba(201,168,76,0.03) 0%, transparent 70%)" }}
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-[0.02]"
-        style={{
-          backgroundImage: "linear-gradient(rgba(201,168,76,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(201,168,76,0.3) 1px, transparent 1px)",
-          backgroundSize: "64px 64px",
-        }}
-      />
-    </>
-  );
+  return <Starfield className="pointer-events-none absolute inset-0 h-full w-full" />;
 }
 
 /* ── Logo ─────────────────────────────────────────────────────────── */
@@ -85,14 +71,33 @@ function GoogleIcon() {
 
 /* ── Page ─────────────────────────────────────────────────────────── */
 type Mode = "signin" | "signup";
-type Role = "student" | "alum" | null;
+// Six values since 20260828000001. The split that matters on this page is
+// not student-vs-alum but *which auth mechanic applies*: a student proves
+// themselves with an Imperial address and an OTP code, and everybody else
+// signs up with a password and waits for an admin. So the five non-student
+// roles all ride the existing password flow, differing only in the `role`
+// written into signup metadata.
+type Role = Affiliation | null;
 
 export default function LoginPage() {
   const router = useRouter();
   const supabase = createClient();
 
   const [mode, setMode] = useState<Mode>("signup");
-  const [role, setRole] = useState<Role>(null);
+
+  // admin_delete_graduates emails every graduating student a link to
+  // /login?role=alum. That parameter has never been read — graduates landed
+  // on the chooser and picked manually, which was survivable with two
+  // options and is a mis-pick waiting to happen with six.
+  //
+  // 'student' is deliberately not honoured: that path needs a verified
+  // Imperial address and an OTP, and nothing links to it.
+  const searchParams = useSearchParams();
+  const [role, setRole] = useState<Role>(() => {
+    const r = searchParams.get("role");
+    const valid = AFFILIATIONS.some((a) => a.value === r && a.value !== "student");
+    return valid ? (r as Affiliation) : null;
+  });
 
   // Alum form fields
   const [firstName, setFirstName] = useState("");
@@ -464,7 +469,11 @@ export default function LoginPage() {
           // public.profiles with role/first_name/surname on insert.
           // grad_year is collected later during onboarding.
           data: {
-            role: "alum",
+            // Whatever they picked in the Chooser. tg_handle_new_user casts
+            // this straight to user_role and enforces the Imperial-domain
+            // rule for 'student' only; every other value lands in
+            // pending_review, so this cannot be used to skip review.
+            role: role ?? "alum",
             first_name: cleanName(firstName),
             surname: cleanName(surname),
           },
@@ -535,11 +544,13 @@ export default function LoginPage() {
     await routeAfterSignIn();
   };
 
+  // Same device as the hero h1 and the section heads: the emphasis is a
+  // weight step inside one grotesque, not a colour change into a serif italic.
   const heading =
     mode === "signup" ? (
-      <>Join the <em className="text-gold">Foundry.</em></>
+      <><span className="font-light text-text-secondary">Join the </span>Foundry.</>
     ) : (
-      <>Welcome <em className="text-gold">back.</em></>
+      <><span className="font-light text-text-secondary">Welcome </span>back.</>
     );
 
   const subtitle =
@@ -570,25 +581,25 @@ export default function LoginPage() {
       </header>
 
       {/* Main */}
-      <main id="main-content" tabIndex={-1} className="relative z-10 flex-1 flex items-center justify-center px-8 py-12">
+      <main id="main-content" tabIndex={-1} className="relative z-10 flex-1 flex items-center justify-center px-5 py-8 sm:px-8 sm:py-12">
         <div className="w-full max-w-[440px]">
 
           {/* Heading */}
-          <div className="text-center mb-10">
-            <h1 className="font-display text-text-primary leading-[1.1] tracking-tight mb-4 text-[clamp(2rem,4vw,2.75rem)]">
+          <div className="mb-8 text-center">
+            <h1 className="mb-3 text-[clamp(1.9rem,4vw,2.6rem)] font-semibold leading-[1.06] tracking-[-0.035em] text-text-primary">
               {heading}
             </h1>
-            <p className="text-[0.9rem] text-text-secondary font-light leading-[1.7]">
+            <p className="text-[0.9rem] leading-[1.65] text-text-secondary">
               {subtitle}
             </p>
           </div>
 
           {/* Card */}
-          <div className="rounded-2xl bg-bg-card border border-border-subtle p-8">
+          <div className="rounded-lg border border-border bg-bg-secondary p-6 sm:p-8">
 
             {/* Error */}
             {error && (
-              <div className="mb-5 px-4 py-3 rounded-lg bg-[#ff4d4d]/8 border border-[#ff4d4d]/20 text-[0.8rem] text-[#ff6b6b] leading-relaxed">
+              <div className="mb-5 rounded-lg border-l-2 border-[#ff4d4d] bg-[#ff4d4d]/8 px-4 py-3 text-[0.8rem] leading-relaxed text-[#ff8080]">
                 {error}
               </div>
             )}
@@ -616,7 +627,7 @@ export default function LoginPage() {
               />
             )}
 
-            {role === "alum" && (
+            {role !== null && role !== "student" && (
               <AlumForm
                 mode={mode}
                 firstName={firstName} setFirstName={setFirstName}
@@ -658,7 +669,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => switchMode(mode === "signup" ? "signin" : "signup")}
-                  className="text-gold bg-transparent border-0 cursor-pointer text-[0.8rem] font-medium transition-colors duration-150 hover:text-gold-light"
+                  className="cursor-pointer border-0 bg-transparent text-[0.8rem] font-medium text-text-primary underline underline-offset-4 decoration-border-strong transition-colors duration-150 hover:decoration-accent"
                 >
                   {mode === "signup" ? "Sign in" : "Sign up"}
                 </button>
@@ -688,31 +699,36 @@ export default function LoginPage() {
 }
 
 /* ── Chooser ──────────────────────────────────────────────────────── */
-function Chooser({ onPick }: { onPick: (r: "student" | "alum") => void }) {
+function Chooser({ onPick }: { onPick: (r: Affiliation) => void }) {
   return (
     <div className="space-y-3">
-      <RoleButton
-        title="I am a current Imperial student"
-        onClick={() => onPick("student")}
-      />
-      <RoleButton
-        title="I am an Imperial alum"
-        onClick={() => onPick("alum")}
-      />
+      {AFFILIATIONS.map((a) => (
+        <RoleButton
+          key={a.value}
+          title={a.label}
+          blurb={a.blurb}
+          onClick={() => onPick(a.value)}
+        />
+      ))}
     </div>
   );
 }
 
-function RoleButton({ title, onClick }: { title: string; onClick: () => void }) {
+function RoleButton({ title, blurb, onClick }: { title: string; blurb?: string; onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="w-full text-left px-5 py-4 rounded-xl bg-white/[0.03] border border-border hover:border-gold/40 hover:bg-white/[0.05] transition-colors duration-150 cursor-pointer group"
+      className="group w-full cursor-pointer rounded-lg border border-border-strong bg-white/[0.03] px-5 py-4 text-left transition-colors duration-150 hover:border-accent hover:bg-white/[0.06]"
     >
       <div className="flex items-center justify-between gap-3">
-        <div className="text-[0.9rem] font-medium text-text-primary">{title}</div>
-        <span className="text-text-muted group-hover:text-gold transition-colors">→</span>
+        <div className="min-w-0">
+          <div className="text-[0.9rem] font-medium text-text-primary">{title}</div>
+          {blurb && <div className="mt-0.5 text-[0.775rem] leading-[1.5] text-text-muted">{blurb}</div>}
+        </div>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0 text-text-muted transition-[color,transform] duration-150 group-hover:translate-x-0.5 group-hover:text-text-primary">
+            <line x1="4" y1="12" x2="19" y2="12" /><polyline points="13 6 19 12 13 18" />
+          </svg>
       </div>
     </button>
   );
@@ -724,7 +740,7 @@ function BackLink({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="text-[0.75rem] text-text-muted hover:text-text-secondary bg-transparent border-0 cursor-pointer transition-colors flex items-center gap-1"
+      className="inline-flex items-center gap-1 px-3 py-1.5 text-[0.75rem] rounded-lg border border-border-strong bg-white/[0.04] text-text-secondary cursor-pointer transition-colors duration-150 hover:border-accent hover:text-text-primary"
     >
       ← Back
     </button>
@@ -752,13 +768,13 @@ function CodeEntryPanel({
     <div className="space-y-5">
       <BackLink onClick={onBack} />
       <form onSubmit={onVerify} className="py-2 text-center space-y-4">
-        <div className="w-12 h-12 rounded-full bg-gold/15 flex items-center justify-center mx-auto">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="text-gold" aria-hidden>
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-border-strong">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="text-text-primary" aria-hidden>
             <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
             <polyline points="22,6 12,13 2,6" />
           </svg>
         </div>
-        <h2 className="font-display text-[1.15rem] text-text-primary">Enter your code</h2>
+        <h2 className="text-[1.15rem] font-semibold tracking-[-0.02em] text-text-primary">Enter your code</h2>
         <p className="text-[0.8rem] text-text-secondary leading-relaxed">
           We emailed a 6-digit code to <span className="text-text-primary">{email}</span>. Enter it below to {mode === "signup" ? "finish signing up" : "sign in"}.
         </p>
@@ -774,11 +790,11 @@ function CodeEntryPanel({
           onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
           placeholder="000000"
           autoFocus
-          className="w-full px-4 py-3 bg-white/[0.03] border border-border rounded-lg text-center text-[1.4rem] tracking-[0.4em] font-medium text-text-primary placeholder:text-text-muted placeholder:tracking-[0.4em] transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]"
+          className="data w-full rounded-lg border border-border-strong bg-white/[0.03] px-4 py-3 text-center text-[1.4rem] font-medium tracking-[0.4em] text-text-primary transition-colors duration-150 placeholder:tracking-[0.4em] placeholder:text-text-muted focus:border-accent focus:bg-white/[0.05]"
         />
 
         {verifyError && (
-          <p className="text-[0.78rem] text-[#ff6b6b] leading-relaxed">{verifyError}</p>
+          <p className="text-[0.78rem] text-[#ff8080] leading-relaxed">{verifyError}</p>
         )}
 
         <Button
@@ -800,7 +816,7 @@ function CodeEntryPanel({
             type="button"
             onClick={onResend}
             disabled={!canResend}
-            className="text-[0.8rem] text-gold bg-transparent border-0 cursor-pointer transition-colors duration-150 hover:text-gold-light disabled:text-text-muted disabled:cursor-not-allowed"
+            className="cursor-pointer border-0 bg-transparent text-[0.8rem] text-text-primary underline underline-offset-4 decoration-border-strong transition-colors duration-150 hover:decoration-accent disabled:text-text-muted disabled:no-underline disabled:cursor-not-allowed"
           >
             {isLoading
               ? "Resending…"
@@ -841,7 +857,7 @@ function StudentMagicLinkFlow({
   onBack: () => void;
 }) {
   const inputCls =
-    "w-full px-4 py-3 bg-white/[0.03] border border-border rounded-lg text-[0.85rem] text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]";
+    "w-full px-4 py-3 bg-white/[0.03] border border-border rounded-lg text-[0.85rem] text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:border-accent/50 focus:bg-white/[0.05]";
 
   if (emailSent) {
     return (
@@ -863,7 +879,7 @@ function StudentMagicLinkFlow({
       {mode === "signup" && (
         <div className="flex gap-3">
           <div className="flex-1">
-            <label htmlFor="first-name" className="block text-[0.75rem] text-text-muted mb-1.5">First name</label>
+            <label htmlFor="first-name" className="block text-[0.7rem] font-medium uppercase tracking-[0.14em] text-text-secondary mb-2">First name</label>
             <input
               id="first-name"
               type="text"
@@ -876,7 +892,7 @@ function StudentMagicLinkFlow({
             />
           </div>
           <div className="flex-1">
-            <label htmlFor="surname" className="block text-[0.75rem] text-text-muted mb-1.5">Surname</label>
+            <label htmlFor="surname" className="block text-[0.7rem] font-medium uppercase tracking-[0.14em] text-text-secondary mb-2">Surname</label>
             <input
               id="surname"
               type="text"
@@ -892,7 +908,7 @@ function StudentMagicLinkFlow({
       )}
 
       <div>
-        <label htmlFor="email" className="block text-[0.75rem] text-text-muted mb-1.5">Imperial email</label>
+        <label htmlFor="email" className="block text-[0.7rem] font-medium uppercase tracking-[0.14em] text-text-secondary mb-2">Imperial email</label>
         <input
           id="email"
           type="email"
@@ -964,7 +980,7 @@ function AlumForm({
   const [forgotView, setForgotView] = useState(false);
 
   const inputCls =
-    "w-full px-4 py-3 bg-white/[0.03] border border-border rounded-lg text-[0.85rem] text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]";
+    "w-full px-4 py-3 bg-white/[0.03] border border-border rounded-lg text-[0.85rem] text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:border-accent/50 focus:bg-white/[0.05]";
 
   // After signup, "Confirm email" requires the alum to verify before they have
   // a session. Show the shared code-entry panel; the resend re-sends the signup
@@ -993,13 +1009,13 @@ function AlumForm({
         <div className="space-y-5">
           <BackLink onClick={backToSignIn} />
           <div className="py-6 text-center space-y-4">
-            <div className="w-12 h-12 rounded-full bg-gold/15 flex items-center justify-center mx-auto">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="text-gold" aria-hidden>
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-border-strong">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="text-text-primary" aria-hidden>
                 <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
                 <polyline points="22,6 12,13 2,6" />
               </svg>
             </div>
-            <h2 className="font-display text-[1.15rem] text-text-primary">Check your inbox</h2>
+            <h2 className="text-[1.15rem] font-semibold tracking-[-0.02em] text-text-primary">Check your inbox</h2>
             <p className="text-[0.8rem] text-text-secondary leading-relaxed">
               If an account exists for <span className="text-text-primary">{email}</span>, we&apos;ve sent a password-reset link.
             </p>
@@ -1011,7 +1027,7 @@ function AlumForm({
                 type="button"
                 onClick={onForgot}
                 disabled={!canSend}
-                className="text-[0.8rem] text-gold bg-transparent border-0 cursor-pointer transition-colors duration-150 hover:text-gold-light disabled:text-text-muted disabled:cursor-not-allowed"
+                className="cursor-pointer border-0 bg-transparent text-[0.8rem] text-text-primary underline underline-offset-4 decoration-border-strong transition-colors duration-150 hover:decoration-accent disabled:text-text-muted disabled:no-underline disabled:cursor-not-allowed"
               >
                 {isLoading
                   ? "Resending…"
@@ -1029,13 +1045,13 @@ function AlumForm({
       <form onSubmit={(e) => { e.preventDefault(); onForgot(); }} className="space-y-4">
         <BackLink onClick={backToSignIn} />
         <div className="space-y-1.5">
-          <h2 className="font-display text-[1.15rem] text-text-primary">Reset your password</h2>
+          <h2 className="text-[1.15rem] font-semibold tracking-[-0.02em] text-text-primary">Reset your password</h2>
           <p className="text-[0.8rem] text-text-secondary leading-relaxed">
             Enter your email and we&apos;ll send you a link to set a new password.
           </p>
         </div>
         <div>
-          <label htmlFor="reset-email" className="block text-[0.75rem] text-text-muted mb-1.5">Email</label>
+          <label htmlFor="reset-email" className="block text-[0.7rem] font-medium uppercase tracking-[0.14em] text-text-secondary mb-2">Email</label>
           <input
             id="reset-email"
             type="email"
@@ -1075,7 +1091,7 @@ function AlumForm({
         type="button"
         onClick={onGoogle}
         disabled={isLoading}
-        className="w-full flex items-center justify-center gap-3 px-6 py-3 rounded-xl bg-white text-[#1a1a1a] text-[0.85rem] font-medium tracking-wide border-0 cursor-pointer transition-all duration-200 hover:bg-white/90 hover:-translate-y-px disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+        className="flex w-full cursor-pointer items-center justify-center gap-3 rounded-lg border-0 bg-white px-6 py-3 text-[0.85rem] font-semibold text-[#1a1a1a] transition-colors duration-150 hover:bg-accent-dim disabled:cursor-not-allowed disabled:opacity-60"
       >
         <GoogleIcon />
         Continue with Google
@@ -1087,11 +1103,11 @@ function AlumForm({
           terms) rather than the hard checkbox gate used for email/password. */}
       <p className="text-[0.72rem] text-text-muted leading-relaxed text-center px-2">
         By continuing with Google, you agree to our{" "}
-        <Link href="/terms" target="_blank" className="text-gold hover:text-gold-light no-underline">
+        <Link href="/terms" target="_blank" className="text-accent hover:text-accent-light no-underline">
           Terms &amp; Conditions
         </Link>{" "}
         and{" "}
-        <Link href="/privacy" target="_blank" className="text-gold hover:text-gold-light no-underline">
+        <Link href="/privacy" target="_blank" className="text-accent hover:text-accent-light no-underline">
           Privacy Policy
         </Link>
         .
@@ -1106,7 +1122,7 @@ function AlumForm({
       {mode === "signup" && (
         <div className="flex gap-3">
           <div className="flex-1">
-            <label htmlFor="first-name" className="block text-[0.75rem] text-text-muted mb-1.5">First name</label>
+            <label htmlFor="first-name" className="block text-[0.7rem] font-medium uppercase tracking-[0.14em] text-text-secondary mb-2">First name</label>
             <input
               id="first-name"
               type="text"
@@ -1119,7 +1135,7 @@ function AlumForm({
             />
           </div>
           <div className="flex-1">
-            <label htmlFor="surname" className="block text-[0.75rem] text-text-muted mb-1.5">Surname</label>
+            <label htmlFor="surname" className="block text-[0.7rem] font-medium uppercase tracking-[0.14em] text-text-secondary mb-2">Surname</label>
             <input
               id="surname"
               type="text"
@@ -1135,7 +1151,7 @@ function AlumForm({
       )}
 
       <div>
-        <label htmlFor="email" className="block text-[0.75rem] text-text-muted mb-1.5">Email</label>
+        <label htmlFor="email" className="block text-[0.7rem] font-medium uppercase tracking-[0.14em] text-text-secondary mb-2">Email</label>
         <input
           id="email"
           type="email"
@@ -1148,7 +1164,7 @@ function AlumForm({
       </div>
 
       <div>
-        <label htmlFor="password" className="block text-[0.75rem] text-text-muted mb-1.5">Password</label>
+        <label htmlFor="password" className="block text-[0.7rem] font-medium uppercase tracking-[0.14em] text-text-secondary mb-2">Password</label>
         <input
           id="password"
           type="password"
@@ -1165,7 +1181,7 @@ function AlumForm({
           <button
             type="button"
             onClick={() => { onForgotReset(); setForgotView(true); }}
-            className="text-[0.75rem] text-gold bg-transparent border-0 cursor-pointer transition-colors duration-150 hover:text-gold-light"
+            className="cursor-pointer border-0 bg-transparent text-[0.75rem] text-accent underline underline-offset-4 decoration-border-strong transition-colors duration-150 hover:text-accent-light hover:decoration-accent"
           >
             Forgot your password?
           </button>
@@ -1174,7 +1190,7 @@ function AlumForm({
 
       {mode === "signup" && (
         <div>
-          <label htmlFor="repeat-password" className="block text-[0.75rem] text-text-muted mb-1.5">Repeat password</label>
+          <label htmlFor="repeat-password" className="block text-[0.7rem] font-medium uppercase tracking-[0.14em] text-text-secondary mb-2">Repeat password</label>
           <input
             id="repeat-password"
             type="password"

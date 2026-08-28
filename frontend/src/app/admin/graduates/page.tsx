@@ -10,9 +10,9 @@ export default function AdminGraduatesPage() {
   return (
     <main id="main-content" tabIndex={-1} className="min-h-screen bg-bg-primary text-text-primary px-8 py-12">
       <div className="max-w-[820px] mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <div className="text-[0.7rem] text-gold tracking-[0.18em] uppercase mb-2">Admin · graduate cleanup</div>
+        <div className="flex flex-wrap items-start justify-between gap-4 mb-8 rule-draw pt-6">
+          <div className="min-w-0">
+            <p className="label-wide text-text-secondary mb-3">Admin · graduate cleanup</p>
             <h1 className="font-display text-[clamp(1.75rem,3vw,2.5rem)] leading-[1.1] tracking-tight">
               Promote out the graduating cohort
             </h1>

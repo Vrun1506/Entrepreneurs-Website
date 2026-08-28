@@ -47,8 +47,8 @@ export default function CookiesPage() {
         <Link href="/login" className="text-[0.8rem] text-text-muted no-underline hover:text-text-secondary transition-colors">
           ← Back
         </Link>
-        <div className="mt-6 mb-10">
-          <div className="text-[0.7rem] text-gold tracking-[0.18em] uppercase mb-2">Legal</div>
+        <div className="mt-6 mb-10 rule-draw pt-6">
+          <p className="label-wide text-text-secondary mb-3">Legal</p>
           <h1 className="font-display text-[clamp(1.75rem,3vw,2.5rem)] leading-[1.1] tracking-tight">
             Cookie Policy
           </h1>
@@ -132,7 +132,7 @@ export default function CookiesPage() {
             <p>
               We may update this policy if our use of cookies changes. For questions, contact{" "}
               <strong>contact@imperialentrepreneurs.com</strong>. See also our{" "}
-              <Link href="/privacy" className="text-gold hover:text-gold-light no-underline">Privacy Policy</Link>.
+              <Link href="/privacy" className="text-accent hover:text-accent-light no-underline">Privacy Policy</Link>.
             </p>
           </Section>
         </article>

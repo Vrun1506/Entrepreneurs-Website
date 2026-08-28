@@ -33,3 +33,10 @@ graphify-out/
 supabase/.branches/
 supabase/.temp/
 supabase/.env
+# Design reference library (VoltAgent/awesome-design-md), read-only, not ours to track
+/design-md/
+
+# Screen recordings used as build specs (the two 2026-08-28 prototype walkthroughs).
+# ~40MB each — reference material, not source, and git has no good answer for
+# binaries this size. Keep them locally; they are not the record of what shipped.
+*.mov

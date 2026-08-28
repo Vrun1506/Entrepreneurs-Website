@@ -10,13 +10,14 @@ import { Pager } from "@/components/ui/Pager";
 type Item = ComponentProps<typeof UserCard>["member"];
 
 export default function UsersReview({
-  items, page, total, pageSize,
+  items, page, total, pageSize, emptyMessage,
 }: {
   items: Item[];
   page: number;
   /** The whole queue, not just this page. */
   total: number;
   pageSize: number;
+  emptyMessage: string;
 }) {
   const url = useUrlFilters({ navigate: "server" });
 
@@ -33,6 +34,7 @@ export default function UsersReview({
           bulkApprove={bulkApproveUsers}
           bulkReject={bulkRejectUsers}
           noun="profile"
+          emptyMessage={emptyMessage}
         />
       </div>
 

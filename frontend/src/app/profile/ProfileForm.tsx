@@ -11,11 +11,12 @@ import { gradYearOptions, validateGradYear } from "@/lib/gradYears";
 import { describeSupabaseError } from "@/lib/supabaseErrors";
 import { Button } from "@/components/ui/Button";
 import { invalidateDirectoryCache } from "@/app/profile/actions";
+import type { Affiliation } from "@/lib/intake/steps";
 
 type Lookup = ChipItem;
 
 type Props = {
-  role: "alum" | "student";
+  role: Affiliation;
   firstName: string;
   surname: string;
   course: string;
@@ -154,7 +155,7 @@ export default function ProfileForm(props: Props) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5 rounded-2xl bg-bg-card border border-border-subtle p-8">
+    <form onSubmit={handleSubmit} className="space-y-5 rounded-2xl bg-bg-card border border-border p-8">
       {error && <ErrorBanner>{error}</ErrorBanner>}
       {saved && !error && <SuccessBanner>Saved.</SuccessBanner>}
 

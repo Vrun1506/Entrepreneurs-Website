@@ -19,6 +19,10 @@ const CHECKS = [
   ["/terms", null],
   // Gated route: logged-out it should still respond (redirect to /login),
   // which proves the auth gate + server are alive, not 5xx.
+  ["/members", null],
+  // The directory used to live at /community and people have shared filtered
+  // links to it, so the 307 alias is load-bearing. Followed here, it lands on
+  // the same /login as the line above — the point is that it still resolves.
   ["/community", null],
 ];
 

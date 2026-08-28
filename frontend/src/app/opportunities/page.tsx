@@ -82,7 +82,7 @@ async function BookmarksLink({ data }: { data: Promise<OpportunitiesData> }) {
   return (
     <Link
       href="/my-bookmarks"
-      className="text-[0.8rem] text-text-secondary no-underline transition-colors duration-150 hover:text-gold-light flex items-center gap-1.5"
+      className="text-[0.8rem] text-text-secondary no-underline transition-colors duration-150 hover:text-accent-light flex items-center gap-1.5"
     >
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />

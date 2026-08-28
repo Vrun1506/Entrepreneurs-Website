@@ -110,7 +110,7 @@ export default function EventsClient({
       </FilterPanel>
 
       {filtered.length === 0 ? (
-        <div className="text-center py-16 text-text-muted text-[0.85rem]">
+        <div className="rounded-lg border border-border bg-bg-card px-6 py-14 text-center text-[0.85rem] text-text-muted">
           {items.length === 0 ? "No upcoming events." : "No events match your search or filters."}
         </div>
       ) : (
@@ -144,7 +144,7 @@ function EventCard({ ev, going, onDismiss }: { ev: FoundryEvent; going: boolean;
   return (
     <article
       className={`rounded-2xl bg-bg-card border overflow-hidden ${
-        ev.isSocietyEvent ? "border-gold/45" : "border-border-subtle"
+        ev.isSocietyEvent ? "border-accent/45" : "border-border-subtle"
       }`}
     >
       <button
@@ -153,11 +153,11 @@ function EventCard({ ev, going, onDismiss }: { ev: FoundryEvent; going: boolean;
         className="w-full px-5 py-4 text-left bg-transparent border-0 cursor-pointer transition-colors duration-150 hover:bg-white/[0.02]"
       >
         <div className="flex items-center justify-between gap-2 mb-1">
-          <div className="text-[0.75rem] text-gold-light tracking-wide">
+          <div className="text-[0.75rem] text-accent-light tracking-wide">
             {timeLabel} <span className="text-text-muted">· {dateLabel}</span>
           </div>
           {ev.isSocietyEvent && (
-            <span className="shrink-0 px-2.5 py-0.5 rounded-full text-[0.7rem] font-semibold bg-gold text-bg-primary">
+            <span className="shrink-0 px-2.5 py-0.5 rounded-lg text-[0.7rem] font-semibold bg-accent text-bg-primary">
               Society event
             </span>
           )}
@@ -200,7 +200,7 @@ function EventCard({ ev, going, onDismiss }: { ev: FoundryEvent; going: boolean;
                   href={ev.postedBy.linkedinUrl}
                   target="_blank"
                   rel="noreferrer noopener"
-                  className="text-[0.75rem] text-gold no-underline hover:underline"
+                  className="text-[0.75rem] text-text-primary underline underline-offset-[3px] decoration-border-strong transition-colors hover:decoration-accent"
                 >
                   LinkedIn ↗
                 </a>
@@ -226,7 +226,7 @@ function EventCard({ ev, going, onDismiss }: { ev: FoundryEvent; going: boolean;
               target="_blank"
               rel="noreferrer noopener"
               onClick={() => recordListingEvent("event", ev.id, "external_click")}
-              className="inline-block px-4 py-2 rounded-lg bg-gold text-bg-primary text-[0.825rem] font-medium no-underline transition-colors hover:bg-gold-light"
+              className="inline-block px-4 py-2 rounded-lg bg-accent text-bg-primary text-[0.825rem] font-medium no-underline transition-colors hover:bg-accent-light"
             >
               RSVP on Luma ↗
             </a>
@@ -257,7 +257,7 @@ function Meta({ icon, text }: { icon: React.ReactNode; text: string }) {
 function OrganiserAvatar({ name }: { name: string }) {
   const initial = name.trim().charAt(0).toUpperCase() || "?";
   return (
-    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gold-muted text-gold-light text-[0.65rem] font-medium border border-gold/25">
+    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-accent-muted text-accent-light text-[0.65rem] font-medium border border-accent/25">
       {initial}
     </span>
   );
@@ -265,7 +265,7 @@ function OrganiserAvatar({ name }: { name: string }) {
 
 function CalendarIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="text-gold-light mt-0.5 shrink-0">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="text-accent-light mt-0.5 shrink-0">
       <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
       <line x1="16" y1="2" x2="16" y2="6" />
       <line x1="8" y1="2" x2="8" y2="6" />

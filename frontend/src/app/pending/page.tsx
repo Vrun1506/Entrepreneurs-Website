@@ -39,11 +39,11 @@ export default async function PendingPage() {
 
       <main id="main-content" tabIndex={-1} className="flex-1 flex items-center justify-center px-8 py-12">
         <div className="w-full max-w-[520px] text-center">
-          <div className="text-[0.7rem] text-gold tracking-[0.18em] uppercase mb-4">Application received</div>
+          <p className="label-wide text-text-secondary mb-3">Application received</p>
           <h1 className="font-display text-text-primary leading-[1.1] tracking-tight mb-6 text-[clamp(2rem,4vw,2.75rem)]">
             Thanks, {profile.first_name || "there"}.
           </h1>
-          <p className="text-[0.95rem] text-text-secondary font-light leading-[1.7] mb-3">
+          <p className="text-[0.95rem] text-text-secondary leading-[1.7] mb-3">
             We&apos;ve received your application and our team will review it manually.
           </p>
           <p className="text-[0.875rem] text-text-muted leading-[1.7]">
@@ -53,7 +53,7 @@ export default async function PendingPage() {
           <div className="mt-8 flex items-center justify-center gap-3">
             <Link
               href="/profile"
-              className="px-5 py-2.5 rounded-xl bg-gold text-bg-primary text-[0.85rem] font-medium no-underline transition-colors duration-150 hover:bg-gold-light"
+              className="px-5 py-2.5 rounded-xl bg-accent text-bg-primary text-[0.85rem] font-medium no-underline transition-colors duration-150 hover:bg-accent-light"
             >
               Edit your profile
             </Link>

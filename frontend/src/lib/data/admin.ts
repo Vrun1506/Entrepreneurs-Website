@@ -1,6 +1,7 @@
 import "server-only";
 import type { PostgrestError } from "@supabase/supabase-js";
 import type { UserStatus } from "@/lib/database.overrides";
+import type { Affiliation } from "@/lib/intake/steps";
 import { rows, type Db } from "./query";
 import {
   adminFacets,
@@ -305,7 +306,7 @@ type PendingProfileRow = {
   id: string;
   first_name: string;
   surname: string;
-  role: "alum" | "student";
+  role: Affiliation;
   course: string | null;
   grad_year: number | null;
   bio: string | null;
@@ -387,7 +388,7 @@ type AdminProfileRow = {
   id: string;
   first_name: string;
   surname: string;
-  role: "alum" | "student";
+  role: Affiliation;
   status: UserStatus;
   course: string | null;
   grad_year: number | null;

@@ -719,6 +719,11 @@ declare
     'is_admin','is_approved',
     -- account / profile (user)
     'delete_my_account','update_profile','submit_onboarding',
+    -- Deliberately granted to `authenticated` by 20260828000004: a member
+    -- corrects their own affiliation between the five non-student roles. Its
+    -- own guards (never from 'student', never to 'student') are the policy,
+    -- and admission_roles.sql is where they are tested.
+    'set_my_affiliation',
     -- listing submit / edit (user)
     'submit_opportunity','update_opportunity','submit_event','update_event',
     'submit_vc_grant','update_vc_grant',

@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import AppNav from "@/components/AppNav";
+import AppShell from "@/components/app/AppShell";
 import { listTaxonomy, profileTaxonomy } from "@/lib/data/taxonomy";
+import AffiliationSection from "./AffiliationSection";
 import ProfileForm from "./ProfileForm";
 
 export default async function ProfilePage() {
@@ -25,9 +26,8 @@ export default async function ProfilePage() {
   if (!isAdmin && profile.status === "pending_onboarding") redirect("/onboarding");
 
   return (
-    <div className="min-h-screen bg-bg-primary flex flex-col">
-      <AppNav active="settings" isApproved={profile.status === "approved"} isAdmin={isAdmin} />
-      <main id="main-content" tabIndex={-1} className="flex-1 px-4 sm:px-8 py-10 sm:py-12">
+    <AppShell active="settings" isApproved={profile.status === "approved"} isAdmin={isAdmin}>
+      <div className="px-4 sm:px-8 py-10 sm:py-12">
         <div className="max-w-[640px] mx-auto">
           <Link
             href="/settings"
@@ -35,8 +35,8 @@ export default async function ProfilePage() {
           >
             ← Settings
           </Link>
-          <div className="mb-10">
-            <div className="text-[0.7rem] text-gold tracking-[0.18em] uppercase mb-2">Your profile</div>
+          <div className="mb-10 rule-draw pt-6">
+            <p className="label-wide text-text-secondary mb-3">Your profile</p>
             <h1 className="font-display text-text-primary leading-[1.1] tracking-tight text-[clamp(1.75rem,3.5vw,2.5rem)]">
               Edit your details
             </h1>
@@ -61,8 +61,12 @@ export default async function ProfilePage() {
             selectedSkills={selected.skillIds}
             selectedSectors={selected.sectorIds}
           />
+
+          <div className="mt-8">
+            <AffiliationSection role={profile.role} />
+          </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </AppShell>
   );
 }

@@ -26,9 +26,9 @@ export default async function AdminUsersPage({
   return (
     <main id="main-content" tabIndex={-1} className="min-h-screen bg-bg-primary text-text-primary px-8 py-12">
       <div className="max-w-[1200px] mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <div className="text-[0.7rem] text-gold tracking-[0.18em] uppercase mb-2">Admin · review queue</div>
+        <div className="flex flex-wrap items-start justify-between gap-4 mb-8 rule-draw pt-6">
+          <div className="min-w-0">
+            <p className="label-wide text-text-secondary mb-3">Admin · review queue</p>
             <h1 className="font-display text-[clamp(1.75rem,3vw,2.5rem)] leading-[1.1] tracking-tight">
               Pending alumni profiles
             </h1>
@@ -69,13 +69,17 @@ async function PendingCount({ data }: { data: Promise<PendingProfilesPage> }) {
 async function Queue({ data, page }: { data: Promise<PendingProfilesPage>; page: number }) {
   const { items, total } = await data;
 
-  if (items.length === 0) {
-    return (
-      <div className="rounded-2xl bg-bg-card border border-border-subtle p-10 text-center text-text-muted text-[0.85rem]">
-        {total === 0 ? "Nothing pending. The queue is clear." : "No profiles on this page."}
-      </div>
-    );
-  }
-
-  return <UsersReview items={items} page={page} total={total} pageSize={PAGE_SIZE} />;
+  // Rendered unconditionally, empty queue included: the empty state belongs
+  // inside BulkReview so that approving or rejecting the LAST batch doesn't
+  // unmount the component holding its own confirmation. See BulkReview's
+  // emptyMessage prop.
+  return (
+    <UsersReview
+      items={items}
+      page={page}
+      total={total}
+      pageSize={PAGE_SIZE}
+      emptyMessage={total === 0 ? "Nothing pending. The queue is clear." : "No profiles on this page."}
+    />
+  );
 }

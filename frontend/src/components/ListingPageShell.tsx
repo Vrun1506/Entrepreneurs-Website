@@ -1,10 +1,11 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import AppNav from "@/components/AppNav";
+import AppShell from "@/components/app/AppShell";
 import SubmittedBanner from "@/components/SubmittedBanner";
 
 // The chrome shared by /opportunities, /events and /vcs: nav, main
-// landmark, the eyebrow + heading + count block, and the "post one" CTA.
+// landmark, the masthead (section name + heading + count), and the
+// "post one" CTA.
 // It was written out three times, and had already drifted — /vcs used a
 // different heading wrapper from the other two.
 //
@@ -31,32 +32,39 @@ export default function ListingPageShell({
   children: ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-bg-primary flex flex-col">
-      <AppNav active={active} isApproved={true} isAdmin={isAdmin} />
-      <main id="main-content" tabIndex={-1} className="flex-1 px-4 sm:px-8 py-10 sm:py-12">
-        <div className="max-w-[1200px] mx-auto">
+    <AppShell active={active} isAdmin={isAdmin}>
+      <div className="px-4 py-10 sm:px-8 sm:py-12">
+        <div className="mx-auto max-w-[1200px]">
           {justSubmitted && <SubmittedBanner kind={submittedKind} />}
-          <div className="mb-8 flex items-start justify-between gap-4 flex-wrap">
-            <div>
-              <div className="text-[0.7rem] text-gold tracking-[0.18em] uppercase mb-2">{eyebrow}</div>
-              <h1 className="font-display text-text-primary leading-[1.1] tracking-tight text-[clamp(1.75rem,3.5vw,2.5rem)]">
-                {title}
-              </h1>
-              <p className="text-[0.875rem] text-text-muted mt-3 leading-relaxed">{summary}</p>
+          {/* Same title-block grammar as the marketing sections: a rule
+              across the measure, the section's name beneath it, the heading
+              at the page's own left margin. `eyebrow` was previously a gold
+              uppercase kicker floating above the h1 on all three of these
+              pages — the words were already a column heading, they were just
+              drawn as decoration. */}
+          <header className="rule-draw mb-8 pt-4">
+            <p className="label-wide mb-6 text-text-muted">{eyebrow}</p>
+            <div className="flex flex-wrap items-end justify-between gap-x-10 gap-y-5">
+              <div className="min-w-0">
+                <h1 className="text-[clamp(1.8rem,3.4vw,2.6rem)] font-semibold leading-[1.06] tracking-[-0.03em] text-text-primary">
+                  {title}
+                </h1>
+                <p className="mt-3 text-[0.875rem] leading-relaxed text-text-muted">{summary}</p>
+              </div>
+              <div className="flex shrink-0 items-center gap-3">
+                {actions}
+                <Link
+                  href={cta.href}
+                  className="rounded-lg bg-accent px-4 py-2 text-[0.825rem] font-semibold text-bg-primary no-underline transition-colors duration-150 hover:bg-accent-dim"
+                >
+                  {cta.label}
+                </Link>
+              </div>
             </div>
-            <div className="flex items-center gap-3">
-              {actions}
-              <Link
-                href={cta.href}
-                className="px-4 py-2 rounded-full bg-gold text-bg-primary text-[0.825rem] font-medium no-underline transition-colors duration-150 hover:bg-gold-light"
-              >
-                {cta.label}
-              </Link>
-            </div>
-          </div>
+          </header>
           {children}
         </div>
-      </main>
-    </div>
+      </div>
+    </AppShell>
   );
 }

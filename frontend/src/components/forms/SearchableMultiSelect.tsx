@@ -88,7 +88,7 @@ export default function SearchableMultiSelect({
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="w-full text-left px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.8rem] text-text-secondary transition-colors duration-150 hover:border-gold/30 focus:border-gold/50 cursor-pointer flex items-center justify-between gap-2"
+          className="w-full text-left px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.8rem] text-text-secondary transition-colors duration-150 hover:border-accent focus:border-accent/50 cursor-pointer flex items-center justify-between gap-2"
           aria-expanded={open}
           aria-haspopup="listbox"
         >
@@ -97,12 +97,18 @@ export default function SearchableMultiSelect({
               ? placeholder
               : `${selected.size} option${selected.size === 1 ? "" : "s"} selected`}
           </span>
-          <span className="text-text-muted/70 text-[0.7rem] shrink-0">{open ? "▲" : "▼"}</span>
+          <svg
+            width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden
+            className={`shrink-0 text-text-muted transition-transform duration-150 ${open ? "rotate-180" : ""}`}
+          >
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
         </button>
 
         {open && (
           <div
-            className="absolute left-0 right-0 top-full mt-1 z-30 rounded-lg bg-bg-card border border-border-subtle shadow-2xl overflow-hidden"
+            className="absolute left-0 right-0 top-full mt-1 z-30 overflow-hidden rounded-lg border border-border-strong bg-bg-card shadow-2xl"
             role="listbox"
           >
             <div className="p-2 border-b border-border-subtle">
@@ -115,7 +121,7 @@ export default function SearchableMultiSelect({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={placeholder}
-                className="w-full px-3 py-2 bg-white/[0.03] border border-border rounded-md text-[0.8rem] text-text-primary placeholder:text-text-muted focus:border-gold/50"
+                className="w-full px-3 py-2 bg-white/[0.03] border border-border rounded-md text-[0.8rem] text-text-primary placeholder:text-text-muted focus:border-accent/50"
               />
             </div>
             <div className="max-h-[260px] overflow-y-auto py-1">
@@ -131,14 +137,14 @@ export default function SearchableMultiSelect({
                       onClick={() => toggle(opt)}
                       className={`w-full text-left px-3 py-1.5 text-[0.8rem] cursor-pointer transition-colors flex items-center gap-2 border-0 bg-transparent ${
                         on
-                          ? "text-gold-light bg-gold-muted/40"
+                          ? "text-accent-light bg-accent-muted/40"
                           : "text-text-secondary hover:bg-white/[0.03] hover:text-text-primary"
                       }`}
                       role="option"
                       aria-selected={on}
                     >
                       <span className={`inline-flex w-4 h-4 rounded border items-center justify-center shrink-0 ${
-                        on ? "bg-gold border-gold text-bg-primary" : "border-border"
+                        on ? "bg-accent border-accent text-bg-primary" : "border-border"
                       }`}>
                         {on && (
                           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -163,7 +169,7 @@ export default function SearchableMultiSelect({
               key={v}
               type="button"
               onClick={() => removeOne(v)}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[0.725rem] bg-gold-muted border border-gold/30 text-gold-light cursor-pointer transition-colors hover:bg-gold-muted/70"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[0.725rem] bg-accent-muted border border-accent/30 text-accent-light cursor-pointer transition-colors hover:bg-accent-muted/70"
             >
               <span className="truncate max-w-[200px]">{v}</span>
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

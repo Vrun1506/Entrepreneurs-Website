@@ -97,10 +97,10 @@ test.describe("filters live in the URL", () => {
   });
 
   test("Clear all resets the fields it clears, including blur-committed ones", async ({ page }) => {
-    // /community commits its year fields on blur, because each one costs a
+    // /members commits its year fields on blur, because each one costs a
     // database query. That is the case an uncontrolled defaultValue got
     // wrong: it kept displaying the cleared value.
-    await page.goto("/community?gradMin=2020&role=alum");
+    await page.goto("/members?gradMin=2020&role=alum");
     await expect(page.getByLabel("Graduation year from")).toHaveValue("2020");
     await expect(page.getByRole("button", { name: "Alumni" })).toHaveAttribute("aria-pressed", "true");
 
@@ -115,7 +115,20 @@ test.describe("filters live in the URL", () => {
     const box = page.getByLabel("Search opportunities");
 
     // Debounced: one history entry per pause, not one per keystroke.
-    await untilUrl(page, () => box.fill("quantum"), /[?&]q=quantum/);
+    //
+    // clear() before fill() is load-bearing, and is why this test used to
+    // fail about one run in three. untilUrl replays its action until the URL
+    // lands — but a text input is not idempotent the way a click is. If the
+    // first fill beats React's hydration (the exact window untilUrl exists
+    // for), React attaches afterwards and initialises its internal
+    // _valueTracker with "quantum" already in the box. The replay then sets
+    // the same string, the tracker sees no change, onChange never fires, and
+    // no amount of retrying can move the URL. Clearing first guarantees the
+    // tracker observes a transition on every attempt.
+    await untilUrl(page, async () => {
+      await box.clear();
+      await box.fill("quantum");
+    }, /[?&]q=quantum/);
 
     await page.reload();
     await expect(page.getByLabel("Search opportunities")).toHaveValue("quantum");

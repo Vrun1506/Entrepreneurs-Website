@@ -24,11 +24,14 @@ type Item = {
   stats: { views: number; clicks: number };
 };
 
+// Four states that must be told apart at a glance in a mixed list. This is
+// the one place --color-signal (the retired gold) still earns its keep: it
+// marks "approved" without reading as an action, which a white fill would.
 const STATUS_BADGE: Record<Status, string> = {
-  pending:  "bg-white/[0.04] text-text-muted border-border",
-  approved: "bg-gold-muted text-gold-light border-gold/30",
-  rejected: "bg-[#ff4d4d]/10 text-[#ff8b8b] border-[#ff4d4d]/25",
-  expired:  "bg-white/[0.02] text-text-muted/70 border-border-subtle",
+  pending:  "bg-white/[0.04] text-text-secondary border-border-strong",
+  approved: "bg-signal-muted text-signal border-signal/40",
+  rejected: "bg-[#ff4d4d]/10 text-[#ff8b8b] border-[#ff4d4d]/30",
+  expired:  "bg-white/[0.02] text-text-muted border-border",
 };
 
 type Props = {
@@ -41,7 +44,7 @@ export default function MySubmissionsClient({ opportunities, events, vcs }: Prop
   const total = opportunities.length + events.length + vcs.length;
   if (total === 0) {
     return (
-      <div className="rounded-2xl bg-bg-card border border-border-subtle p-10 text-center text-[0.85rem] text-text-muted">
+      <div className="rounded-lg border border-border bg-bg-card px-6 py-14 text-center text-[0.85rem] text-text-muted">
         Nothing pending or rejected. New submissions will appear here while they wait for admin approval.
       </div>
     );
@@ -73,7 +76,7 @@ function Section({ type, label, items }: { type: ListingType; label: string; ite
       <h2 className="text-[0.85rem] text-text-muted mb-3">
         {label} <span className="text-text-muted/70">— {items.length}</span>
       </h2>
-      <div className="rounded-2xl bg-bg-card border border-border-subtle overflow-hidden">
+      <div className="rounded-2xl bg-bg-card border border-border overflow-hidden">
         <div
           className={`divide-y divide-border-subtle ${
             overflowing
@@ -91,7 +94,7 @@ function Section({ type, label, items }: { type: ListingType; label: string; ite
           <button
             type="button"
             onClick={() => setExpanded((e) => !e)}
-            className="lg:hidden w-full px-4 py-3 border-t border-border-subtle bg-transparent text-[0.8rem] text-text-secondary cursor-pointer transition-colors hover:text-gold-light"
+            className="lg:hidden w-full px-4 py-3 border-t border-border-subtle bg-transparent text-[0.8rem] text-text-secondary cursor-pointer transition-colors hover:text-accent-light"
           >
             {expanded ? "Show less" : `Show all ${items.length} (${hidden} more)`}
           </button>
@@ -129,7 +132,7 @@ function Row({ type, item }: { type: ListingType; item: Item }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <div className="text-[0.9rem] text-text-primary truncate">{item.title}</div>
-            <span className={`px-2 py-0.5 rounded-full text-[0.65rem] uppercase tracking-wider border ${STATUS_BADGE[item.status]}`}>
+            <span className={`px-2 py-0.5 rounded-lg text-[0.65rem] uppercase tracking-wider border ${STATUS_BADGE[item.status]}`}>
               {item.status}
             </span>
           </div>
@@ -159,7 +162,7 @@ function Row({ type, item }: { type: ListingType; item: Item }) {
             {item.status === "pending" && (
               <Link
                 href={EDIT_HREF[type](item.id)}
-                className="inline-flex items-center px-3 py-1.5 rounded-lg bg-transparent border border-border text-text-secondary text-[0.75rem] no-underline transition-colors hover:border-gold/40 hover:text-gold-light"
+                className="inline-flex items-center px-3 py-1.5 rounded-lg bg-transparent border border-border text-text-secondary text-[0.75rem] no-underline transition-colors hover:border-accent hover:text-accent-light"
               >
                 Edit
               </Link>

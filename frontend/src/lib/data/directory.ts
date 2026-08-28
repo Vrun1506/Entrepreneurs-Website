@@ -1,6 +1,7 @@
 import "server-only";
 import { rows, type Db } from "./query";
 import { cached } from "@/lib/cache";
+import type { Affiliation } from "@/lib/intake/steps";
 
 // ════════════════════════════════════════════════════════════════════
 // Foundry · The member directory
@@ -115,7 +116,7 @@ type CardRow = {
   id: string;
   first_name: string;
   surname: string;
-  role: "alum" | "student";
+  role: Affiliation;
   course: string | null;
   grad_year: number | null;
   bio: string | null;
