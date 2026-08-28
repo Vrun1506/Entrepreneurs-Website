@@ -39,7 +39,7 @@ function NavLink({ label, href, isActive, onClick }: {
     >
       {label}
       {isActive && (
-        <span className="absolute -bottom-1 left-0 right-0 h-px bg-accent" />
+        <span className="underline-draw absolute -bottom-1 left-0 right-0 h-px bg-accent" />
       )}
     </a>
   );
@@ -99,9 +99,9 @@ export default function Navbar() {
 
   return (
     <header
-      className={scrolled ? "fixed top-0 left-0 right-0 z-50 transition-colors duration-300 bg-bg-primary/92 backdrop-blur-md border-b border-border" : "fixed top-0 left-0 right-0 z-50 transition-colors duration-300 bg-transparent border-b border-transparent"}
+      className={scrolled ? "fixed top-0 left-0 right-0 z-50 px-8 transition-colors duration-300 bg-bg-primary/92 backdrop-blur-md border-b border-border" : "fixed top-0 left-0 right-0 z-50 px-8 transition-colors duration-300 bg-transparent border-b border-transparent"}
     >
-      <nav className="max-w-[1200px] mx-auto px-8 h-16 flex items-center justify-between gap-6">
+      <nav className="max-w-[1200px] mx-auto h-16 flex items-center justify-between gap-6">
         <Logo />
 
         {/* Desktop links */}
@@ -124,7 +124,7 @@ export default function Navbar() {
 
       {/* Mobile dropdown */}
       {menuOpen && (
-        <div className="md:hidden bg-bg-primary/95 backdrop-blur-md border-t border-border-subtle px-8 py-6 flex flex-col gap-5">
+        <div className="md:hidden -mx-8 flex flex-col gap-5 border-t border-border bg-bg-primary/95 px-8 py-6 backdrop-blur-md">
           {NAV_LINKS.map((link) => (
             <a
               key={link.href}

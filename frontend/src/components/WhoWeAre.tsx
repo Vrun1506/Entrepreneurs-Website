@@ -11,7 +11,8 @@ const ROLES = [
 
 export default function WhoWeAre() {
   return (
-    <section id="who-we-are" className="mx-auto max-w-[1200px] px-8 py-24">
+    <section id="who-we-are" className="px-8 py-24">
+      <div className="mx-auto max-w-[1200px]">
       {/* Treatment 1 of 5: one weight, held. The section that states what the
           thing *is* does not need the sentence broken across registers. */}
       <SectionHead label="Who are we?">
@@ -20,9 +21,7 @@ export default function WhoWeAre() {
         </h2>
       </SectionHead>
 
-      <div className="grid grid-cols-1 items-start gap-x-10 gap-y-14 md:grid-cols-[10rem_1fr] lg:grid-cols-[10rem_1fr_1fr]">
-        <div className="hidden md:block" />
-
+      <div className="grid grid-cols-1 items-start gap-x-16 gap-y-14 lg:grid-cols-[1.15fr_1fr]">
         <div className="max-w-[62ch]">
           <p className="mb-5 text-[0.95rem] leading-[1.75] text-text-secondary">
             Foundry was built by Imperial students who were frustrated with the gap
@@ -60,6 +59,7 @@ export default function WhoWeAre() {
             ))}
           </dl>
         </div>
+      </div>
       </div>
     </section>
   );

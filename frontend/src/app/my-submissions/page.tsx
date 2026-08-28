@@ -41,12 +41,12 @@ export default async function MySubmissionsPage() {
       <AppNav active="submissions" isApproved={true} isAdmin={isAdmin} />
       <main id="main-content" tabIndex={-1} className="flex-1 px-4 sm:px-8 py-10 sm:py-12">
         <div className="max-w-[820px] mx-auto">
-          <div className="mb-8 grid grid-cols-1 gap-x-10 md:grid-cols-[10rem_1fr] border-t border-border pt-6">
-            <p className="label-wide text-text-secondary mb-3 md:mb-0">Your submissions</p>
-            <h1 className="font-display text-text-primary leading-[1.1] tracking-tight text-[clamp(1.75rem,3vw,2.5rem)] md:col-start-2 md:row-start-1">
+          <div className="mb-8 rule-draw pt-4">
+            <p className="label-wide text-text-muted mb-6">Your submissions</p>
+            <h1 className="font-display text-text-primary leading-[1.1] tracking-tight text-[clamp(1.75rem,3vw,2.5rem)]">
               Everything you&apos;ve posted
             </h1>
-            <p className="text-[0.875rem] text-text-muted mt-3 leading-relaxed md:col-start-2">
+            <p className="text-[0.875rem] text-text-muted mt-3 leading-relaxed">
               Every opportunity, event, and VC/grant you&apos;ve posted, across all statuses. View and click counts are recorded once they go live — only other members count, not you. You can edit pending listings, and delete any of them at any time. Deleting an approved listing removes it from the community directory immediately and cannot be undone.
             </p>
           </div>

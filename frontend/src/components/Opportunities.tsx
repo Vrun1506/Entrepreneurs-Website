@@ -87,7 +87,8 @@ function OpportunityCell({
 /* ── Section ──────────────────────────────────────────────────────── */
 export default function Opportunities() {
   return (
-    <section id="opportunities" className="mx-auto max-w-[1200px] px-8 py-24">
+    <section id="opportunities" className="px-8 py-24">
+      <div className="mx-auto max-w-[1200px]">
       {/* Treatment 3 of 5: inverted emphasis. Both lines are the same size;
           the second recedes into the secondary ink instead of lighting up. */}
       <SectionHead
@@ -107,6 +108,7 @@ export default function Opportunities() {
 
       <div className="grid grid-cols-1 gap-px border border-border bg-border sm:grid-cols-2 lg:grid-cols-3">
         {OPPORTUNITIES.map((opp) => <OpportunityCell key={opp.title} {...opp} />)}
+      </div>
       </div>
     </section>
   );

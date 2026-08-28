@@ -18,7 +18,7 @@ export default function TermsPage() {
         <Link href="/login" className="text-[0.8rem] text-text-muted no-underline hover:text-text-secondary transition-colors">
           ← Back
         </Link>
-        <div className="mt-6 mb-10 border-t border-border pt-6">
+        <div className="mt-6 mb-10 rule-draw pt-6">
           <p className="label-wide text-text-secondary mb-3">Legal</p>
           <h1 className="font-display text-[clamp(1.75rem,3vw,2.5rem)] leading-[1.1] tracking-tight">
             Terms &amp; Conditions

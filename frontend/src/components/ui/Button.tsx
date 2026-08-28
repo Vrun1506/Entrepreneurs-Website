@@ -24,10 +24,11 @@ type Size = "sm" | "md" | "lg";
 
 const BASE =
   "inline-flex items-center justify-center cursor-pointer " +
-  "transition-[color,background-color,border-color,opacity] duration-150 " +
+  "transition-[color,background-color,border-color,opacity,transform] duration-150 " +
   // Unified across every variant. The old copies were split between
   // 50% (admin) and 60% (forms) with no reason behind the difference.
-  "disabled:opacity-60 disabled:cursor-not-allowed";
+  "active:scale-[0.985] motion-reduce:active:scale-100 " +
+  "disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100";
 
 const VARIANT: Record<Variant, string> = {
   // The logo has exactly two values, ink and field. The highest-emphasis

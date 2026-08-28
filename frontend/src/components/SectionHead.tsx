@@ -5,19 +5,18 @@ import type { ReactNode } from "react";
 //
 // Replaces the `SectionLabel` that was pasted into WhoWeAre, Community,
 // Opportunities, Events and Apply — a short gold rule beside a gold
-// uppercase word, sitting above the heading. That is the decorative eyebrow,
-// and five copies of it made every section on the page open the same way.
+// uppercase word, above the heading. Five copies of it made every section
+// on the page open the same way.
 //
-// What it becomes is the grammar the logo already uses and a datasheet is
-// built from: a rule across the full measure, the field name in the left
-// column, the value in the right. The section name is still there — the nav
-// scroll-spy points at these anchors and dropping it would break the mapping
-// between "Community" in the nav and the thing it scrolls to — but it is now
-// a column heading beside the title rather than a label floating above it.
+// What it becomes is the title block of a technical drawing: a rule across
+// the full measure, the section's name set tight beneath it in the wide
+// register, and the heading at the page's own left margin with the whole
+// width to work in. The name is load-bearing — the nav's scroll-spy points
+// at these anchors — but it is part of the rule band now, not a decorative
+// kicker floating over an indented heading.
 //
-// `aside` is the supporting line two of the sections set to the right of
-// their heading. It sits in the same row rather than under the title, so the
-// rule reads as one horizontal band.
+// `aside` is the supporting line two sections set beside their heading. It
+// shares the heading's row so the band reads as one horizontal register.
 // ════════════════════════════════════════════════════════════════════
 
 export function SectionHead({
@@ -30,14 +29,11 @@ export function SectionHead({
   aside?: ReactNode;
 }) {
   return (
-    <header className="border-t border-border pt-6 mb-14">
-      <div className="grid grid-cols-1 md:grid-cols-[10rem_1fr] gap-x-10 gap-y-6">
-        <p className="label-wide text-text-secondary">{label}</p>
-
-        <div className="flex flex-wrap items-end justify-between gap-x-12 gap-y-5">
-          {children}
-          {aside}
-        </div>
+    <header className="rule-draw mb-12 pt-4">
+      <p className="label-wide mb-7 text-text-muted">{label}</p>
+      <div className="flex flex-wrap items-end justify-between gap-x-16 gap-y-6">
+        {children}
+        {aside}
       </div>
     </header>
   );

@@ -173,7 +173,20 @@ input, textarea, select {
 .font-display {
   font-family: theme(--font-display);
   font-weight: 600;
+  /* The width axis, not just the weight axis. See layout.tsx. */
+  font-stretch: 84%;
   letter-spacing: -0.025em;
+}
+
+/* The display setting proper, for the two headlines that carry a page: the
+   hero and a section's own h2. Narrower and tighter than .font-display,
+   because at 4rem the same tracking that reads as "set" at 1.5rem reads as
+   loose. Optical sizing done by hand, since Archivo has no opsz axis. */
+.display-xl {
+  font-family: theme(--font-display);
+  font-stretch: 78%;
+  letter-spacing: -0.035em;
+  line-height: 1.03;
 }
 
 /* The second half of the wordmark's device: light, widely tracked, uppercase.
@@ -182,6 +195,7 @@ input, textarea, select {
 .label-wide {
   font-family: theme(--font-display);
   font-weight: 500;
+  font-stretch: 100%;
   font-size: 0.7rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -211,6 +225,86 @@ h1, h2, h3 {
 p { text-wrap: pretty; }
 
 /* ─────────────────────────────────────────────
+   MOTION — the rule draws
+
+   The system has one entrance, and it is the system's own device. Every
+   masthead on the site — five marketing sections, three listing pages, and
+   the 28 app and admin pages — opens on a hairline rule across the measure.
+   That rule draws itself as the section arrives, and the heading rises behind
+   it. A datasheet being laid down, rather than a card flying in.
+
+   It is scroll-driven, not time-driven: `animation-timeline: view()` scrubs
+   the animation against the element's own progress through the viewport, so
+   it is tied to the reader's scroll instead of firing on a timer they cannot
+   see. Three things follow from that, all of them good here.
+
+     * No JavaScript, no IntersectionObserver, no client boundary on 36
+       server components, and nothing to hydrate.
+     * No flash of hidden content. Without JS to remove a starting state,
+       there is no window in which the text is invisible.
+     * Anything already in the viewport on load is past `entry` and renders
+       at its end state, which is the behaviour you want.
+
+   The whole block is behind @supports, so a browser without view timelines
+   (Firefox, today) applies none of it and gets the static page — the
+   degradation is the design, not a fallback of it. It is also inside
+   prefers-reduced-motion: no-preference, so the reduced-motion contract in
+   PRODUCT.md holds without needing an override further down.
+   ───────────────────────────────────────────── */
+
+/* The rule itself. Drawn as a pseudo-element rather than a border, because a
+   border cannot be scaled from one end. Static by default. */
+.rule-draw {
+  position: relative;
+}
+.rule-draw::before {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 1px;
+  background: theme(--color-border);
+  transform-origin: left center;
+}
+
+@keyframes rule-draw   { from { transform: scaleX(0); }               to { transform: scaleX(1); } }
+@keyframes rise        { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes hero-settle {
+  from { opacity: 0; filter: blur(14px); transform: scale(1.03); }
+  to   { opacity: 1; filter: blur(0);    transform: none; }
+}
+@keyframes drift-up    { from { transform: translateY(0); } to { transform: translateY(-9%); } }
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .rule-draw::before {
+      animation: rule-draw cubic-bezier(0.22, 1, 0.36, 1) both;
+      animation-timeline: view();
+      /* Finishes well before the element is fully in view, so the rule is
+         already drawn by the time the reader's eye reaches the heading. */
+      animation-range: entry 8% entry 46%;
+    }
+
+    /* The heading follows the rule rather than racing it — the later range
+       is the stagger, since delays are meaningless on a scroll timeline. */
+    .rule-draw > * {
+      animation: rise cubic-bezier(0.22, 1, 0.36, 1) both;
+      animation-timeline: view();
+      animation-range: entry 14% entry 62%;
+    }
+
+    /* The hero's sky drifts against the page as it scrolls away. Parallax
+       measured in single-digit percent: enough to separate the field from
+       the content sitting on it, not enough to notice as an effect. */
+    .starfield-parallax {
+      animation: drift-up linear both;
+      animation-timeline: view();
+      animation-range: exit 0% exit 100%;
+    }
+  }
+}
+
+/* ─────────────────────────────────────────────
    ANIMATIONS
 
    One authored entrance, on the hero, once per visit. Everything else in the
@@ -238,6 +332,50 @@ p { text-wrap: pretty; }
   animation: fade-in 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+/* The mark resolving: out of focus and fractionally oversized, settling to
+   sharp. Blur is the reason this reads as an optical event rather than a
+   slide — and it is cheap here because it runs once, on one element, over a
+   compositor-friendly 1.1s. */
+.anim-settle {
+  opacity: 0;
+  animation: hero-settle 1.1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* A panel that appears in place — the filter drawer, a dialog — arrives from
+   slightly above and slightly small. Both are short enough (200-260ms) to
+   read as the surface responding rather than as an animation being played,
+   and both are on the global reduced-motion reset, which zeroes the duration
+   and lands them on the end state. */
+@keyframes panel-in  { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: none; } }
+@keyframes dialog-in { from { opacity: 0; transform: translateY(8px) scale(0.985); } to { opacity: 1; transform: none; } }
+@keyframes backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+
+.anim-panel  { animation: panel-in  0.2s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.anim-dialog { animation: dialog-in 0.26s cubic-bezier(0.22, 1, 0.36, 1) both; }
+dialog[open]::backdrop { animation: backdrop-in 0.2s ease both; }
+
+/* The flat mark is what shows until the point cloud has been sampled out of
+   its alpha channel, and what stays if WebGL is unavailable or the context is
+   lost. HeroScene sets data-live on its canvas once the cloud is in the scene;
+   the canvas is a sibling of the grid the mark sits in, hence the combinator.
+   A plain transition rather than an entrance animation, because an animation's
+   `forwards` fill would outrank this and the fallback would never fade. */
+.hero-mark-fallback {
+  opacity: 1;
+  transition: opacity 600ms ease;
+}
+canvas[data-live] ~ * .hero-mark-fallback { opacity: 0; }
+
+/* The nav's active-tab indicator uses the same gesture as the mastheads: a
+   rule drawn from its left end. On the marketing nav the scroll-spy remounts
+   it as you pass each section, so it redraws; in the app it draws once on
+   arrival. The global reduced-motion reset zeroes the duration, which lands
+   it on scaleX(1) rather than leaving it at zero width. */
+.underline-draw {
+  transform-origin: left center;
+  animation: rule-draw 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 /* Delay utilities — used on hero elements */
 .delay-100 { animation-delay: 0.06s; }
 .delay-200 { animation-delay: 0.12s; }
@@ -260,8 +398,10 @@ p { text-wrap: pretty; }
   /* The hero entrance animations start at opacity:0 and animate to 1. Zeroing
      the duration above would leave them stuck invisible, so land them on their
      final state instead of removing them. */
-  .anim-fade-up, .anim-fade-in {
+  .anim-fade-up, .anim-fade-in, .anim-settle, .anim-panel, .anim-dialog {
     opacity: 1;
+    filter: none;
+    transform: none;
     animation: none !important;
   }
 

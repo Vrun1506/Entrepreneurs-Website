@@ -14,6 +14,12 @@ const SITE_NAME = "Imperial Entrepreneurs";
 // every step from 400 to 700 costs the same single file.
 const archivo = Archivo({
   subsets: ["latin"],
+  // Archivo is variable on BOTH weight and width, and the width axis is the
+  // point. The wordmark is a condensed grotesque; at the default width this
+  // family is a competent neutral sans and looks like every other one. Pulling
+  // `wdth` down to ~80 on display sizes is what makes a heading read as
+  // belonging to that lockup rather than merely sharing a page with it.
+  axes: ["wdth"],
   variable: "--font-archivo",
   display: "swap",
 });
@@ -146,9 +152,19 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {PRECONNECT_ORIGINS.map((origin) => (
           <link key={origin} rel="preconnect" href={origin} crossOrigin="anonymous" />
         ))}
+        {/* suppressHydrationWarning is load-bearing, not a papered-over bug.
+            The CSP spec has browsers *hide* the nonce after parsing: the
+            content attribute is emptied (getAttribute -> "") while the value
+            survives on the .nonce IDL property. That exists so an attacker
+            who can inject CSS cannot exfiltrate the nonce with a
+            `script[nonce^="a"]` selector. React hydrates by comparing the
+            content attribute, so it sees "" against the server's real value
+            and reports a mismatch on every page load. The difference is
+            correct and expected; the warning is not actionable. */}
         <script
           type="application/ld+json"
           nonce={nonce}
+          suppressHydrationWarning
           dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
         />
         <PostHogProvider>{children}</PostHogProvider>

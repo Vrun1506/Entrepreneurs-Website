@@ -12,7 +12,7 @@ export default async function AdminPage() {
   return (
     <main id="main-content" tabIndex={-1} className="min-h-screen bg-bg-primary text-text-primary px-8 py-12">
       <div className="max-w-[1200px] mx-auto">
-        <div className="flex flex-wrap items-start justify-between gap-4 mb-12 border-t border-border pt-6">
+        <div className="flex flex-wrap items-start justify-between gap-4 mb-12 rule-draw pt-6">
           <div className="min-w-0">
             <p className="label-wide text-text-secondary mb-3">Admin</p>
             <h1 className="font-display text-[clamp(2rem,4vw,2.75rem)] leading-[1.1] tracking-tight">
@@ -68,7 +68,7 @@ export default async function AdminPage() {
           />
         </div>
 
-        <div className="mt-12 border-t border-border pt-6">
+        <div className="mt-12 rule-draw pt-6">
           <p className="label-wide text-text-secondary mb-3">Quick create</p>
           <p className="text-[0.8rem] text-text-muted mb-4 leading-relaxed">
             Publish directly without going through the approval queue.
@@ -80,7 +80,7 @@ export default async function AdminPage() {
           </div>
         </div>
 
-        <div className="mt-12 border-t border-border pt-6">
+        <div className="mt-12 rule-draw pt-6">
           <p className="label-wide text-text-secondary mb-3">Community management</p>
           <p className="text-[0.8rem] text-text-muted mb-4 leading-relaxed">
             Search the full membership and remove accounts. Use the graduate cleanup once a year to roll out current students whose graduation year has passed.
