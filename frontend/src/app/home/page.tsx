@@ -23,6 +23,11 @@ import { formatDate, formatDateTime } from "@/lib/dates";
 // digest of what is new. The underlying RPCs still drop past events and
 // expired roles, so nothing dead surfaces.
 //
+// Every card links to its listing page with the row's deep-link param
+// (?e=, ?o=, ?v=), which opens that card server-side. There are no
+// /events/<id> detail routes in this app — the cards here used to point
+// at them and 404ed.
+//
 // The prototype also shows a "Connection requests" block. There is no
 // connections table, so it is not here: a card that renders nothing, or
 // worse renders a placeholder, teaches members that this screen is
@@ -193,7 +198,7 @@ async function Events({ data }: { data: ReturnType<typeof listApprovedEvents> })
   return (
     <Grid>
       {latest.map((e) => (
-        <Card key={e.id} href={`/events/${e.id}`}>
+        <Card key={e.id} href={`/events?e=${e.id}`}>
           {e.isSocietyEvent && (
             <span className="mb-3 inline-block rounded border border-signal/40 bg-signal-muted px-2 py-0.5 text-[0.65rem] font-medium uppercase tracking-[0.1em] text-signal">
               Foundry event
@@ -220,7 +225,7 @@ async function Opportunities({ data }: { data: ReturnType<typeof listApprovedOpp
   return (
     <Grid>
       {latest.map((o) => (
-        <Card key={o.id} href={`/opportunities/${o.id}`}>
+        <Card key={o.id} href={`/opportunities?o=${o.id}`}>
           <p className="mb-1.5 font-mono text-[0.7rem] uppercase tracking-[0.08em] text-text-muted">
             {o.locationType}
             {o.locationText ? ` · ${o.locationText}` : ""}
@@ -246,7 +251,7 @@ async function Vcs({ data }: { data: ReturnType<typeof listApprovedVcs> }) {
   return (
     <Grid>
       {latest.map((v) => (
-        <Card key={v.id} href={`/vcs?q=${encodeURIComponent(v.name)}`}>
+        <Card key={v.id} href={`/vcs?v=${v.id}`}>
           <p className="mb-1.5 font-mono text-[0.7rem] uppercase tracking-[0.08em] text-text-muted">
             {v.kind === "vc" ? "VC" : "Grant"}
             {v.stage ? ` · ${v.stage}` : ""}

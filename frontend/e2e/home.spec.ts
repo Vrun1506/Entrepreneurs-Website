@@ -1,4 +1,6 @@
 import { test, expect } from "@playwright/test";
+import { createClient } from "@supabase/supabase-js";
+import { USERS } from "./fixtures";
 
 // ════════════════════════════════════════════════════════════════════
 // Foundry · /home + the app shell
@@ -9,7 +11,88 @@ import { test, expect } from "@playwright/test";
 // has no listings.
 // ════════════════════════════════════════════════════════════════════
 
+// One approved row of each kind, so the card/deep-link tests below assert
+// against real listings. Without them every card assertion is vacuous on a
+// DB that happens to be empty — which is exactly how three 404ing card
+// links survived to production.
 test.describe("home", () => {
+  const TITLES = {
+    event: "Seeded Home Card Event",
+    opp:   "Seeded Home Card Role",
+    vc:    "Seeded Home Card Fund",
+  };
+  const seeded: { events?: string; opportunities?: string; vcs_grants?: string } = {};
+
+  function admin() {
+    return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+  }
+
+  test.beforeAll(async () => {
+    const db = admin();
+    const { data: list } = await db.auth.admin.listUsers({ page: 1, perPage: 200 });
+    const idFor = (email: string) =>
+      list.users.find((u) => u.email?.toLowerCase() === email.toLowerCase())?.id;
+    const student = idFor(USERS.student.email);
+    const approver = idFor(USERS.admin.email);
+    if (!student || !approver) throw new Error("seeded users not found");
+
+    const approved = {
+      status: "approved" as const,
+      approved_at: new Date().toISOString(),
+      approved_by: approver,
+      posted_by: student,
+    };
+
+    const { data: ev, error: evErr } = await db.from("events").insert({
+      ...approved,
+      title: TITLES.event,
+      description: "Seeded so the home Events card has a row.",
+      luma_link: "https://lu.ma/home-card",
+      event_at: new Date(Date.now() + 21 * 86_400_000).toISOString(),
+      location: "Imperial",
+      organiser_name: "Foundry",
+      contact_email: USERS.student.email,
+    }).select("id").single();
+    if (evErr) throw new Error(`seed event: ${evErr.message}`);
+    seeded.events = ev!.id as string;
+
+    const { data: opp, error: oppErr } = await db.from("opportunities").insert({
+      ...approved,
+      position_name: TITLES.opp,
+      company: "Home Card Co",
+      pay: "£1",
+      location_type: "remote",
+      description: "Seeded so the home Opportunities card has a row.",
+      start_month: 1,
+      start_year: 2030,
+      application_deadline: new Date(Date.now() + 365 * 86_400_000).toISOString().slice(0, 10),
+      apply_method: "email",
+      contact_email: USERS.student.email,
+    }).select("id").single();
+    if (oppErr) throw new Error(`seed opportunity: ${oppErr.message}`);
+    seeded.opportunities = opp!.id as string;
+
+    const { data: vc, error: vcErr } = await db.from("vcs_grants").insert({
+      ...approved,
+      kind: "grant",
+      name: TITLES.vc,
+      description: "Seeded so the home VCs and Grants card has a row.",
+      link: "https://example.com/home-card-fund",
+      amount: "£10k",
+    }).select("id").single();
+    if (vcErr) throw new Error(`seed vc: ${vcErr.message}`);
+    seeded.vcs_grants = vc!.id as string;
+  });
+
+  test.afterAll(async () => {
+    const db = admin();
+    for (const [table, id] of Object.entries(seeded)) {
+      if (id) await db.from(table as "events").delete().eq("id", id);
+    }
+  });
+
   test("greets the member and renders every listing section", async ({ page }) => {
     await page.goto("/home");
 
@@ -56,6 +139,51 @@ test.describe("home", () => {
 
     await expect(page).toHaveURL(/\/messaging$/);
     await expect(page.getByRole("heading", { name: "Coming Soon!" })).toBeVisible();
+  });
+
+  // The cards used to point at /events/<id> and /opportunities/<id>, which
+  // are not routes in this app — every one of them 404ed. Asserting the href
+  // shape would have kept passing; only following it catches that.
+  test("every listing card leads somewhere that exists", async ({ page }) => {
+    await page.goto("/home");
+
+    // The sections stream in under Suspense, so the cards are not in the
+    // first HTML. Collecting hrefs without waiting reads an empty list on a
+    // cold server and an populated one on a warm server — a flake that
+    // reports itself as "no cards", which is indistinguishable from the bug
+    // this test exists to catch.
+    const cards = page.locator("section ul li a");
+    await expect(cards.first()).toBeVisible();
+
+    const hrefs = await cards.evaluateAll(
+      (as) => as.map((a) => (a as HTMLAnchorElement).getAttribute("href")!),
+    );
+    expect(hrefs.length, "beforeAll seeds one of each kind").toBeGreaterThanOrEqual(3);
+
+    for (const href of hrefs) {
+      const res = await page.goto(href);
+      expect(res?.status(), `${href} should resolve`).toBe(200);
+    }
+  });
+
+  test("a deep-linked card arrives open, in the server's HTML", async ({ page }) => {
+    // Server-rendered open, not opened after hydration — so JS-off and
+    // slow-hydration readers see the thing they followed the link for.
+    for (const [list, param, prefix] of [
+      ["/events", "e", "e"],
+      ["/opportunities", "o", "o"],
+      ["/vcs", "v", "v"],
+    ] as const) {
+      await page.goto(list);
+      const first = page.locator("article[id]").first();
+      await expect(first).toBeVisible();
+      const id = (await first.getAttribute("id"))!.slice(prefix.length + 1);
+
+      await page.goto(`${list}?${param}=${id}`);
+      await expect(
+        page.locator(`article#${prefix}-${id}`).getByText(/Hide details/),
+      ).toBeVisible();
+    }
   });
 
   test("the rail links to every destination it lists", async ({ page }) => {
