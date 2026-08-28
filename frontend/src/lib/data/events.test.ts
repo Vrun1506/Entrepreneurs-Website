@@ -11,6 +11,7 @@ const row = {
   organiser_name: "Foundry",
   contact_email: "hi@foundry.com",
   is_society_event: true,
+  created_at: "2026-08-20T10:00:00Z",
   poster_first_name: "Ada",
   poster_surname: "Lovelace",
   poster_linkedin_url: null,
@@ -28,6 +29,7 @@ describe("toEvent", () => {
       organiserName: "Foundry",
       contactEmail: "hi@foundry.com",
       isSocietyEvent: true,
+      createdAt: "2026-08-20T10:00:00Z",
       postedBy: { firstName: "Ada", surname: "Lovelace", linkedinUrl: null },
     });
   });
