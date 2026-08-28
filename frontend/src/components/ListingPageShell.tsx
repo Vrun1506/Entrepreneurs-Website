@@ -4,7 +4,8 @@ import AppNav from "@/components/AppNav";
 import SubmittedBanner from "@/components/SubmittedBanner";
 
 // The chrome shared by /opportunities, /events and /vcs: nav, main
-// landmark, the eyebrow + heading + count block, and the "post one" CTA.
+// landmark, the masthead (section name + heading + count), and the
+// "post one" CTA.
 // It was written out three times, and had already drifted — /vcs used a
 // different heading wrapper from the other two.
 //
@@ -36,24 +37,35 @@ export default function ListingPageShell({
       <main id="main-content" tabIndex={-1} className="flex-1 px-4 sm:px-8 py-10 sm:py-12">
         <div className="max-w-[1200px] mx-auto">
           {justSubmitted && <SubmittedBanner kind={submittedKind} />}
-          <div className="mb-8 flex items-start justify-between gap-4 flex-wrap">
-            <div>
-              <div className="text-[0.7rem] text-gold tracking-[0.18em] uppercase mb-2">{eyebrow}</div>
-              <h1 className="font-display text-text-primary leading-[1.1] tracking-tight text-[clamp(1.75rem,3.5vw,2.5rem)]">
-                {title}
-              </h1>
-              <p className="text-[0.875rem] text-text-muted mt-3 leading-relaxed">{summary}</p>
+          {/* Same masthead grammar as the marketing sections: a rule across
+              the measure, the section name in the field-name column, the
+              heading in the value column. `eyebrow` was previously set as a
+              gold uppercase kicker floating above the h1 on all three of
+              these pages — the words were already a column heading, they were
+              just being drawn as decoration. */}
+          <header className="mb-8 border-t border-border pt-6">
+            <div className="grid grid-cols-1 gap-x-10 gap-y-5 md:grid-cols-[10rem_1fr]">
+              <p className="label-wide text-text-secondary">{eyebrow}</p>
+
+              <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-5">
+                <div className="min-w-0">
+                  <h1 className="text-[clamp(1.7rem,3.2vw,2.4rem)] font-semibold leading-[1.08] tracking-[-0.03em] text-text-primary">
+                    {title}
+                  </h1>
+                  <p className="mt-3 text-[0.875rem] leading-relaxed text-text-muted">{summary}</p>
+                </div>
+                <div className="flex shrink-0 items-center gap-3">
+                  {actions}
+                  <Link
+                    href={cta.href}
+                    className="rounded-lg bg-accent px-4 py-2 text-[0.825rem] font-semibold text-bg-primary no-underline transition-colors duration-150 hover:bg-accent-dim"
+                  >
+                    {cta.label}
+                  </Link>
+                </div>
+              </div>
             </div>
-            <div className="flex items-center gap-3">
-              {actions}
-              <Link
-                href={cta.href}
-                className="px-4 py-2 rounded-full bg-gold text-bg-primary text-[0.825rem] font-medium no-underline transition-colors duration-150 hover:bg-gold-light"
-              >
-                {cta.label}
-              </Link>
-            </div>
-          </div>
+          </header>
           {children}
         </div>
       </main>

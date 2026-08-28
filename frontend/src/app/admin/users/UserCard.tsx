@@ -53,7 +53,7 @@ export default function UserCard({ member }: { member: Member }) {
   const submitted = formatDate(member.createdAt);
 
   return (
-    <article className="rounded-2xl bg-bg-card border border-border-subtle p-6">
+    <article className="rounded-2xl bg-bg-card border border-border p-6">
       <header className="mb-4">
         <div className="text-[1.05rem] font-medium text-text-primary">
           {member.firstName} {member.surname}
@@ -86,10 +86,10 @@ export default function UserCard({ member }: { member: Member }) {
           {(member.sectors.length > 0 || member.skills.length > 0) && (
             <div className="flex flex-wrap gap-1.5">
               {member.sectors.map((s) => (
-                <span key={`sec-${s}`} className="px-2 py-0.5 rounded-full text-[0.7rem] bg-gold-muted text-gold-light border border-gold/20">{s}</span>
+                <span key={`sec-${s}`} className="px-2 py-0.5 rounded-lg text-[0.7rem] bg-accent-muted text-accent-light border border-accent/20">{s}</span>
               ))}
               {member.skills.map((s) => (
-                <span key={`skl-${s}`} className="px-2 py-0.5 rounded-full text-[0.7rem] bg-white/[0.03] text-text-secondary border border-border">{s}</span>
+                <span key={`skl-${s}`} className="px-2 py-0.5 rounded-lg text-[0.7rem] bg-white/[0.03] text-text-secondary border border-border">{s}</span>
               ))}
             </div>
           )}
@@ -114,7 +114,7 @@ export default function UserCard({ member }: { member: Member }) {
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="e.g. Could not verify Imperial affiliation from LinkedIn."
-            className="w-full px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.8rem] text-text-primary placeholder:text-text-muted focus:border-gold/50 resize-none"
+            className="w-full px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.8rem] text-text-primary placeholder:text-text-muted focus:border-accent/50 resize-none"
           />
           <div className="flex gap-2">
             <Button

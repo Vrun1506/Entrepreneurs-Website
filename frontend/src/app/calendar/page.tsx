@@ -90,9 +90,9 @@ export default async function CalendarPage() {
       <AppNav active="calendar" isApproved={true} isAdmin={isAdmin} />
       <main id="main-content" tabIndex={-1} className="flex-1 px-6 sm:px-8 py-12">
         <div className="max-w-[1080px] mx-auto">
-          <div className="mb-8">
-            <div className="text-[0.7rem] text-gold tracking-[0.18em] uppercase mb-2">Your calendar</div>
-            <h1 className="font-display text-text-primary leading-[1.1] tracking-tight text-[clamp(1.75rem,3vw,2.5rem)]">
+          <div className="mb-8 grid grid-cols-1 gap-x-10 md:grid-cols-[10rem_1fr] border-t border-border pt-6">
+            <p className="label-wide text-text-secondary mb-3 md:mb-0">Your calendar</p>
+            <h1 className="font-display text-text-primary leading-[1.1] tracking-tight text-[clamp(1.75rem,3vw,2.5rem)] md:col-start-2 md:row-start-1">
               Events, opportunity deadlines, and VC deadlines
             </h1>
           </div>

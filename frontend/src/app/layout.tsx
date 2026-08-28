@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
-import { DM_Serif_Display, DM_Sans } from "next/font/google";
+import { Archivo, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { PostHogProvider } from "@/components/analytics/PostHogProvider";
 
@@ -8,19 +8,22 @@ import { PostHogProvider } from "@/components/analytics/PostHogProvider";
 const SITE_URL = "https://www.imperialentrepreneurs.com";
 const SITE_NAME = "Imperial Entrepreneurs";
 
-const dmSerifDisplay = DM_Serif_Display({
-  weight: "400",
-  style: ["normal", "italic"],
+// One grotesque for the whole app. The wordmark builds its hierarchy from
+// weight and tracking inside a single family, so a second display face would
+// be arguing with the logo rather than extending it. Archivo is variable, so
+// every step from 400 to 700 costs the same single file.
+const archivo = Archivo({
   subsets: ["latin"],
-  variable: "--font-dm-serif-display",
+  variable: "--font-archivo",
   display: "swap",
 });
 
-const dmSans = DM_Sans({
-  weight: ["300", "400", "500", "600"],
-  style: ["normal", "italic"],
+// Measured values only — dates, counts, money, IDs. Two weights is the whole
+// range this needs; it never sets a heading or a paragraph.
+const plexMono = IBM_Plex_Mono({
+  weight: ["400", "500"],
   subsets: ["latin"],
-  variable: "--font-dm-sans",
+  variable: "--font-plex-mono",
   display: "swap",
 });
 
@@ -61,7 +64,7 @@ export const metadata: Metadata = {
 // Matches --color-bg-primary so mobile browser chrome blends into the page
 // instead of framing it in white.
 export const viewport: Viewport = {
-  themeColor: "#0c0c0b",
+  themeColor: "#08080a",
 };
 
 // Origins the app opens a connection to on nearly every page. Warming the
@@ -127,14 +130,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // x-nonce. Carry it onto the JSON-LD tag so the strict nonce CSP never flags it.
   const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
-    <html lang="en" className={`${dmSerifDisplay.variable} ${dmSans.variable}`} data-scroll-behavior="smooth">
+    <html lang="en" className={`${archivo.variable} ${plexMono.variable}`} data-scroll-behavior="smooth">
       <body suppressHydrationWarning>
         {/* First thing in the tab order on every page: lets a keyboard or
             screen-reader user jump the nav instead of tabbing through it on
             each navigation. Hidden until it takes focus. */}
         <a
           href="#main-content"
-          className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-100 focus:px-4 focus:py-2 focus:rounded-lg focus:bg-gold focus:text-bg-primary focus:text-[0.85rem] focus:font-medium focus:no-underline"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-100 focus:px-4 focus:py-2 focus:rounded-lg focus:bg-accent focus:text-bg-primary focus:text-[0.85rem] focus:font-medium focus:no-underline"
         >
           Skip to content
         </a>

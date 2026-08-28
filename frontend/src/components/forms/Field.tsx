@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { labelCls } from "./styles";
 
 // Label + control pair, with an optional inline error caption.
 //
@@ -38,15 +39,15 @@ export function Field({
 }) {
   const caption = (
     <>
-      {label} {required && <span className="text-[#ff6b6b]">*</span>}
-      {hint && <span className="text-text-muted/70 ml-2">{hint}</span>}
+      {label} {required && <span className="text-[#ff8080]">*</span>}
+      {hint && <span className="ml-2 normal-case tracking-normal font-normal text-text-muted">{hint}</span>}
     </>
   );
 
   if (group) {
     return (
       <fieldset data-invalid={error ? "" : undefined} className="min-w-0">
-        <legend className="text-[0.75rem] text-text-muted mb-1.5">{caption}</legend>
+        <legend className={`${labelCls} mb-2`}>{caption}</legend>
         {children}
         <FieldError>{error}</FieldError>
       </fieldset>
@@ -56,7 +57,7 @@ export function Field({
   return (
     <div data-invalid={error ? "" : undefined}>
       <label className="block">
-        <span className="block text-[0.75rem] text-text-muted mb-1.5">{caption}</span>
+        <span className={`${labelCls} mb-2`}>{caption}</span>
         {children}
       </label>
       <FieldError>{error}</FieldError>
@@ -73,7 +74,7 @@ export function Field({
 export function FieldError({ children }: { children?: string }) {
   if (!children) return null;
   return (
-    <p role="alert" className="mt-1.5 text-[0.7rem] text-[#ff6b6b] leading-relaxed">
+    <p role="alert" className="mt-1.5 text-[0.72rem] text-[#ff8080] leading-relaxed">
       {children}
     </p>
   );

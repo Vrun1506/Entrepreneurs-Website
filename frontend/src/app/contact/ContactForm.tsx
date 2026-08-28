@@ -32,7 +32,7 @@ export default function ContactForm({
   const formRef = useRef<HTMLFormElement>(null);
 
   const inputCls =
-    "w-full px-4 py-3 bg-white/[0.03] border border-border rounded-lg text-[0.85rem] text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]";
+    "w-full px-4 py-3 bg-white/[0.03] border border-border rounded-lg text-[0.85rem] text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:border-accent/50 focus:bg-white/[0.05]";
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,7 +70,7 @@ export default function ContactForm({
   };
 
   return (
-    <form ref={formRef} onSubmit={handleSubmit} className="space-y-5 rounded-2xl bg-bg-card border border-border-subtle p-8">
+    <form ref={formRef} onSubmit={handleSubmit} className="space-y-5 rounded-2xl bg-bg-card border border-border p-8">
       {error && <ErrorBanner>{error}</ErrorBanner>}
       {sent && !error && (
         <SuccessBanner>Thanks — we&apos;ve received your message and will be in touch.</SuccessBanner>

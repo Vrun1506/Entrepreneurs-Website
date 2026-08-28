@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { labelCls } from "./styles";
 
 export type ChipItem = { id: number; name: string };
 
@@ -13,8 +14,8 @@ export function ChipGroup({
 }) {
   return (
     <div>
-      <div className="block text-[0.75rem] text-text-muted mb-2">
-        {label} {hint && <span className="text-text-muted/70">— {hint}</span>}
+      <div className={`${labelCls} mb-2`}>
+        {label}{hint && <span className="ml-2 normal-case tracking-normal font-normal text-text-muted">— {hint}</span>}
       </div>
       <div className="flex flex-wrap gap-2">
         {items.map((it) => {
@@ -24,10 +25,10 @@ export function ChipGroup({
               key={it.id}
               type="button"
               onClick={() => onToggle(it.id)}
-              className={`px-3 py-1.5 rounded-full text-[0.775rem] border transition-colors duration-150 cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg text-[0.775rem] border transition-colors duration-150 cursor-pointer ${
                 on
-                  ? "bg-gold-muted border-gold/50 text-gold-light"
-                  : "bg-white/[0.02] border-border text-text-secondary hover:border-gold/30 hover:text-text-primary"
+                  ? "bg-accent text-bg-primary border-accent font-medium"
+                  : "bg-white/[0.02] border-border-strong text-text-secondary hover:border-accent hover:text-text-primary"
               }`}
             >
               {it.name}

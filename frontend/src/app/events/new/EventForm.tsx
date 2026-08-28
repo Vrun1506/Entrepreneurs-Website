@@ -50,7 +50,7 @@ export default function EventForm({ signupEmail, defaultOrganiser, mode, editing
   const [isSocietyEvent, setIsSocietyEvent] = useState(false);
 
   // Admin-only: mark a direct-published event as an official society event
-  // (rendered gold in the directory) vs. an external one. Hidden for members
+  // (rendered accent in the directory) vs. an external one. Hidden for members
   // and on edits; the DB trigger rejects non-admin attempts regardless.
   const showSocietyToggle = mode === "admin" && !editingId;
 
@@ -118,11 +118,11 @@ export default function EventForm({ signupEmail, defaultOrganiser, mode, editing
   };
 
   return (
-    <form ref={formRef} onSubmit={handleSubmit} className="space-y-5 rounded-2xl bg-bg-card border border-border-subtle p-8">
+    <form ref={formRef} onSubmit={handleSubmit} className="space-y-5 rounded-2xl bg-bg-card border border-border p-8">
       {error && <ErrorBanner>{error}</ErrorBanner>}
 
       {showSocietyToggle && (
-        <Field label="Event type" required hint="Society events are highlighted in gold in the directory." error={fieldErrors.isSocietyEvent}>
+        <Field label="Event type" required hint="Society events are highlighted in accent in the directory." error={fieldErrors.isSocietyEvent}>
           <select
             value={isSocietyEvent ? "society" : "external"}
             onChange={(e) => setIsSocietyEvent(e.target.value === "society")}

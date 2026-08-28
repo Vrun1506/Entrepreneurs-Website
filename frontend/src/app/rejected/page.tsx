@@ -42,7 +42,7 @@ export default async function RejectedPage() {
           <h1 className="font-display text-text-primary leading-[1.1] tracking-tight mb-6 text-[clamp(2rem,4vw,2.75rem)]">
             Application not approved.
           </h1>
-          <p className="text-[0.95rem] text-text-secondary font-light leading-[1.7] mb-3">
+          <p className="text-[0.95rem] text-text-secondary leading-[1.7] mb-3">
             Thanks for your interest in Foundry. Unfortunately, we weren&apos;t able to approve your membership.
           </p>
           <p className="text-[0.875rem] text-text-muted leading-[1.7]">

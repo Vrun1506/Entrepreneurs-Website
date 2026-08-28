@@ -15,13 +15,16 @@ import { useId, useState, type ReactNode } from "react";
 // ════════════════════════════════════════════════════════════════════
 
 const INPUT =
-  "px-4 py-3 bg-white/[0.03] border border-border rounded-xl text-[0.875rem] " +
+  "px-4 py-3 bg-white/[0.03] border border-border rounded-lg text-[0.875rem] " +
   "text-text-primary placeholder:text-text-muted transition-colors duration-150 " +
-  "focus:border-gold/50 focus:bg-white/[0.05]";
+  "focus:border-accent focus:bg-white/[0.05]";
 
 const SMALL_INPUT =
   "px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.8rem] " +
-  "text-text-primary placeholder:text-text-muted focus:border-gold/50";
+  "text-text-primary placeholder:text-text-muted focus:border-accent";
+
+// Field names above a control, matching the form kit.
+const FILTER_LABEL = "text-[0.7rem] font-medium uppercase tracking-[0.14em] text-text-muted mb-2";
 
 export function SearchInput({
   label, placeholder, value, onChange, className = "mb-4",
@@ -72,16 +75,16 @@ export function FilterPanel({
           onClick={() => setOpen((o) => !o)}
           aria-expanded={open}
           aria-controls={panelId}
-          className="text-[0.8rem] text-text-secondary hover:text-text-primary bg-transparent border-0 cursor-pointer transition-colors flex items-center gap-1 py-2 -my-2"
+          className="text-[0.8rem] text-text-secondary hover:text-text-primary bg-transparent border-0 cursor-pointer transition-colors flex items-center gap-1.5 py-2 -my-2"
         >
           <FilterIcon />
           Filters
           {activeCount > 0 && (
-            <span className="ml-1 px-1.5 py-0.5 rounded-full text-[0.65rem] bg-gold/15 text-gold-light border border-gold/25">
+            <span className="data ml-1 rounded-sm bg-accent px-1.5 py-0.5 text-[0.65rem] font-medium text-bg-primary">
               {activeCount}
             </span>
           )}
-          <span className="ml-1 text-text-muted" aria-hidden>{open ? "▲" : "▼"}</span>
+          <Chevron open={open} />
         </button>
 
         {activeCount > 0 && (
@@ -97,12 +100,12 @@ export function FilterPanel({
         {/* Announced as filters change, so a screen-reader user hears the
             result count without having to go hunting for it. tabular-nums
             stops the row shifting as the digits change width. */}
-        <span role="status" className="ml-auto text-[0.8rem] text-text-muted tabular-nums">
+        <span role="status" className="ml-auto text-[0.8rem] text-text-secondary tabular-nums">
           {resultCount}
         </span>
       </div>
 
-      <div id={panelId} hidden={!open} className="rounded-2xl bg-bg-card border border-border-subtle p-5 space-y-5">
+      <div id={panelId} hidden={!open} className="rounded-lg border border-border bg-bg-card p-5 space-y-5">
         {children}
       </div>
     </div>
@@ -119,7 +122,7 @@ export function ChipGroup({
 }) {
   return (
     <div>
-      <div className="text-[0.75rem] text-text-muted mb-2">{label}</div>
+      <div className={FILTER_LABEL}>{label}</div>
       <div className="flex flex-wrap gap-1.5">
         {options.map((o) => (
           <FilterChip
@@ -148,7 +151,7 @@ export function ChipChoice<T extends string>({
 }) {
   return (
     <div>
-      <div className="text-[0.75rem] text-text-muted mb-2">{label}</div>
+      <div className={FILTER_LABEL}>{label}</div>
       <div className="flex flex-wrap gap-1.5" role="group" aria-label={label}>
         {options.map((o) => (
           <FilterChip
@@ -175,10 +178,10 @@ export function FilterChip({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`px-3 py-1.5 rounded-full text-[0.775rem] border transition-colors duration-150 cursor-pointer ${
+      className={`cursor-pointer rounded-lg border px-3 py-1.5 text-[0.775rem] transition-colors duration-150 ${
         active
-          ? "bg-gold-muted border-gold/50 text-gold-light"
-          : "bg-white/[0.02] border-border text-text-secondary hover:border-gold/30 hover:text-text-primary"
+          ? "border-accent bg-accent font-medium text-bg-primary"
+          : "border-border-strong bg-white/[0.02] text-text-secondary hover:border-accent hover:text-text-primary"
       }`}
     >
       {label}
@@ -211,9 +214,9 @@ export function RangeFilter({
 }) {
   return (
     <div>
-      <div className="text-[0.75rem] text-text-muted mb-2">
+      <div className={FILTER_LABEL}>
         {label}
-        {hint && <span className="text-text-muted/70">{hint}</span>}
+        {hint && <span className="ml-1 normal-case tracking-normal font-normal">{hint}</span>}
       </div>
       <div className="flex items-center gap-2 flex-wrap">
         <RangeInput
@@ -279,6 +282,21 @@ function RangeInput({
       onBlur={(e) => { if (commitOn === "blur") onCommit(e.target.value); }}
       className={`${type === "number" ? "w-[140px] " : ""}${SMALL_INPUT}`}
     />
+  );
+}
+
+// A drawn chevron rather than the ▲ / ▼ characters this used to print. Those
+// render at whatever size and baseline the user's emoji or symbol font
+// decides, which is neither this type scale nor this stroke weight.
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg
+      width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden
+      className={`ml-0.5 text-text-muted transition-transform duration-150 ${open ? "rotate-180" : ""}`}
+    >
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
   );
 }
 

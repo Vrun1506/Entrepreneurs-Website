@@ -50,8 +50,8 @@ export default async function EditOpportunityPage({ params }: { params: Promise<
           <Link href="/my-submissions" className="inline-flex items-center text-[0.8rem] text-text-muted no-underline transition-colors duration-150 hover:text-text-secondary mb-6">
             ← Your submissions
           </Link>
-          <div className="mb-10">
-            <div className="text-[0.7rem] text-gold tracking-[0.18em] uppercase mb-2">Edit opportunity</div>
+          <div className="mb-10 border-t border-border pt-6">
+            <p className="label-wide text-text-secondary mb-3">Edit opportunity</p>
             <h1 className="font-display text-text-primary leading-[1.1] tracking-tight text-[clamp(1.75rem,3vw,2.5rem)]">
               {row.position_name}
             </h1>

@@ -1,4 +1,4 @@
-"use client";
+import { SectionHead } from "@/components/SectionHead";
 
 /* ── Data ─────────────────────────────────────────────────────────── */
 const EVENTS = [
@@ -36,88 +36,64 @@ const EVENTS = [
   },
 ] as const;
 
-const TYPE_STYLES: Record<string, { border: string; text: string; bg: string }> = {
-  Networking:     { border: "border-gold/30",       text: "text-gold",      bg: "bg-gold/8" },
-  Demo:           { border: "border-[#6aa0ff]/25",   text: "text-[#6aa0ff]", bg: "bg-[#6aa0ff]/8" },
-  Hackathon:      { border: "border-[#a064ff]/25",   text: "text-[#a064ff]", bg: "bg-[#a064ff]/8" },
-  "Office Hours": { border: "border-[#64d282]/25",   text: "text-[#64d282]", bg: "bg-[#64d282]/8" },
-};
-
 /* ── Sub-components ───────────────────────────────────────────────── */
-function SectionLabel({ text }: { text: string }) {
+function EventCell({ day, month, title, type, location, desc, spots }: typeof EVENTS[number]) {
   return (
-    <div className="flex items-center gap-4 mb-6">
-      <div className="w-8 h-px bg-gold shrink-0" />
-      <span className="text-gold text-[0.75rem] font-medium tracking-[0.1em] uppercase">{text}</span>
-    </div>
-  );
-}
-
-function TypeBadge({ type }: { type: string }) {
-  const s = TYPE_STYLES[type] ?? TYPE_STYLES["Networking"];
-  return (
-    <span className={`text-[0.7rem] px-2.5 py-0.5 rounded-full border ${s.border} ${s.text} ${s.bg}`}>
-      {type}
-    </span>
-  );
-}
-
-function ReserveButton() {
-  return (
-    <button className="text-[0.75rem] px-3.5 py-1 rounded-full cursor-pointer border border-gold/30 text-gold bg-gold/8 transition-colors duration-150 hover:bg-gold/15">
-      Reserve
-    </button>
-  );
-}
-
-function EventCard({ day, month, title, type, location, desc, spots }: typeof EVENTS[number]) {
-  return (
-    <div className="flex flex-col p-6 rounded-xl bg-bg-card border border-border-subtle transition-all duration-200 hover:border-border hover:-translate-y-0.5">
-      <div className="flex justify-between items-center mb-5">
-        <div className="flex items-baseline gap-1.5">
-          <span className="font-display text-[1.75rem] text-text-primary leading-none">{day}</span>
+    <article className="flex flex-col bg-bg-primary p-6 transition-colors duration-150 hover:bg-bg-card">
+      <div className="mb-5 flex items-baseline justify-between gap-4 border-b border-border-subtle pb-3">
+        {/* A date is a measurement. It is the one thing on this cell that gets
+            the mono face, and tabular figures keep the four dates in a row
+            optically aligned even at different digit counts. */}
+        <div className="data flex items-baseline gap-1.5">
+          <span className="text-[1.6rem] leading-none text-text-primary">{day}</span>
           <span className="text-[0.8rem] text-text-muted">{month}</span>
         </div>
-        <TypeBadge type={type} />
+        {/* Same reasoning as the opportunity kind: a field, not a coloured pill. */}
+        <span className="label-wide text-text-primary">{type}</span>
       </div>
 
-      <h3 className="text-[0.95rem] font-medium text-text-primary leading-snug mb-1">{title}</h3>
-      <p className="text-[0.75rem] text-text-muted mb-3">{location}</p>
-      <p className="text-[0.8rem] text-text-secondary font-light leading-relaxed flex-1 mb-5">{desc}</p>
+      <h3 className="mb-1 text-[1rem] font-medium leading-snug text-text-primary">{title}</h3>
+      <p className="mb-3 text-[0.75rem] text-text-muted">{location}</p>
+      <p className="mb-6 flex-1 text-[0.8rem] leading-relaxed text-text-secondary">{desc}</p>
 
-      <div className="flex justify-between items-center pt-3 border-t border-border-subtle">
-        <span className="text-[0.725rem] text-text-muted">{spots}</span>
-        <ReserveButton />
+      <div className="flex items-center justify-between gap-3 border-t border-border-subtle pt-4">
+        <span className="text-[0.72rem] text-text-muted">{spots}</span>
+        <button
+          type="button"
+          className="cursor-pointer rounded-lg border border-border-strong bg-white/[0.05] px-3.5 py-1.5 text-[0.75rem] text-text-primary transition-colors duration-150 hover:border-accent hover:bg-white/[0.10]"
+        >
+          Reserve
+        </button>
       </div>
-    </div>
+    </article>
   );
 }
 
 /* ── Section ──────────────────────────────────────────────────────── */
 export default function Events() {
   return (
-    <section
-      id="events"
-      className="py-28 px-8 bg-bg-secondary border-y border-border-subtle"
-    >
-      <div className="max-w-[1200px] mx-auto">
-        <SectionLabel text="Events" />
-
-        <div className="flex flex-wrap justify-between items-end gap-6 mb-12">
-          <h2 className="font-display leading-[1.15] tracking-tight text-[clamp(1.8rem,3vw,2.6rem)]">
-            Things worth
-            <br />
-            <em className="text-gold">showing up for.</em>
+    <section id="events" className="border-y border-border-subtle bg-bg-secondary px-8 py-24">
+      <div className="mx-auto max-w-[1200px]">
+        {/* Treatment 4 of 5: the wordmark's other half. Light weight, tracked
+            open, both lines equal — the ENTREPRENEURS register at headline
+            size, where the previous four sections all ran heavy. */}
+        <SectionHead
+          label="Events"
+          aside={
+            <p className="max-w-[38ch] text-[0.875rem] leading-[1.65] text-text-secondary">
+              Networking, demos, hackathons and office hours — designed to put you in
+              the same room as the people worth meeting.
+            </p>
+          }
+        >
+          <h2 className="text-[clamp(1.8rem,3.2vw,2.7rem)] font-light leading-[1.14] tracking-[0.01em] text-text-primary">
+            <span className="block">Things worth</span>
+            <span className="block">showing up for.</span>
           </h2>
+        </SectionHead>
 
-          <p className="text-[0.875rem] text-text-secondary font-light leading-[1.65] max-w-[360px]">
-            Networking, demos, hackathons and office hours — designed to put you in
-            the same room as the people worth meeting.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {EVENTS.map((event) => <EventCard key={event.title} {...event} />)}
+        <div className="grid grid-cols-1 gap-px border border-border bg-border sm:grid-cols-2 lg:grid-cols-4">
+          {EVENTS.map((event) => <EventCell key={event.title} {...event} />)}
         </div>
       </div>
     </section>

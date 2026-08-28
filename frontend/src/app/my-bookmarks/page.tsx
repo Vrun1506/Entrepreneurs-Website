@@ -23,12 +23,12 @@ export default async function MyBookmarksPage() {
       <main id="main-content" tabIndex={-1} className="flex-1 px-4 sm:px-8 py-10 sm:py-12">
         <div className="max-w-[1200px] mx-auto">
           <div className="mb-8 flex items-start justify-between gap-4 flex-wrap">
-            <div>
-              <div className="text-[0.7rem] text-gold tracking-[0.18em] uppercase mb-2">Bookmarks</div>
-              <h1 className="font-display text-text-primary leading-[1.1] tracking-tight text-[clamp(1.75rem,3.5vw,2.5rem)]">
+            <div className="border-t border-border pt-6">
+              <p className="label-wide text-text-secondary mb-3 md:mb-0">Bookmarks</p>
+              <h1 className="font-display text-text-primary leading-[1.1] tracking-tight text-[clamp(1.75rem,3.5vw,2.5rem)] md:col-start-2 md:row-start-1">
                 Saved opportunities
               </h1>
-              <p className="text-[0.875rem] text-text-muted mt-3 leading-relaxed">
+              <p className="text-[0.875rem] text-text-muted mt-3 leading-relaxed md:col-start-2">
                 {items.length === 0
                   ? "Nothing saved yet. Tap the star on any opportunity in the directory to save it for later."
                   : `${items.length} saved opportunit${items.length === 1 ? "y" : "ies"} still open for applications.`}
@@ -43,13 +43,13 @@ export default async function MyBookmarksPage() {
           </div>
 
           {items.length === 0 ? (
-            <div className="rounded-2xl bg-bg-card border border-border-subtle p-10 text-center">
+            <div className="rounded-lg border border-border bg-bg-card px-6 py-14 text-center">
               <p className="text-[0.85rem] text-text-muted leading-relaxed">
                 When you find a role that looks interesting, click the star to save it here. Saved opportunities stay in this list while they&apos;re open and disappear once the application deadline passes.
               </p>
               <Link
                 href="/opportunities"
-                className="inline-block mt-5 px-4 py-2 rounded-lg bg-gold text-bg-primary text-[0.825rem] font-medium no-underline transition-colors hover:bg-gold-light"
+                className="inline-block mt-5 px-4 py-2 rounded-lg bg-accent text-bg-primary text-[0.825rem] font-medium no-underline transition-colors hover:bg-accent-light"
               >
                 Browse opportunities →
               </Link>

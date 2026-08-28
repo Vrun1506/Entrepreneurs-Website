@@ -154,7 +154,7 @@ export default function ProfileForm(props: Props) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5 rounded-2xl bg-bg-card border border-border-subtle p-8">
+    <form onSubmit={handleSubmit} className="space-y-5 rounded-2xl bg-bg-card border border-border p-8">
       {error && <ErrorBanner>{error}</ErrorBanner>}
       {saved && !error && <SuccessBanner>Saved.</SuccessBanner>}
 
