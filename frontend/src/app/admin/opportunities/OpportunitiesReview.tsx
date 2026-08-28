@@ -16,6 +16,7 @@ export default function OpportunitiesReview({ items }: { items: Item[] }) {
       bulkApprove={bulkApproveOpportunities}
       bulkReject={bulkRejectOpportunities}
       noun="opportunity"
+      emptyMessage="Nothing pending. The queue is clear."
     />
   );
 }

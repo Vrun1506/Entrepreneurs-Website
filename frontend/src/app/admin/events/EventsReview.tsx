@@ -16,6 +16,7 @@ export default function EventsReview({ items }: { items: Item[] }) {
       bulkApprove={bulkApproveEvents}
       bulkReject={bulkRejectEvents}
       noun="event"
+      emptyMessage="Nothing pending. The queue is clear."
     />
   );
 }

@@ -2,39 +2,76 @@
 
 /* ─────────────────────────────────────────────
    DESIGN TOKENS — edit here, propagates everywhere
+
+   The visual system is derived from the logo: a white rocket roundel and a
+   grotesque wordmark on a black starfield. Three consequences run through
+   every token below.
+
+     1. The palette is NEUTRAL, not warm. The old cream/gold world (#f0ede6
+        text on #0c0c0b) fought the logo's pure white on pure black.
+     2. WHITE is the accent. The logo has exactly two values — ink and field —
+        and the highest-emphasis control on the page should be the same.
+        --color-signal keeps the old gold alive for the one job it is still
+        good at: a rare status flag that must not read as "primary".
+     3. ONE typeface. The wordmark sets "IMPERIAL" heavy and tight over
+        "ENTREPRENEURS" light and wide, optically justified to the same
+        measure. Hierarchy comes from weight and tracking, not from a second
+        family, so the serif is gone and Archivo does every job.
    ───────────────────────────────────────────── */
 @theme {
-  /* Colours */
-  --color-bg-primary:    #0c0c0b;
-  --color-bg-secondary:  #131312;
-  --color-bg-card:       #181817;
-  --color-bg-card-hover: #1e1e1c;
+  /* ── Surfaces ─────────────────────────────── */
+  --color-bg-primary:    #08080a;
+  --color-bg-secondary:  #0e0e10;
+  --color-bg-card:       #121214;
+  --color-bg-card-hover: #17171a;
 
-  --color-border:        #2a2a27;
-  --color-border-subtle: #1f1f1d;
-  /* The boundary of anything you can press. --color-border is a hairline for
-     cards, inputs and dividers — it sits at 1.36:1 against the page, which is
-     correct for a divider and invisible on a button. This clears the 3:1 that
-     WCAG 1.4.11 asks of a control's outline, on --color-bg-primary (3.7:1) and
-     on --color-bg-card (3.4:1) alike, so it works inside modals too.
-     OnboardingForm was already reaching for `border-border-strong` before this
-     token existed, so that hover had been doing nothing. */
-  --color-border-strong: #6e6c66;
+  /* Hairline for dividers, card edges and input outlines. Deliberately below
+     3:1 — it is a rule, not a control boundary. */
+  --color-border:        #26262a;
+  --color-border-subtle: #1c1c1f;
+  /* The boundary of anything you can press. Clears the 3:1 WCAG 1.4.11 asks
+     of a control's outline on the page (3.8:1) and on a card (3.5:1) alike,
+     so it holds inside modals too. */
+  --color-border-strong: #6b6b72;
 
-  --color-gold:          #c9a84c;
-  --color-gold-light:    #dbb96a;
-  --color-gold-dim:      #a08535;
-  --color-gold-muted:    rgba(201,168,76,0.12);
+  /* ── Ink ──────────────────────────────────── */
+  --color-text-primary:  #f4f4f5;
+  /* 7.2:1 on the page. */
+  --color-text-secondary:#9a9aa2;
+  /* 5.2:1 on the page. The previous value (#5a5855) was 2.8:1 and was used
+     for input placeholders, which need the same 4.5:1 as body text. */
+  --color-text-muted:    #7a7a82;
 
-  --color-text-primary:  #f0ede6;
-  --color-text-secondary:#8a8780;
-  --color-text-muted:    #5a5855;
+  /* ── Accent ───────────────────────────────── */
+  /* The logo's ink. A white fill on black is the strongest control this
+     palette can make, and it costs no hue. */
+  --color-accent:        #ffffff;
+  --color-accent-light:  #ffffff;
+  --color-accent-dim:    #c6c6cc;
+  --color-accent-muted:  rgba(255,255,255,0.10);
 
-  /* Typography — values come from next/font/google in layout.tsx */
-  --font-display: var(--font-dm-serif-display), Georgia, serif;
-  --font-sans:    var(--font-dm-sans), system-ui, sans-serif;
+  /* Retired as the primary accent; kept for status only — a pending review,
+     an expiring listing. If it is load-bearing for an action, it is wrong. */
+  --color-signal:        #c9a84c;
+  --color-signal-muted:  rgba(201,168,76,0.14);
 
-  /* Spacing scale extensions */
+  /* ── Typography ───────────────────────────── */
+  /* Values come from next/font/google in layout.tsx. One grotesque for
+     display and body; a mono reserved for measured values. */
+  --font-display: var(--font-archivo), "Helvetica Neue", Arial, sans-serif;
+  --font-sans:    var(--font-archivo), "Helvetica Neue", Arial, sans-serif;
+  --font-mono:    var(--font-plex-mono), ui-monospace, SFMono-Regular, monospace;
+
+  /* ── Radii ────────────────────────────────── */
+  /* A datasheet is drawn with a straight edge. Redefining the scale moves
+     every existing `rounded-lg` / `rounded-xl` / `rounded-2xl` in the app at
+     once, without touching the files. `rounded-full` is left alone — it is
+     doing real circles (avatars, dots, spinners), not soft corners. */
+  --radius-lg:  3px;
+  --radius-xl:  4px;
+  --radius-2xl: 6px;
+
+  /* ── Spacing scale extensions ─────────────── */
   --spacing-18: 4.5rem;
   --spacing-22: 5.5rem;
   --spacing-28: 7rem;
@@ -77,15 +114,16 @@ h1, h2, h3, h4, h5, h6, [id] {
    blue-grey tap flash with one that belongs to this palette. */
 button, a, [role="button"], summary {
   touch-action: manipulation;
-  -webkit-tap-highlight-color: rgba(201, 168, 76, 0.15);
+  -webkit-tap-highlight-color: rgba(255, 255, 255, 0.12);
 }
 
 /* The single focus indicator for the whole app. :focus-visible (not :focus) so
    it appears for keyboard and programmatic focus but not on mouse click. The
-   offset is load-bearing — it puts the ring on the page background, so it stays
-   visible on gold-filled buttons where a gold ring would otherwise vanish. */
+   offset is load-bearing — it puts the ring on the page background, so it
+   stays visible on the white-filled primary button, where a white ring drawn
+   on the fill would vanish. */
 :focus-visible {
-  outline: 2px solid theme(--color-gold);
+  outline: 2px solid theme(--color-accent);
   outline-offset: 2px;
   border-radius: 2px;
 }
@@ -98,18 +136,82 @@ main:focus-visible {
 }
 
 /* ─────────────────────────────────────────────
-   SCROLLBAR
+   BROWSER SURFACES
+
+   The parts of the page nobody drew still belong to the design. Left at their
+   defaults, the selection, the caret and the scrollbar are the one place a
+   built page still looks assembled.
    ───────────────────────────────────────────── */
-::-webkit-scrollbar       { width: 4px; }
+::selection {
+  background: theme(--color-accent);
+  color: theme(--color-bg-primary);
+}
+
+input, textarea, select {
+  caret-color: theme(--color-accent);
+}
+
+::-webkit-scrollbar       { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: theme(--color-bg-primary); }
-::-webkit-scrollbar-thumb { background: theme(--color-border); border-radius: 2px; }
+::-webkit-scrollbar-thumb {
+  background: theme(--color-border);
+  border: 3px solid theme(--color-bg-primary);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover { background: theme(--color-border-strong); }
+* { scrollbar-color: theme(--color-border) theme(--color-bg-primary); }
 
 /* ─────────────────────────────────────────────
-   TYPOGRAPHY UTILITY
+   TYPOGRAPHY
+
+   `.font-display` is applied to every heading in the app already, so it is
+   the lever that moves the whole type voice at once. It carries the treatment
+   (weight and tracking), not just the family — the wordmark's headline
+   register is heavy and tight, and a heading set at the body weight is not
+   the same design.
    ───────────────────────────────────────────── */
 .font-display {
   font-family: theme(--font-display);
+  font-weight: 600;
+  /* The width axis, not just the weight axis. See layout.tsx. */
+  font-stretch: 84%;
+  letter-spacing: -0.025em;
 }
+
+/* The display setting proper, for the two headlines that carry a page: the
+   hero and a section's own h2. Narrower and tighter than .font-display,
+   because at 4rem the same tracking that reads as "set" at 1.5rem reads as
+   loose. Optical sizing done by hand, since Archivo has no opsz axis. */
+.display-xl {
+  font-family: theme(--font-display);
+  font-stretch: 78%;
+  letter-spacing: -0.035em;
+  line-height: 1.03;
+}
+
+/* The second half of the wordmark's device: light, widely tracked, uppercase.
+   Used for the small structural labels a datasheet is full of — field names,
+   column heads, the line above a value. */
+.label-wide {
+  font-family: theme(--font-display);
+  font-weight: 500;
+  font-stretch: 100%;
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+/* Measured values only: dates, counts, money, IDs, durations. Not a costume
+   for "technical" — if it is prose, it is not set in this. */
+.data {
+  font-family: theme(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* Tabular figures wherever numbers are meant to line up in a column but the
+   surrounding text is not mono. */
+.tnum { font-variant-numeric: tabular-nums; }
 
 /* Headings are short enough that the browser can even out the line lengths
    instead of leaving one orphaned word on the last line. Only applies under
@@ -118,11 +220,98 @@ h1, h2, h3 {
   text-wrap: balance;
 }
 
+/* Body copy sets its own measure; prose past ~75ch is measurably harder to
+   scan back into. */
+p { text-wrap: pretty; }
+
+/* ─────────────────────────────────────────────
+   MOTION — the rule draws
+
+   The system has one entrance, and it is the system's own device. Every
+   masthead on the site — five marketing sections, three listing pages, and
+   the 28 app and admin pages — opens on a hairline rule across the measure.
+   That rule draws itself as the section arrives, and the heading rises behind
+   it. A datasheet being laid down, rather than a card flying in.
+
+   It is scroll-driven, not time-driven: `animation-timeline: view()` scrubs
+   the animation against the element's own progress through the viewport, so
+   it is tied to the reader's scroll instead of firing on a timer they cannot
+   see. Three things follow from that, all of them good here.
+
+     * No JavaScript, no IntersectionObserver, no client boundary on 36
+       server components, and nothing to hydrate.
+     * No flash of hidden content. Without JS to remove a starting state,
+       there is no window in which the text is invisible.
+     * Anything already in the viewport on load is past `entry` and renders
+       at its end state, which is the behaviour you want.
+
+   The whole block is behind @supports, so a browser without view timelines
+   (Firefox, today) applies none of it and gets the static page — the
+   degradation is the design, not a fallback of it. It is also inside
+   prefers-reduced-motion: no-preference, so the reduced-motion contract in
+   PRODUCT.md holds without needing an override further down.
+   ───────────────────────────────────────────── */
+
+/* The rule itself. Drawn as a pseudo-element rather than a border, because a
+   border cannot be scaled from one end. Static by default. */
+.rule-draw {
+  position: relative;
+}
+.rule-draw::before {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 1px;
+  background: theme(--color-border);
+  transform-origin: left center;
+}
+
+@keyframes rule-draw   { from { transform: scaleX(0); }               to { transform: scaleX(1); } }
+@keyframes rise        { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes hero-settle {
+  from { opacity: 0; filter: blur(14px); transform: scale(1.03); }
+  to   { opacity: 1; filter: blur(0);    transform: none; }
+}
+@keyframes drift-up    { from { transform: translateY(0); } to { transform: translateY(-9%); } }
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .rule-draw::before {
+      animation: rule-draw cubic-bezier(0.22, 1, 0.36, 1) both;
+      animation-timeline: view();
+      /* Finishes well before the element is fully in view, so the rule is
+         already drawn by the time the reader's eye reaches the heading. */
+      animation-range: entry 8% entry 46%;
+    }
+
+    /* The heading follows the rule rather than racing it — the later range
+       is the stagger, since delays are meaningless on a scroll timeline. */
+    .rule-draw > * {
+      animation: rise cubic-bezier(0.22, 1, 0.36, 1) both;
+      animation-timeline: view();
+      animation-range: entry 14% entry 62%;
+    }
+
+    /* The hero's sky drifts against the page as it scrolls away. Parallax
+       measured in single-digit percent: enough to separate the field from
+       the content sitting on it, not enough to notice as an effect. */
+    .starfield-parallax {
+      animation: drift-up linear both;
+      animation-timeline: view();
+      animation-range: exit 0% exit 100%;
+    }
+  }
+}
+
 /* ─────────────────────────────────────────────
    ANIMATIONS
+
+   One authored entrance, on the hero, once per visit. Everything else in the
+   app moves only in response to a pointer or a state change.
    ───────────────────────────────────────────── */
 @keyframes fade-up {
-  from { opacity: 0; transform: translateY(24px); }
+  from { opacity: 0; transform: translateY(14px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
@@ -131,23 +320,84 @@ h1, h2, h3 {
   to   { opacity: 1; }
 }
 
+/* Exponential ease-out: fast départ, long settle. The default `ease` curve
+   accelerates into the middle and reads as a slide rather than an arrival. */
 .anim-fade-up {
   opacity: 0;
-  animation: fade-up 0.75s ease forwards;
+  animation: fade-up 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .anim-fade-in {
   opacity: 0;
-  animation: fade-in 0.6s ease forwards;
+  animation: fade-in 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* The mark resolving: out of focus and fractionally oversized, settling to
+   sharp. Blur is the reason this reads as an optical event rather than a
+   slide — and it is cheap here because it runs once, on one element, over a
+   compositor-friendly 1.1s. */
+.anim-settle {
+  opacity: 0;
+  animation: hero-settle 1.1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* A panel that appears in place — the filter drawer, a dialog — arrives from
+   slightly above and slightly small. Both are short enough (200-260ms) to
+   read as the surface responding rather than as an animation being played,
+   and both are on the global reduced-motion reset, which zeroes the duration
+   and lands them on the end state. */
+@keyframes panel-in  { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: none; } }
+@keyframes dialog-in { from { opacity: 0; transform: translateY(8px) scale(0.985); } to { opacity: 1; transform: none; } }
+@keyframes backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+
+.anim-panel  { animation: panel-in  0.2s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.anim-dialog { animation: dialog-in 0.26s cubic-bezier(0.22, 1, 0.36, 1) both; }
+dialog[open]::backdrop { animation: backdrop-in 0.2s ease both; }
+
+/* Intake step transitions. The screen enters from the side you are travelling
+   toward, so Back visibly reverses Continue rather than replaying it — the
+   direction is the only thing that tells you which way you moved when the two
+   screens are the same shape.
+
+   Short (220ms) and translate-only: this fires on every Continue, and anything
+   longer starts to feel like waiting for the form rather than filling it in.
+   16px, because a larger throw at this duration reads as a slide across the
+   page instead of a swap in place. */
+@keyframes step-in-fwd  { from { opacity: 0; transform: translateX(16px);  } to { opacity: 1; transform: none; } }
+@keyframes step-in-back { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: none; } }
+
+.anim-step-fwd  { animation: step-in-fwd  0.22s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.anim-step-back { animation: step-in-back 0.22s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* The flat mark is what shows until the point cloud has been sampled out of
+   its alpha channel, and what stays if WebGL is unavailable or the context is
+   lost. HeroScene sets data-live on its canvas once the cloud is in the scene;
+   the canvas is a sibling of the grid the mark sits in, hence the combinator.
+   A plain transition rather than an entrance animation, because an animation's
+   `forwards` fill would outrank this and the fallback would never fade. */
+.hero-mark-fallback {
+  opacity: 1;
+  transition: opacity 600ms ease;
+}
+canvas[data-live] ~ * .hero-mark-fallback { opacity: 0; }
+
+/* The nav's active-tab indicator uses the same gesture as the mastheads: a
+   rule drawn from its left end. On the marketing nav the scroll-spy remounts
+   it as you pass each section, so it redraws; in the app it draws once on
+   arrival. The global reduced-motion reset zeroes the duration, which lands
+   it on scaleX(1) rather than leaving it at zero width. */
+.underline-draw {
+  transform-origin: left center;
+  animation: rule-draw 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 /* Delay utilities — used on hero elements */
-.delay-100 { animation-delay: 0.1s; }
-.delay-200 { animation-delay: 0.2s; }
-.delay-300 { animation-delay: 0.3s; }
-.delay-400 { animation-delay: 0.4s; }
-.delay-500 { animation-delay: 0.5s; }
-.delay-600 { animation-delay: 0.6s; }
+.delay-100 { animation-delay: 0.06s; }
+.delay-200 { animation-delay: 0.12s; }
+.delay-300 { animation-delay: 0.18s; }
+.delay-400 { animation-delay: 0.24s; }
+.delay-500 { animation-delay: 0.30s; }
+.delay-600 { animation-delay: 0.36s; }
 
 /* ─────────────────────────────────────────────
    REDUCED MOTION
@@ -163,8 +413,11 @@ h1, h2, h3 {
   /* The hero entrance animations start at opacity:0 and animate to 1. Zeroing
      the duration above would leave them stuck invisible, so land them on their
      final state instead of removing them. */
-  .anim-fade-up, .anim-fade-in {
+  .anim-fade-up, .anim-fade-in, .anim-settle, .anim-panel, .anim-dialog,
+  .anim-step-fwd, .anim-step-back {
     opacity: 1;
+    filter: none;
+    transform: none;
     animation: none !important;
   }
 

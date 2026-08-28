@@ -151,7 +151,7 @@ export default function OpportunityForm({ signupEmail, skills, sectors, mode, ed
   };
 
   return (
-    <form ref={formRef} onSubmit={handleSubmit} className="space-y-5 rounded-2xl bg-bg-card border border-border-subtle p-8">
+    <form ref={formRef} onSubmit={handleSubmit} className="space-y-5 rounded-2xl bg-bg-card border border-border p-8">
       {error && <ErrorBanner>{error}</ErrorBanner>}
 
       <Field label="Role title" required error={fieldErrors.positionName}>
@@ -233,11 +233,11 @@ export default function OpportunityForm({ signupEmail, skills, sectors, mode, ed
       <div className="pt-2 border-t border-border-subtle">
         <div className="text-[0.85rem] text-text-primary mb-3 mt-3">How should applicants apply?</div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <label className={`px-4 py-3 rounded-lg border cursor-pointer transition-colors ${applyMethod === "email" ? "bg-gold-muted border-gold/50 text-gold-light" : "bg-white/[0.02] border-border text-text-secondary hover:border-gold/30"}`}>
+          <label className={`px-4 py-3 rounded-lg border cursor-pointer transition-colors ${applyMethod === "email" ? "bg-accent-muted border-accent/50 text-accent-light" : "bg-white/[0.02] border-border text-text-secondary hover:border-accent"}`}>
             <input type="radio" name="apply-method" value="email" checked={applyMethod === "email"} onChange={() => setApplyMethod("email")} className="mr-2" />
             Contact me directly
           </label>
-          <label className={`px-4 py-3 rounded-lg border cursor-pointer transition-colors ${applyMethod === "link" ? "bg-gold-muted border-gold/50 text-gold-light" : "bg-white/[0.02] border-border text-text-secondary hover:border-gold/30"}`}>
+          <label className={`px-4 py-3 rounded-lg border cursor-pointer transition-colors ${applyMethod === "link" ? "bg-accent-muted border-accent/50 text-accent-light" : "bg-white/[0.02] border-border text-text-secondary hover:border-accent"}`}>
             <input type="radio" name="apply-method" value="link" checked={applyMethod === "link"} onChange={() => setApplyMethod("link")} className="mr-2" />
             Application portal link
           </label>

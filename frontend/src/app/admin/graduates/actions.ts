@@ -93,7 +93,7 @@ export async function deleteGraduates(cutoffYear: number): Promise<DeleteResult>
       await invalidate("directoryFacets");
       revalidatePath("/admin");
       revalidatePath("/admin/community");
-      revalidatePath("/community");
+      revalidatePath("/members");
       return {
         ok: false,
         error: `Deleted ${rows.length} accounts, but queueing congratulations emails failed: ${msg}. Run the queue diagnostics from /admin and contact affected graduates manually if needed.`,
@@ -104,7 +104,7 @@ export async function deleteGraduates(cutoffYear: number): Promise<DeleteResult>
   await invalidate("directoryFacets");
   revalidatePath("/admin");
   revalidatePath("/admin/community");
-  revalidatePath("/community");
+  revalidatePath("/members");
 
   return { ok: true, deleted: rows.length, emailsQueued };
 }

@@ -22,5 +22,5 @@ export async function invalidateDirectoryCache(): Promise<void> {
   if (!user) return;
 
   await invalidate("directoryFacets");
-  revalidatePath("/community");
+  revalidatePath("/members");
 }

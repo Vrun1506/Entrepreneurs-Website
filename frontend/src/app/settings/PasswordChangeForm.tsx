@@ -32,7 +32,7 @@ export default function PasswordChangeForm({ hasPassword, email }: { hasPassword
   };
 
   const inputCls =
-    "w-full px-4 py-3 bg-white/[0.03] border border-border rounded-lg text-[0.85rem] text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]";
+    "w-full px-4 py-3 bg-white/[0.03] border border-border rounded-lg text-[0.85rem] text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:border-accent/50 focus:bg-white/[0.05]";
 
   // OAuth-only (Google) accounts have no password to manage — hide the card entirely.
   if (!hasPassword) return null;
@@ -116,7 +116,7 @@ export default function PasswordChangeForm({ hasPassword, email }: { hasPassword
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5 rounded-2xl bg-bg-card border border-border-subtle p-8">
+    <form onSubmit={handleSubmit} className="space-y-5 rounded-2xl bg-bg-card border border-border p-8">
       <div>
         <div className="text-[0.95rem] font-medium text-text-primary mb-1">Change password</div>
         <p className="text-[0.8rem] text-text-muted leading-relaxed">
@@ -130,7 +130,7 @@ export default function PasswordChangeForm({ hasPassword, email }: { hasPassword
         </div>
       )}
       {saved && !error && (
-        <div className="px-4 py-3 rounded-lg bg-gold-muted border border-gold/30 text-[0.8rem] text-gold-light leading-relaxed">
+        <div className="px-4 py-3 rounded-lg bg-accent-muted border border-accent/30 text-[0.8rem] text-accent-light leading-relaxed">
           Password updated.
         </div>
       )}

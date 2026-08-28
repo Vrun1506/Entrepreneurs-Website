@@ -46,7 +46,7 @@ export default function GraduatesClient({ defaultCutoff }: { defaultCutoff: numb
 
   return (
     <>
-      <div className="rounded-2xl bg-bg-card border border-border-subtle p-6 space-y-5">
+      <div className="rounded-2xl bg-bg-card border border-border p-6 space-y-5">
         <div>
           <label htmlFor="cutoff" className="block text-[0.75rem] text-text-muted mb-1.5">
             Cutoff graduation year
@@ -58,7 +58,7 @@ export default function GraduatesClient({ defaultCutoff }: { defaultCutoff: numb
             onChange={(e) => setCutoff(e.target.value)}
             min={1950}
             max={2099}
-            className="w-[200px] px-4 py-3 bg-white/[0.03] border border-border rounded-lg text-[0.85rem] text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]"
+            className="w-[200px] px-4 py-3 bg-white/[0.03] border border-border rounded-lg text-[0.85rem] text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:border-accent/50 focus:bg-white/[0.05]"
           />
           <p className="text-[0.725rem] text-text-muted mt-1.5 leading-relaxed">
             Everyone whose graduation year is at or before this value will be removed. Default is last calendar year; raise it after results day to include this year&apos;s cohort.
@@ -70,7 +70,7 @@ export default function GraduatesClient({ defaultCutoff }: { defaultCutoff: numb
             type="button"
             onClick={handlePreview}
             disabled={pending || !cutoffValid}
-            className="px-5 py-3 rounded-xl bg-gold text-bg-primary text-[0.85rem] font-medium cursor-pointer transition-all duration-200 hover:bg-gold-light disabled:opacity-50 disabled:cursor-not-allowed"
+            className="cursor-pointer rounded-lg bg-accent px-5 py-3 text-[0.85rem] font-semibold text-bg-primary transition-colors duration-150 hover:bg-accent-dim disabled:cursor-not-allowed disabled:opacity-50"
           >
             {pending && !confirmOpen ? "Loading…" : "Preview affected accounts"}
           </button>
@@ -83,7 +83,7 @@ export default function GraduatesClient({ defaultCutoff }: { defaultCutoff: numb
         )}
 
         {successCount !== null && (
-          <div className="px-4 py-3 rounded-lg bg-gold-muted border border-gold/30 text-[0.825rem] text-gold-light leading-relaxed space-y-1">
+          <div className="px-4 py-3 rounded-lg bg-accent-muted border border-accent/30 text-[0.825rem] text-accent-light leading-relaxed space-y-1">
             <div>Removed {successCount} graduate{successCount === 1 ? "" : "s"}.</div>
             {emailsQueued > 0 && (
               <div className="text-[0.775rem] text-text-muted">
@@ -95,7 +95,7 @@ export default function GraduatesClient({ defaultCutoff }: { defaultCutoff: numb
       </div>
 
       {preview && (
-        <div className="mt-6 rounded-2xl bg-bg-card border border-border-subtle p-6">
+        <div className="mt-6 rounded-2xl bg-bg-card border border-border p-6">
           <div className="flex items-baseline justify-between mb-4">
             <h2 className="font-display text-[1.1rem] text-text-primary">
               {preview.count} account{preview.count === 1 ? "" : "s"} will be removed
@@ -158,7 +158,7 @@ function ConfirmModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
       <div className="w-full max-w-[480px] rounded-2xl bg-bg-card border border-[#ff4d4d]/30 p-6">
-        <div className="text-[0.7rem] text-[#ff6b6b] tracking-[0.18em] uppercase mb-2">Confirm permanent deletion</div>
+        <p className="label-wide text-[#ff8080] mb-3">Confirm permanent deletion</p>
         <h2 className="font-display text-[1.25rem] text-text-primary mb-3">
           About to delete {count} graduate{count === 1 ? "" : "s"}
         </h2>

@@ -495,7 +495,10 @@ export type Database = {
       }
       profiles: {
         Row: {
+          avatar_path: string | null
           bio: string | null
+          bio_focus: string | null
+          bio_hobbies: string | null
           course: string | null
           created_at: string
           first_name: string
@@ -504,6 +507,8 @@ export type Database = {
           id: string
           linkedin_url: string | null
           portfolio_url: string | null
+          preferred_name: string | null
+          profile_version: number
           role: Database["public"]["Enums"]["user_role"]
           status: Database["public"]["Enums"]["user_status"]
           surname: string
@@ -511,7 +516,10 @@ export type Database = {
           working_on: string | null
         }
         Insert: {
+          avatar_path?: string | null
           bio?: string | null
+          bio_focus?: string | null
+          bio_hobbies?: string | null
           course?: string | null
           created_at?: string
           first_name?: string
@@ -520,6 +528,8 @@ export type Database = {
           id: string
           linkedin_url?: string | null
           portfolio_url?: string | null
+          preferred_name?: string | null
+          profile_version?: number
           role: Database["public"]["Enums"]["user_role"]
           status?: Database["public"]["Enums"]["user_status"]
           surname?: string
@@ -527,7 +537,10 @@ export type Database = {
           working_on?: string | null
         }
         Update: {
+          avatar_path?: string | null
           bio?: string | null
+          bio_focus?: string | null
+          bio_hobbies?: string | null
           course?: string | null
           created_at?: string
           first_name?: string
@@ -536,6 +549,8 @@ export type Database = {
           id?: string
           linkedin_url?: string | null
           portfolio_url?: string | null
+          preferred_name?: string | null
+          profile_version?: number
           role?: Database["public"]["Enums"]["user_role"]
           status?: Database["public"]["Enums"]["user_status"]
           surname?: string
@@ -1133,6 +1148,10 @@ export type Database = {
           title: string
         }[]
       }
+      set_my_affiliation: {
+        Args: { p_role: Database["public"]["Enums"]["user_role"] }
+        Returns: undefined
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       submit_event: {
@@ -1278,7 +1297,13 @@ export type Database = {
       listing_status: "pending" | "approved" | "rejected" | "expired"
       location_type: "remote" | "hybrid" | "onsite"
       user_action_type: "applied" | "going"
-      user_role: "student" | "alum"
+      user_role:
+        | "student"
+        | "alum"
+        | "recent_grad"
+        | "mentor"
+        | "angel"
+        | "staff_faculty"
       user_status:
         | "pending_onboarding"
         | "pending_review"
@@ -1426,7 +1451,14 @@ export const Constants = {
       listing_status: ["pending", "approved", "rejected", "expired"],
       location_type: ["remote", "hybrid", "onsite"],
       user_action_type: ["applied", "going"],
-      user_role: ["student", "alum"],
+      user_role: [
+        "student",
+        "alum",
+        "recent_grad",
+        "mentor",
+        "angel",
+        "staff_faculty",
+      ],
       user_status: [
         "pending_onboarding",
         "pending_review",

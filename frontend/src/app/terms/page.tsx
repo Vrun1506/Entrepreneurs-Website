@@ -18,8 +18,8 @@ export default function TermsPage() {
         <Link href="/login" className="text-[0.8rem] text-text-muted no-underline hover:text-text-secondary transition-colors">
           ← Back
         </Link>
-        <div className="mt-6 mb-10">
-          <div className="text-[0.7rem] text-gold tracking-[0.18em] uppercase mb-2">Legal</div>
+        <div className="mt-6 mb-10 rule-draw pt-6">
+          <p className="label-wide text-text-secondary mb-3">Legal</p>
           <h1 className="font-display text-[clamp(1.75rem,3vw,2.5rem)] leading-[1.1] tracking-tight">
             Terms &amp; Conditions
           </h1>
@@ -36,7 +36,7 @@ export default function TermsPage() {
               registered office 71–75 Shelton Street, Covent Garden, London, WC2H 9JQ (&ldquo;we&rdquo;, &ldquo;us&rdquo;, &ldquo;our&rdquo;).
               These Terms and Conditions govern your access to and use of Foundry. By creating an account or using
               Foundry you agree to these terms and to our{" "}
-              <Link href="/privacy" className="text-gold hover:text-gold-light no-underline">Privacy Policy</Link>. If you
+              <Link href="/privacy" className="text-accent hover:text-accent-light no-underline">Privacy Policy</Link>. If you
               do not agree, please do not use Foundry.
             </p>
           </Section>
@@ -75,7 +75,7 @@ export default function TermsPage() {
               purpose of operating Foundry. You confirm that you have the right to post it and that it does not
               breach these terms or anyone&rsquo;s rights. When you delete a listing or your account, we remove that
               content from our live systems as described in the{" "}
-              <Link href="/privacy" className="text-gold hover:text-gold-light no-underline">Privacy Policy</Link>.
+              <Link href="/privacy" className="text-accent hover:text-accent-light no-underline">Privacy Policy</Link>.
             </p>
           </Section>
 

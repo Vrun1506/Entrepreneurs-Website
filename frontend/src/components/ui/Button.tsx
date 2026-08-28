@@ -24,34 +24,42 @@ type Size = "sm" | "md" | "lg";
 
 const BASE =
   "inline-flex items-center justify-center cursor-pointer " +
-  "transition-[color,background-color,border-color,transform,opacity] duration-200 " +
+  "transition-[color,background-color,border-color,opacity,transform] duration-150 " +
   // Unified across every variant. The old copies were split between
   // 50% (admin) and 60% (forms) with no reason behind the difference.
-  "disabled:opacity-60 disabled:cursor-not-allowed";
+  "active:scale-[0.985] motion-reduce:active:scale-100 " +
+  "disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100";
 
 const VARIANT: Record<Variant, string> = {
-  primary:     "bg-gold text-bg-primary font-medium hover:bg-gold-light",
+  // The logo has exactly two values, ink and field. The highest-emphasis
+  // control on the page is that same pairing, which is why this is a white
+  // fill and not a coloured one.
+  primary:     "bg-accent text-bg-primary font-semibold hover:bg-accent-dim",
   // The two neutral variants used to be fully transparent with a --color-border
   // outline and a --color-text-muted label: 1.36:1 for the outline and 2.76:1
   // for the text against the page. Both were below the point where they read as
   // a control at all — the complaint was "it's not obvious that it's a button",
   // and it was accurate. They now carry a surface as well as an outline, which
   // is what actually separates a button from a line of text.
-  ghost:       "bg-white/[0.05] border border-border-strong text-text-primary hover:bg-white/[0.10]",
+  ghost:       "bg-white/[0.05] border border-border-strong text-text-primary hover:bg-white/[0.10] hover:border-accent",
   // "Reject" — still reads as neutral until you're about to press it. The
   // restraint was always in the label colour, not in the invisible border, so
   // only the border changed here.
-  dangerGhost: "bg-white/[0.05] border border-border-strong text-text-secondary hover:bg-[#ff4d4d]/10 hover:text-[#ff6b6b] hover:border-[#ff4d4d]/50",
-  danger:      "bg-[#ff4d4d]/15 border border-[#ff4d4d]/30 text-[#ff6b6b] font-medium hover:bg-[#ff4d4d]/25",
+  dangerGhost: "bg-white/[0.05] border border-border-strong text-text-secondary hover:bg-[#ff4d4d]/10 hover:text-[#ff8080] hover:border-[#ff4d4d]/60",
+  danger:      "bg-[#ff4d4d]/15 border border-[#ff4d4d]/40 text-[#ff8080] font-medium hover:bg-[#ff4d4d]/25",
 };
 
-// The hover lift belongs to the two large sizes only: it reads as
-// deliberate on a full-width form submit and as jitter on a row of
-// small admin actions sitting side by side.
+// Sizes differ in padding and label size only.
+//
+// The two large sizes used to carry `hover:-translate-y-px`. It is gone: a
+// button that lifts off the page was the one motion tic this app repeated on
+// every surface, and it is the wrong instinct in a system drawn with a
+// straight edge. Hover emphasis is now a contrast change, which is also the
+// feedback a reduced-motion user actually receives.
 const SIZE: Record<Size, string> = {
   sm: "px-4 py-2 rounded-lg text-[0.8rem]",
-  md: "px-6 py-3 rounded-xl text-[0.85rem] tracking-wide hover:-translate-y-px disabled:hover:translate-y-0",
-  lg: "px-6 py-3.5 rounded-xl text-[0.9rem] tracking-wide hover:-translate-y-px disabled:hover:translate-y-0",
+  md: "px-6 py-3 rounded-lg text-[0.85rem]",
+  lg: "px-6 py-3.5 rounded-lg text-[0.9rem]",
 };
 
 export function Button({
@@ -78,7 +86,7 @@ export function Button({
     >
       {loading ? (
         <>
-          {/* currentColor so the spinner works on a gold fill and on the
+          {/* currentColor so the spinner works on a accent fill and on the
               transparent variants alike. globals.css slows rather than
               freezes this under prefers-reduced-motion. */}
           <span

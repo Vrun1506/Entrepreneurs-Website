@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
 import { isImperialEmail } from "@/lib/auth/imperialEmail";
+import type { Affiliation } from "@/lib/intake/steps";
 
 // ════════════════════════════════════════════════════════════════════
 // Change your email address.
@@ -68,7 +69,7 @@ export default function EmailChangeForm({
   role,
 }: {
   currentEmail: string;
-  role: "student" | "alum";
+  role: Affiliation;
 }) {
   const supabase = createClient();
   const router = useRouter();
@@ -87,7 +88,7 @@ export default function EmailChangeForm({
   const [error, setError] = useState("");
 
   const inputCls =
-    "w-full px-4 py-3 bg-white/[0.03] border border-border rounded-lg text-[0.85rem] text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:border-gold/50 focus:bg-white/[0.05]";
+    "w-full px-4 py-3 bg-white/[0.03] border border-border rounded-lg text-[0.85rem] text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:border-accent/50 focus:bg-white/[0.05]";
   const codeCls = `${inputCls} font-mono tracking-[0.3em] text-center`;
 
   const pending = newEmail.trim().toLowerCase();
@@ -188,9 +189,9 @@ export default function EmailChangeForm({
 
   if (stage === "done") {
     return (
-      <div className="space-y-3 rounded-2xl bg-bg-card border border-border-subtle p-8">
+      <div className="space-y-3 rounded-2xl bg-bg-card border border-border p-8">
         <div className="text-[0.95rem] font-medium text-text-primary">Email address</div>
-        <div className="px-4 py-3 rounded-lg bg-gold-muted border border-gold/30 text-[0.8rem] text-gold-light leading-relaxed">
+        <div className="px-4 py-3 rounded-lg bg-accent-muted border border-accent/30 text-[0.8rem] text-accent-light leading-relaxed">
           Your email address has been changed. Use the new address next time you sign in.
         </div>
       </div>
@@ -200,7 +201,7 @@ export default function EmailChangeForm({
   return (
     <form
       onSubmit={stage === "idle" ? handleRequest : handleConfirm}
-      className="space-y-5 rounded-2xl bg-bg-card border border-border-subtle p-8"
+      className="space-y-5 rounded-2xl bg-bg-card border border-border p-8"
     >
       <div>
         <div className="text-[0.95rem] font-medium text-text-primary mb-1">Change email address</div>
@@ -272,7 +273,7 @@ export default function EmailChangeForm({
               required={!currentConfirmed}
             />
             {currentConfirmed && (
-              <p className="mt-2 text-[0.75rem] text-gold-light">
+              <p className="mt-2 text-[0.75rem] text-accent-light">
                 Confirmed. Only the code sent to your new address is still needed.
               </p>
             )}
@@ -299,7 +300,7 @@ export default function EmailChangeForm({
               way out has to be on the screen at the moment it is noticed. */}
           <p className="text-[0.75rem] text-text-muted leading-relaxed">
             Didn&apos;t ask for this? Don&apos;t enter the codes —{" "}
-            <Link href="/contact" className="text-gold hover:text-gold-light">
+            <Link href="/contact" className="text-accent hover:text-accent-light">
               contact the team
             </Link>{" "}
             and we&apos;ll secure the account.

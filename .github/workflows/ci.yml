@@ -107,6 +107,16 @@ jobs:
           DB_URL=$(supabase status -o env | grep '^DB_URL=' | cut -d= -f2- | tr -d '"')
           psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/rls_smoke.sql
 
+      # The admission model, which is the security-critical half of the six-role
+      # work: only `student`, and only on a verified Imperial address, may reach
+      # `approved` without an admin. Everything else must land in
+      # `pending_review`. rls_smoke.sql checks who can *read* what; this checks
+      # who can *admit themselves*, and nothing else in the suite does.
+      - name: Run admission-role tests
+        run: |
+          DB_URL=$(supabase status -o env | grep '^DB_URL=' | cut -d= -f2- | tr -d '"')
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/admission_roles.sql
+
       # Piggybacks on the stack this job already booted rather than paying the
       # `supabase start` cost again in a job of its own. Fails when a migration
       # lands without regenerating types, which is the drift that silently

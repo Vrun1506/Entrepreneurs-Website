@@ -1,21 +1,12 @@
 import Image from "next/image";
 import Link from "next/link";
 import { BrandLogo } from "@/components/BrandLogo";
+import Starfield from "@/components/Starfield";
 
 export default function NotFound() {
   return (
     <div className="relative min-h-screen bg-bg-primary flex flex-col overflow-hidden">
-      {/* Ambient glow — decorative */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -top-[15%] -right-[10%] w-[600px] h-[600px] rounded-full"
-        style={{ background: "radial-gradient(circle, rgba(201,168,76,0.05) 0%, transparent 65%)" }}
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -bottom-[20%] -left-[10%] w-[500px] h-[500px] rounded-full"
-        style={{ background: "radial-gradient(circle, rgba(201,168,76,0.03) 0%, transparent 70%)" }}
-      />
+      <Starfield className="pointer-events-none absolute inset-0 h-full w-full" />
 
       {/* Top bar */}
       <header className="relative z-10 px-8 py-5">
@@ -30,17 +21,16 @@ export default function NotFound() {
       <main id="main-content" tabIndex={-1} className="relative z-10 flex-1 flex items-center justify-center px-8 py-12">
         <div className="w-full max-w-[560px] text-center flex flex-col items-center">
           <Image
-            src="/entrepreneurs-logo.png"
-            alt="Imperial Entrepreneurs"
-            width={2416}
-            height={1270}
+            src="/logo-full.png"
+            alt="Imperial Entrepreneurs — go do shit."
+            width={1024}
+            height={379}
             priority
-            sizes="(min-width: 768px) 320px, 70vw"
-            className="w-full max-w-[320px] h-auto mb-8"
-            style={{ mixBlendMode: "screen" }}
+            sizes="(min-width: 768px) 340px, 74vw"
+            className="mb-10 h-auto w-full max-w-[340px]"
           />
 
-          <div className="font-display text-gold text-[clamp(4rem,12vw,8rem)] leading-none mb-4">
+          <div className="data text-text-primary text-[clamp(3.5rem,11vw,7rem)] leading-none mb-5 tracking-[-0.04em]">
             404
           </div>
 
@@ -48,7 +38,7 @@ export default function NotFound() {
             This page doesn&apos;t exist.
           </h1>
 
-          <p className="text-[0.95rem] text-text-secondary font-light leading-[1.7] mb-10">
+          <p className="text-[0.95rem] text-text-secondary leading-[1.7] mb-10">
             The link may be broken, the page may have been moved, or you may have
             mistyped the address. Let&apos;s get you back on track.
           </p>
@@ -56,16 +46,16 @@ export default function NotFound() {
           <div className="flex flex-wrap items-center justify-center gap-4">
             <Link
               href="/"
-              className="inline-flex items-center gap-2 px-7 py-3 rounded-full no-underline bg-gold text-bg-primary text-sm font-medium tracking-wide transition-all duration-200 hover:bg-gold-light hover:-translate-y-px"
+              className="inline-flex items-center gap-2 rounded-lg bg-accent px-7 py-3.5 text-sm font-semibold text-bg-primary no-underline transition-colors duration-150 hover:bg-accent-dim"
             >
               Back to home
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
-                <path d="M2.5 7H11.5M8 3.5L11.5 7L8 10.5" stroke="#0c0c0b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M2.5 7H11.5M8 3.5L11.5 7L8 10.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </Link>
             <Link
               href="/login"
-              className="inline-flex items-center gap-2 px-7 py-3 rounded-full no-underline bg-transparent text-text-secondary border border-border text-sm font-light transition-all duration-200 hover:border-gold hover:text-gold"
+              className="inline-flex items-center gap-2 rounded-lg border border-border-strong bg-white/[0.05] px-7 py-3.5 text-sm text-text-primary no-underline transition-colors duration-150 hover:border-accent hover:bg-white/[0.10]"
             >
               Join Foundry
             </Link>

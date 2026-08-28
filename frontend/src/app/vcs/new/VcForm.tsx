@@ -104,16 +104,16 @@ export default function VcForm({
   };
 
   return (
-    <form ref={formRef} onSubmit={handleSubmit} className="space-y-5 rounded-2xl bg-bg-card border border-border-subtle p-8">
+    <form ref={formRef} onSubmit={handleSubmit} className="space-y-5 rounded-2xl bg-bg-card border border-border p-8">
       {error && <ErrorBanner>{error}</ErrorBanner>}
 
       <Field label="Kind" required group error={fieldErrors.kind}>
         <div className="grid grid-cols-2 gap-3">
-          <label className={`px-4 py-3 rounded-lg border cursor-pointer transition-colors ${kind === "vc" ? "bg-gold-muted border-gold/50 text-gold-light" : "bg-white/[0.02] border-border text-text-secondary hover:border-gold/30"}`}>
+          <label className={`px-4 py-3 rounded-lg border cursor-pointer transition-colors ${kind === "vc" ? "bg-accent-muted border-accent/50 text-accent-light" : "bg-white/[0.02] border-border text-text-secondary hover:border-accent"}`}>
             <input type="radio" name="kind" value="vc" checked={kind === "vc"} onChange={() => setKind("vc")} className="mr-2" />
             Venture capital
           </label>
-          <label className={`px-4 py-3 rounded-lg border cursor-pointer transition-colors ${kind === "grant" ? "bg-gold-muted border-gold/50 text-gold-light" : "bg-white/[0.02] border-border text-text-secondary hover:border-gold/30"}`}>
+          <label className={`px-4 py-3 rounded-lg border cursor-pointer transition-colors ${kind === "grant" ? "bg-accent-muted border-accent/50 text-accent-light" : "bg-white/[0.02] border-border text-text-secondary hover:border-accent"}`}>
             <input type="radio" name="kind" value="grant" checked={kind === "grant"} onChange={() => setKind("grant")} className="mr-2" />
             Grant
           </label>

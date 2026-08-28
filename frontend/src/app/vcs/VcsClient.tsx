@@ -104,7 +104,7 @@ export default function VcsClient({
       </FilterPanel>
 
       {filtered.length === 0 ? (
-        <div className="text-center py-16 text-text-muted text-[0.85rem]">
+        <div className="rounded-lg border border-border bg-bg-card px-6 py-14 text-center text-[0.85rem] text-text-muted">
           {items.length === 0 ? "No listings yet." : "No listings match your search or filters."}
         </div>
       ) : (
@@ -136,14 +136,14 @@ function VcCard({ vc: v, applied, onDismiss }: { vc: Vc; applied: boolean; onDis
   const kindLabel = v.kind === "vc" ? "VC" : "Grant";
 
   return (
-    <article className="rounded-2xl bg-bg-card border border-border-subtle overflow-hidden">
+    <article className="rounded-2xl bg-bg-card border border-border overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         className="w-full px-5 py-4 text-left bg-transparent border-0 cursor-pointer transition-colors duration-150 hover:bg-white/[0.02]"
       >
         <div className="flex items-start justify-between gap-2 mb-2">
-          <span className="px-2 py-0.5 rounded-full text-[0.65rem] uppercase tracking-wider bg-gold-muted text-gold-light border border-gold/20">
+          <span className="px-2 py-0.5 rounded-lg text-[0.65rem] uppercase tracking-wider bg-accent-muted text-accent-light border border-accent/20">
             {kindLabel}
           </span>
           {deadlineLabel && (
@@ -187,7 +187,7 @@ function VcCard({ vc: v, applied, onDismiss }: { vc: Vc; applied: boolean; onDis
               target="_blank"
               rel="noreferrer noopener"
               onClick={() => recordListingEvent("vc_grant", v.id, "external_click")}
-              className="inline-block px-4 py-2 rounded-lg bg-gold text-bg-primary text-[0.825rem] font-medium no-underline transition-colors hover:bg-gold-light"
+              className="inline-block px-4 py-2 rounded-lg bg-accent text-bg-primary text-[0.825rem] font-medium no-underline transition-colors hover:bg-accent-light"
             >
               Open link ↗
             </a>
@@ -211,7 +211,7 @@ function Meta({ icon, text }: { icon: React.ReactNode; text: string }) {
 function PosterAvatar({ name }: { name: string }) {
   const initial = name.trim().charAt(0).toUpperCase() || "?";
   return (
-    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gold-muted text-gold-light text-[0.65rem] font-medium border border-gold/25">
+    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-accent-muted text-accent-light text-[0.65rem] font-medium border border-accent/25">
       {initial}
     </span>
   );

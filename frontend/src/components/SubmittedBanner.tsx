@@ -11,18 +11,20 @@ export default function SubmittedBanner({ kind }: { kind: string }) {
   if (!show) return null;
 
   return (
-    <div className="mb-6 flex items-start justify-between gap-4 rounded-2xl border border-gold/25 bg-gold/[0.06] px-5 py-4">
+    <div className="mb-6 flex items-start justify-between gap-4 rounded-lg border-l-2 border-accent bg-accent-muted px-5 py-4">
       <p className="text-[0.85rem] text-text-secondary leading-relaxed">
         Thanks — your {kind} was submitted and is now in review. It&apos;ll appear publicly once an admin approves it. Track it under{" "}
-        <Link href="/my-submissions" className="text-gold-light hover:underline">your submissions</Link>.
+        <Link href="/my-submissions" className="text-text-primary underline underline-offset-[3px] decoration-border-strong transition-colors hover:decoration-accent">your submissions</Link>.
       </p>
       <button
         type="button"
         onClick={() => setShow(false)}
         aria-label="Dismiss"
-        className="shrink-0 -m-1 p-1 bg-transparent border-0 cursor-pointer text-text-muted hover:text-text-primary text-lg leading-none"
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-border-strong bg-white/[0.04] leading-none text-text-muted cursor-pointer transition-colors duration-150 hover:border-accent hover:text-text-primary"
       >
-        ×
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M18 6L6 18M6 6l12 12" />
+        </svg>
       </button>
     </div>
   );

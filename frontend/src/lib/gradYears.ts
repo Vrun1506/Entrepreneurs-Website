@@ -1,15 +1,28 @@
+import { NO_GRAD_YEAR, type Affiliation } from "@/lib/intake/steps";
+
 // ════════════════════════════════════════════════════════════════════
 // Role-aware graduation-year rules (client mirror of the RPC checks in
 // 20260603000001_role_lock_and_grad_year_bounds.sql).
 //
-//   alum    → already graduated → FLOOR .. current year (no future years)
-//   student → still studying    → current year + 1 .. current year + HORIZON
+//   student                → still studying → current year + 1 .. + HORIZON
+//   alum, recent_grad      → graduated      → FLOOR .. current year
+//   mentor, angel, staff   → no graduation year at all
 //
 // The DB RPCs are the bypass-safe gate; these power the dropdown options
 // and give a friendly inline error before the round trip.
 // ════════════════════════════════════════════════════════════════════
 
-export type GradRole = "alum" | "student";
+// Widened when user_role went from two values to six (20260828000001).
+// The rule is binary — are you still studying or not — so everything that
+// is not a student falls into the graduated branch, and the three roles
+// with no graduation year are filtered out by roleNeedsGradYear before
+// they ever reach these.
+export type GradRole = Affiliation;
+
+/** mentor, angel and staff_faculty have no meaningful graduation year. */
+export function roleNeedsGradYear(role: Affiliation): boolean {
+  return !NO_GRAD_YEAR.includes(role);
+}
 
 // Earliest selectable year — the historical floor the dropdowns have
 // always offered (well above the DB CHECK's 1950 absolute floor).

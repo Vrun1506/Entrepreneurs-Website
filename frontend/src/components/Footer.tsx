@@ -6,7 +6,7 @@ const INSTAGRAM_URL = "https://www.instagram.com/imperialentrepreneurs/";
 
 export default function Footer() {
   return (
-    <footer className="border-t border-border-subtle bg-bg-secondary py-12 px-8">
+    <footer className="border-t border-border bg-bg-secondary py-12 px-8">
       <div className="max-w-[1200px] mx-auto flex flex-wrap justify-between items-center gap-6">
         <BrandLogo size="xs" showAffiliation />
 
@@ -18,7 +18,7 @@ export default function Footer() {
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Imperial Entrepreneurs on LinkedIn"
-              className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-[#0A66C2]/15 border border-[#0A66C2]/35 text-[#7CB6F0] no-underline transition-colors duration-150 hover:bg-[#0A66C2]/30 hover:text-white"
+              className="inline-flex items-center justify-center w-8 h-8 rounded-full border border-border-strong text-text-secondary no-underline transition-colors duration-150 hover:bg-[#0A66C2] hover:border-[#0A66C2] hover:text-white"
             >
               <LinkedInIcon />
             </a>
@@ -27,7 +27,7 @@ export default function Footer() {
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Imperial Entrepreneurs on Instagram"
-              className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-[#E1306C]/15 border border-[#E1306C]/35 text-[#F08AB0] no-underline transition-colors duration-150 hover:bg-[#E1306C]/30 hover:text-white"
+              className="inline-flex items-center justify-center w-8 h-8 rounded-full border border-border-strong text-text-secondary no-underline transition-colors duration-150 hover:bg-[#E1306C] hover:border-[#E1306C] hover:text-white"
             >
               <InstagramIcon />
             </a>

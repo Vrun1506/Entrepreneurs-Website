@@ -52,7 +52,7 @@ export default function EventReviewCard({ ev }: { ev: Ev }) {
   };
 
   return (
-    <article className="rounded-2xl bg-bg-card border border-border-subtle overflow-hidden">
+    <article className="rounded-2xl bg-bg-card border border-border overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -80,7 +80,7 @@ export default function EventReviewCard({ ev }: { ev: Ev }) {
             <p className="text-[0.85rem] text-text-secondary leading-relaxed whitespace-pre-wrap">{ev.description}</p>
           </DetailBlock>
           <DetailBlock label="Luma link">
-            <a href={ev.lumaLink} target="_blank" rel="noreferrer noopener" className="text-[0.85rem] text-gold no-underline hover:underline">
+            <a href={ev.lumaLink} target="_blank" rel="noreferrer noopener" className="text-[0.85rem] text-text-primary underline underline-offset-[3px] decoration-border-strong transition-colors hover:decoration-accent">
               {ev.lumaLink} ↗
             </a>
           </DetailBlock>
@@ -88,7 +88,7 @@ export default function EventReviewCard({ ev }: { ev: Ev }) {
             <DetailBlock label="Poster (signup email)">
               <p className="text-[0.85rem] text-text-secondary">{ev.postedBy.signupEmail ?? "—"}</p>
               {ev.postedBy.linkedinUrl && (
-                <a href={ev.postedBy.linkedinUrl} target="_blank" rel="noreferrer noopener" className="text-[0.75rem] text-gold no-underline hover:underline">LinkedIn ↗</a>
+                <a href={ev.postedBy.linkedinUrl} target="_blank" rel="noreferrer noopener" className="text-[0.75rem] text-text-primary underline underline-offset-[3px] decoration-border-strong transition-colors hover:decoration-accent">LinkedIn ↗</a>
               )}
             </DetailBlock>
             <DetailBlock label="Public contact email">
@@ -120,7 +120,7 @@ export default function EventReviewCard({ ev }: { ev: Ev }) {
               rows={2}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              className="w-full px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.8rem] text-text-primary placeholder:text-text-muted focus:border-gold/50 resize-none"
+              className="w-full px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.8rem] text-text-primary placeholder:text-text-muted focus:border-accent/50 resize-none"
             />
             <div className="flex gap-2">
               <Button

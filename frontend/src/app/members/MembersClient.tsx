@@ -35,7 +35,7 @@ const MAX_LOOKING_FOR = 3;
 // The upside is that a filtered view is now a shareable URL, and the back
 // button steps through filter history.
 // ════════════════════════════════════════════════════════════════════
-export default function CommunityClient({
+export default function MembersClient({
   members, newest, facets, filters, matching, pageSize,
 }: {
   members: DirectoryMember[];
@@ -163,7 +163,7 @@ export default function CommunityClient({
           and swapping them for placeholders on every keystroke would flash. */}
       <div className={url.pending ? "opacity-60 transition-opacity duration-150" : undefined}>
         {members.length === 0 ? (
-          <div className="text-center py-16 text-text-muted text-[0.85rem]">
+          <div className="rounded-lg border border-border bg-bg-card px-6 py-14 text-center text-[0.85rem] text-text-muted">
             {facets.total === 0 ? "No members yet." : "No members match your search or filters."}
           </div>
         ) : (
@@ -194,7 +194,7 @@ function NewestCard({ member: m, onClick }: { member: DirectoryMember; onClick: 
     <button
       type="button"
       onClick={onClick}
-      className="text-left p-4 rounded-2xl bg-gold-muted/30 border border-gold/20 hover:border-gold/50 hover:bg-gold-muted/40 transition-colors duration-150 cursor-pointer"
+      className="text-left p-4 rounded-2xl bg-accent-muted/30 border border-accent/20 hover:border-accent hover:bg-accent-muted/40 transition-colors duration-150 cursor-pointer"
     >
       <div className="text-[0.875rem] font-medium text-text-primary truncate">
         {m.firstName} {m.surname}
@@ -203,7 +203,7 @@ function NewestCard({ member: m, onClick }: { member: DirectoryMember; onClick: 
         {memberSubtitle(m)}
       </div>
       {m.course && (
-        <div className="mt-2 text-[0.7rem] text-gold-light line-clamp-2">{m.course}</div>
+        <div className="mt-2 line-clamp-2 break-words text-[0.7rem] text-text-secondary">{m.course}</div>
       )}
     </button>
   );
@@ -221,7 +221,7 @@ function MemberCard({ member: m, onClick }: { member: DirectoryMember; onClick: 
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); }
       }}
-      className="text-left w-full p-5 rounded-2xl bg-bg-card border border-border-subtle hover:border-gold/40 hover:bg-bg-card/80 transition-colors duration-150 cursor-pointer group"
+      className="text-left w-full p-5 rounded-2xl bg-bg-card border border-border hover:border-accent hover:bg-bg-card/80 transition-colors duration-150 cursor-pointer group"
     >
       <header className="mb-2">
         <div className="flex items-start justify-between gap-2">
@@ -236,19 +236,19 @@ function MemberCard({ member: m, onClick }: { member: DirectoryMember; onClick: 
               <div className="text-[0.725rem] text-text-secondary mt-1 truncate">{m.course}</div>
             )}
           </div>
-          <span className="text-text-muted/60 group-hover:text-gold transition-colors text-[0.8rem] mt-1">→</span>
+          <span className="mt-1 shrink-0 text-text-muted transition-colors group-hover:text-text-primary"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="transition-transform duration-150 group-hover:translate-x-0.5"><line x1="4" y1="12" x2="19" y2="12" /><polyline points="13 6 19 12 13 18" /></svg></span>
         </div>
       </header>
 
       {m.bioPreview && (
-        <p className="text-[0.8rem] text-text-secondary leading-relaxed mt-3 line-clamp-2">
+        <p className="mt-3 line-clamp-2 break-words text-[0.8rem] leading-relaxed text-text-secondary">
           {m.bioPreview}
         </p>
       )}
 
       {m.workingOnPreview && (
-        <div className="text-[0.75rem] text-text-muted mt-2 leading-relaxed line-clamp-1">
-          <span className="text-gold/80">Working on:</span> {m.workingOnPreview}
+        <div className="mt-2 line-clamp-1 break-all text-[0.75rem] leading-relaxed text-text-muted">
+          <span className="label-wide text-text-muted">Working on:</span> {m.workingOnPreview}
         </div>
       )}
 
@@ -260,7 +260,7 @@ function MemberCard({ member: m, onClick }: { member: DirectoryMember; onClick: 
               key={lf.id}
               href={`/opportunities?o=${lf.id}`}
               onClick={(e) => e.stopPropagation()}
-              className="px-2 py-0.5 rounded-full border border-gold/30 text-gold text-[0.7rem] no-underline hover:bg-gold/10 transition-colors"
+              className="rounded-lg border border-border-strong px-2 py-0.5 text-[0.7rem] text-text-primary no-underline transition-colors hover:border-accent hover:bg-white/[0.06]"
             >
               {lf.role}
             </Link>
@@ -310,7 +310,7 @@ function MemberDialog({ member: m, onClose }: { member: DirectoryMember; onClose
     <Dialog
       onClose={onClose}
       label={`Profile of ${m.firstName} ${m.surname}`}
-      className="w-full max-w-[600px] rounded-2xl bg-bg-card border border-border-subtle shadow-2xl my-auto"
+      className="w-full max-w-[600px] rounded-2xl bg-bg-card border border-border shadow-2xl my-auto"
     >
       <header className="flex items-start justify-between gap-4 px-7 pt-6 pb-4 border-b border-border-subtle">
         <div className="min-w-0 flex-1">
@@ -365,7 +365,7 @@ function MemberDialog({ member: m, onClose }: { member: DirectoryMember; onClose
                 <Link
                   key={lf.id}
                   href={`/opportunities?o=${lf.id}`}
-                  className="px-2.5 py-1 rounded-full text-[0.725rem] border border-gold/30 text-gold no-underline hover:bg-gold/10 transition-colors"
+                  className="rounded-lg border border-border-strong px-2.5 py-1 text-[0.725rem] text-text-primary no-underline transition-colors hover:border-accent hover:bg-white/[0.06]"
                 >
                   {lf.role}
                 </Link>
@@ -379,7 +379,7 @@ function MemberDialog({ member: m, onClose }: { member: DirectoryMember; onClose
             <div className="text-[0.7rem] text-text-muted uppercase tracking-wider mb-2">Interests</div>
             <div className="flex flex-wrap gap-1.5">
               {m.sectors.map((s) => (
-                <span key={`sec-${s}`} className="px-2.5 py-1 rounded-full text-[0.725rem] bg-gold-muted text-gold-light border border-gold/20">
+                <span key={`sec-${s}`} className="px-2.5 py-1 rounded-lg text-[0.725rem] bg-accent-muted text-accent-light border border-accent/20">
                   {s}
                 </span>
               ))}
@@ -392,7 +392,7 @@ function MemberDialog({ member: m, onClose }: { member: DirectoryMember; onClose
             <div className="text-[0.7rem] text-text-muted uppercase tracking-wider mb-2">Skills &amp; expertise</div>
             <div className="flex flex-wrap gap-1.5">
               {m.skills.map((s) => (
-                <span key={`skl-${s}`} className="px-2.5 py-1 rounded-full text-[0.725rem] bg-white/[0.03] text-text-secondary border border-border">
+                <span key={`skl-${s}`} className="px-2.5 py-1 rounded-lg text-[0.725rem] bg-white/[0.03] text-text-secondary border border-border">
                   {s}
                 </span>
               ))}

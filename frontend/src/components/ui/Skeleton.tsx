@@ -48,7 +48,7 @@ export function CardGridSkeleton({ count = 6, className = "" }: { count?: number
   return (
     <SkeletonRegion className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 ${className}`}>
       {Array.from({ length: count }, (_, i) => (
-        <div key={i} className="p-6 rounded-2xl bg-bg-card border border-border-subtle">
+        <div key={i} className="p-6 rounded-2xl bg-bg-card border border-border">
           <Skeleton className="h-4 w-3/5" />
           <Skeleton className="h-3 w-2/5 mt-3" />
           <Skeleton className="h-3 w-full mt-5" />
@@ -68,7 +68,7 @@ export function RowListSkeleton({ count = 5, className = "" }: { count?: number;
   return (
     <SkeletonRegion className={`space-y-3 ${className}`}>
       {Array.from({ length: count }, (_, i) => (
-        <div key={i} className="p-5 rounded-2xl bg-bg-card border border-border-subtle">
+        <div key={i} className="p-5 rounded-2xl bg-bg-card border border-border">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
               <Skeleton className="h-4 w-2/5" />
@@ -99,7 +99,7 @@ export function FilterBarSkeleton() {
 /** Table placeholder, for the admin list views. */
 export function TableSkeleton({ rows = 8, className = "" }: { rows?: number; className?: string }) {
   return (
-    <SkeletonRegion className={`rounded-2xl bg-bg-card border border-border-subtle overflow-hidden ${className}`}>
+    <SkeletonRegion className={`rounded-2xl bg-bg-card border border-border overflow-hidden ${className}`}>
       {Array.from({ length: rows }, (_, i) => (
         <div key={i} className="flex items-center gap-4 px-4 py-3 border-b border-border-subtle last:border-0">
           <Skeleton className="h-3 w-40" />

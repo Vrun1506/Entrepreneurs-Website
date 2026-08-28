@@ -41,13 +41,13 @@ export async function approveUser(userId: string): Promise<Result> {
 
   // Build the email link from trusted config, NOT request headers
   // (x-forwarded-host is attacker-controllable → email-link poisoning).
-  const communityUrl = `${emailBaseUrl()}/community`;
+  const appUrl = `${emailBaseUrl()}/home`;
 
   try {
     await sendAcceptanceEmail({
       to:           row.email,
       firstName:    row.first_name ?? null,
-      communityUrl,
+      appUrl,
     });
   } catch (e) {
     // Approval is committed; surface the email failure so the admin
@@ -113,7 +113,7 @@ export async function bulkApproveUsers(ids: string[]): Promise<BulkResult> {
   if (!auth.ok) return { ok: false, error: auth.error };
   const { supabase } = auth;
 
-  const communityUrl = `${emailBaseUrl()}/community`;
+  const appUrl = `${emailBaseUrl()}/home`;
 
   return runBulk(ids, {
     one: async (id) => {
@@ -127,7 +127,7 @@ export async function bulkApproveUsers(ids: string[]): Promise<BulkResult> {
       return { recipient: row?.email ? { email: row.email, first_name: row.first_name ?? null } : null };
     },
     email: {
-      render:  (r) => renderAcceptanceEmail({ firstName: r.first_name, communityUrl }),
+      render:  (r) => renderAcceptanceEmail({ firstName: r.first_name, appUrl }),
       replyTo: acceptanceReplyTo(),
     },
     cacheKeys:  ["directoryFacets"],

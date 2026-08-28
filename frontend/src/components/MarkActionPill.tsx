@@ -54,8 +54,8 @@ export function MarkActionPill({ kind, id, initial, onChange }: Props) {
         aria-pressed={marked}
         className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-[0.8rem] font-medium transition-colors cursor-pointer disabled:opacity-60 ${
           marked
-            ? "bg-gold-muted text-gold-light border-gold/40 hover:border-gold/60"
-            : "bg-transparent text-text-secondary border-border hover:border-gold/40 hover:text-text-primary"
+            ? "bg-accent-muted text-accent-light border-accent/40 hover:border-accent"
+            : "bg-transparent text-text-secondary border-border hover:border-accent hover:text-text-primary"
         }`}
       >
         <CheckIcon active={marked} />

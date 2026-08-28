@@ -1,4 +1,4 @@
-"use client";
+import { SectionHead } from "@/components/SectionHead";
 
 const ROLES = [
   { label: "Current students", desc: "Undergrad, postgrad, and PhD students building while they study." },
@@ -9,65 +9,57 @@ const ROLES = [
   { label: "Staff & faculty",  desc: "Researchers and professors bridging academia and the startup world." },
 ];
 
-function SectionLabel({ text }: { text: string }) {
-  return (
-    <div className="flex items-center gap-4 mb-6">
-      <div className="w-8 h-px bg-gold shrink-0" />
-      <span className="text-gold text-[0.75rem] font-medium tracking-[0.1em] uppercase">
-        {text}
-      </span>
-    </div>
-  );
-}
-
 export default function WhoWeAre() {
   return (
-    <section id="who-we-are" className="py-28 px-8 max-w-[1200px] mx-auto">
-      <SectionLabel text="Who are we?" />
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-16 items-start">
-        {/* Left: copy */}
-        <div>
-          <h2 className="font-display text-text-primary leading-[1.15] tracking-tight mb-6 text-[clamp(2rem,3.5vw,3rem)]">
-            <em className="text-gold">A community with skin in the game.</em>
-          </h2>
-          <p className="text-[0.95rem] text-text-secondary font-light leading-[1.75] mb-5">
+    <section id="who-we-are" className="px-8 py-24">
+      <div className="mx-auto max-w-[1200px]">
+      {/* Treatment 1 of 5: one weight, held. The section that states what the
+          thing *is* does not need the sentence broken across registers. */}
+      <SectionHead label="Who are we?">
+        <h2 className="max-w-[16ch] text-[clamp(2rem,3.6vw,3.1rem)] font-semibold leading-[1.08] tracking-[-0.035em] text-text-primary">
+          A community with skin in the game.
+        </h2>
+      </SectionHead>
+
+      <div className="grid grid-cols-1 items-start gap-x-16 gap-y-14 lg:grid-cols-[1.15fr_1fr]">
+        <div className="max-w-[62ch]">
+          <p className="mb-5 text-[0.95rem] leading-[1.75] text-text-secondary">
             Foundry was built by Imperial students who were frustrated with the gap
             between academic brilliance and startup support. We wanted direct access
             to people who&apos;d been where we were — actual founders, still in the
             trenches.
           </p>
-          <p className="text-[0.95rem] text-text-secondary font-light leading-[1.75]">
+          <p className="text-[0.95rem] leading-[1.75] text-text-secondary">
             Today, Foundry is the connective tissue of the Imperial startup ecosystem —
             a private network where introductions are warm, opportunities are real,
             and membership is earned.
           </p>
-          {/* Access note */}
-          <div className="mt-8 p-4 bg-bg-card border border-border-subtle rounded-xl flex items-start gap-3">
-            <div className="w-1.5 h-1.5 rounded-full bg-gold mt-[7px] shrink-0" />
-            <p className="text-[0.825rem] text-text-secondary leading-relaxed">
-              Access is verified through your Imperial student email{" "}
-              <span className="text-text-primary">@imperial.ac.uk</span> or{" "}
-              <span className="text-text-primary">@ic.ac.uk</span>. Alumni go through a
-              quick admin verification before being admitted. Membership is free.
-            </p>
-          </div>
+
+          {/* The access rule. Previously a card with a gold dot; now a marked
+              note — the rule carries the emphasis the dot was carrying. */}
+          <p className="mt-8 border-l-2 border-border-strong pl-5 text-[0.85rem] leading-[1.7] text-text-secondary">
+            Access is verified through your Imperial student email{" "}
+            <span className="data text-text-primary">@imperial.ac.uk</span> or{" "}
+            <span className="data text-text-primary">@ic.ac.uk</span>. Alumni go through a
+            quick admin verification before being admitted. Membership is free.
+          </p>
         </div>
 
-        {/* Right: who can join */}
+        {/* Six roles as a ruled definition list rather than six bulleted rows:
+            the label column is the same column the section head uses, so the
+            page reads down one spine. */}
         <div>
-          <h3 className="text-[0.95rem] font-medium text-text-primary mb-5">Who can join</h3>
-          <ul className="space-y-4">
+          <h3 className="label-wide mb-5 text-text-muted">Who can join</h3>
+          <dl className="border-t border-border-subtle">
             {ROLES.map((role) => (
-              <li key={role.label} className="flex items-start gap-3">
-                <div className="w-1.5 h-1.5 rounded-full bg-gold mt-[7px] shrink-0" />
-                <div>
-                  <span className="text-[0.9rem] font-medium text-text-primary">{role.label}</span>
-                  <span className="text-[0.85rem] text-text-muted leading-relaxed"> — {role.desc}</span>
-                </div>
-              </li>
+              <div key={role.label} className="border-b border-border-subtle py-4">
+                <dt className="text-[0.9rem] font-medium text-text-primary">{role.label}</dt>
+                <dd className="mt-1 text-[0.85rem] leading-relaxed text-text-muted">{role.desc}</dd>
+              </div>
             ))}
-          </ul>
+          </dl>
         </div>
+      </div>
       </div>
     </section>
   );
