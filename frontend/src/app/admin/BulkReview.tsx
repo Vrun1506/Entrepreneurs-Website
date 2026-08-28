@@ -16,9 +16,18 @@ type Props<T> = {
   bulkApprove: (ids: string[]) => Promise<BulkResult>;
   bulkReject: (ids: string[], reason: string) => Promise<BulkResult>;
   noun: string; // e.g. "profile", "opportunity"
+  /**
+   * Rendered in place of the list when `items` is empty. It lives HERE, and
+   * not in the page that swaps this component out, because the confirmation
+   * note is client state: a page that renders an empty state INSTEAD of this
+   * component unmounts it, and the batch that clears the queue — the most
+   * consequential one, and the only one that emails people — is the exact
+   * batch whose "N updated." message gets destroyed on the way in.
+   */
+  emptyMessage: string;
 };
 
-export function BulkReview<T>({ items, getId, renderCard, bulkApprove, bulkReject, noun }: Props<T>) {
+export function BulkReview<T>({ items, getId, renderCard, bulkApprove, bulkReject, noun, emptyMessage }: Props<T>) {
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [rejecting, setRejecting] = useState(false);
@@ -76,6 +85,12 @@ export function BulkReview<T>({ items, getId, renderCard, bulkApprove, bulkRejec
 
       {note && <div className="text-[0.8rem] text-accent-light">{note}</div>}
 
+      {items.length === 0 && (
+        <div className="rounded-lg border border-border bg-bg-card px-6 py-14 text-center text-[0.85rem] text-text-muted">
+          {emptyMessage}
+        </div>
+      )}
+
       {items.map((item) => {
         const id = getId(item);
         return (
@@ -118,7 +133,7 @@ export function BulkReview<T>({ items, getId, renderCard, bulkApprove, bulkRejec
                 <button
                   type="button"
                   onClick={() => setSelected(new Set())}
-                  className="px-3 py-2 rounded-lg bg-transparent border-0 text-text-muted text-[0.8rem] cursor-pointer hover:text-text-secondary"
+                  className="px-3 py-2 text-[0.8rem] rounded-lg border border-border-strong bg-white/[0.04] text-text-secondary cursor-pointer transition-colors duration-150 hover:border-accent hover:text-text-primary"
                 >
                   Clear
                 </button>
@@ -144,7 +159,7 @@ export function BulkReview<T>({ items, getId, renderCard, bulkApprove, bulkRejec
                 <button
                   type="button"
                   onClick={() => setRejecting(false)}
-                  className="px-3 py-2 rounded-lg bg-transparent border-0 text-text-muted text-[0.8rem] cursor-pointer hover:text-text-secondary"
+                  className="px-3 py-2 text-[0.8rem] rounded-lg border border-border-strong bg-white/[0.04] text-text-secondary cursor-pointer transition-colors duration-150 hover:border-accent hover:text-text-primary"
                 >
                   Cancel
                 </button>

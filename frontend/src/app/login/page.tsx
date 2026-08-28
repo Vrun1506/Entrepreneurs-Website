@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cleanName, isValidName } from "@/lib/text";
@@ -12,6 +12,7 @@ import { BrandLogo } from "@/components/BrandLogo";
 import Starfield from "@/components/Starfield";
 import { destinationForStatus } from "@/lib/auth/status";
 import { Button } from "@/components/ui/Button";
+import { AFFILIATIONS, type Affiliation } from "@/lib/intake/steps";
 
 // Auth error text reaches us partly via ?error= in the URL, which is
 // attacker-controllable — rendering it verbatim is a phishing/content-spoof
@@ -70,14 +71,33 @@ function GoogleIcon() {
 
 /* ── Page ─────────────────────────────────────────────────────────── */
 type Mode = "signin" | "signup";
-type Role = "student" | "alum" | null;
+// Six values since 20260828000001. The split that matters on this page is
+// not student-vs-alum but *which auth mechanic applies*: a student proves
+// themselves with an Imperial address and an OTP code, and everybody else
+// signs up with a password and waits for an admin. So the five non-student
+// roles all ride the existing password flow, differing only in the `role`
+// written into signup metadata.
+type Role = Affiliation | null;
 
 export default function LoginPage() {
   const router = useRouter();
   const supabase = createClient();
 
   const [mode, setMode] = useState<Mode>("signup");
-  const [role, setRole] = useState<Role>(null);
+
+  // admin_delete_graduates emails every graduating student a link to
+  // /login?role=alum. That parameter has never been read — graduates landed
+  // on the chooser and picked manually, which was survivable with two
+  // options and is a mis-pick waiting to happen with six.
+  //
+  // 'student' is deliberately not honoured: that path needs a verified
+  // Imperial address and an OTP, and nothing links to it.
+  const searchParams = useSearchParams();
+  const [role, setRole] = useState<Role>(() => {
+    const r = searchParams.get("role");
+    const valid = AFFILIATIONS.some((a) => a.value === r && a.value !== "student");
+    return valid ? (r as Affiliation) : null;
+  });
 
   // Alum form fields
   const [firstName, setFirstName] = useState("");
@@ -449,7 +469,11 @@ export default function LoginPage() {
           // public.profiles with role/first_name/surname on insert.
           // grad_year is collected later during onboarding.
           data: {
-            role: "alum",
+            // Whatever they picked in the Chooser. tg_handle_new_user casts
+            // this straight to user_role and enforces the Imperial-domain
+            // rule for 'student' only; every other value lands in
+            // pending_review, so this cannot be used to skip review.
+            role: role ?? "alum",
             first_name: cleanName(firstName),
             surname: cleanName(surname),
           },
@@ -603,7 +627,7 @@ export default function LoginPage() {
               />
             )}
 
-            {role === "alum" && (
+            {role !== null && role !== "student" && (
               <AlumForm
                 mode={mode}
                 firstName={firstName} setFirstName={setFirstName}
@@ -675,22 +699,22 @@ export default function LoginPage() {
 }
 
 /* ── Chooser ──────────────────────────────────────────────────────── */
-function Chooser({ onPick }: { onPick: (r: "student" | "alum") => void }) {
+function Chooser({ onPick }: { onPick: (r: Affiliation) => void }) {
   return (
     <div className="space-y-3">
-      <RoleButton
-        title="I am a current Imperial student"
-        onClick={() => onPick("student")}
-      />
-      <RoleButton
-        title="I am an Imperial alum"
-        onClick={() => onPick("alum")}
-      />
+      {AFFILIATIONS.map((a) => (
+        <RoleButton
+          key={a.value}
+          title={a.label}
+          blurb={a.blurb}
+          onClick={() => onPick(a.value)}
+        />
+      ))}
     </div>
   );
 }
 
-function RoleButton({ title, onClick }: { title: string; onClick: () => void }) {
+function RoleButton({ title, blurb, onClick }: { title: string; blurb?: string; onClick: () => void }) {
   return (
     <button
       type="button"
@@ -698,7 +722,10 @@ function RoleButton({ title, onClick }: { title: string; onClick: () => void }) 
       className="group w-full cursor-pointer rounded-lg border border-border-strong bg-white/[0.03] px-5 py-4 text-left transition-colors duration-150 hover:border-accent hover:bg-white/[0.06]"
     >
       <div className="flex items-center justify-between gap-3">
-        <div className="text-[0.9rem] font-medium text-text-primary">{title}</div>
+        <div className="min-w-0">
+          <div className="text-[0.9rem] font-medium text-text-primary">{title}</div>
+          {blurb && <div className="mt-0.5 text-[0.775rem] leading-[1.5] text-text-muted">{blurb}</div>}
+        </div>
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0 text-text-muted transition-[color,transform] duration-150 group-hover:translate-x-0.5 group-hover:text-text-primary">
             <line x1="4" y1="12" x2="19" y2="12" /><polyline points="13 6 19 12 13 18" />
           </svg>
@@ -713,7 +740,7 @@ function BackLink({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="text-[0.75rem] text-text-muted hover:text-text-secondary bg-transparent border-0 cursor-pointer transition-colors flex items-center gap-1"
+      className="inline-flex items-center gap-1 px-3 py-1.5 text-[0.75rem] rounded-lg border border-border-strong bg-white/[0.04] text-text-secondary cursor-pointer transition-colors duration-150 hover:border-accent hover:text-text-primary"
     >
       ← Back
     </button>
@@ -1154,7 +1181,7 @@ function AlumForm({
           <button
             type="button"
             onClick={() => { onForgotReset(); setForgotView(true); }}
-            className="text-[0.75rem] text-accent bg-transparent border-0 cursor-pointer transition-colors duration-150 hover:text-accent-light"
+            className="cursor-pointer border-0 bg-transparent text-[0.75rem] text-accent underline underline-offset-4 decoration-border-strong transition-colors duration-150 hover:text-accent-light hover:decoration-accent"
           >
             Forgot your password?
           </button>

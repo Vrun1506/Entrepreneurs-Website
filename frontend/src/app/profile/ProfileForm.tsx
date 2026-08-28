@@ -11,11 +11,12 @@ import { gradYearOptions, validateGradYear } from "@/lib/gradYears";
 import { describeSupabaseError } from "@/lib/supabaseErrors";
 import { Button } from "@/components/ui/Button";
 import { invalidateDirectoryCache } from "@/app/profile/actions";
+import type { Affiliation } from "@/lib/intake/steps";
 
 type Lookup = ChipItem;
 
 type Props = {
-  role: "alum" | "student";
+  role: Affiliation;
   firstName: string;
   surname: string;
   course: string;

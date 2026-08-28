@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import AppNav from "@/components/AppNav";
+import AppShell from "@/components/app/AppShell";
 import { requireApprovedUser } from "@/lib/auth/guard";
 import { vcForEdit } from "@/lib/data/vcs";
 import VcForm, { type VcInitialValues } from "../../new/VcForm";
@@ -27,9 +27,8 @@ export default async function EditVcGrantPage({ params }: { params: Promise<Para
   };
 
   return (
-    <div className="min-h-screen bg-bg-primary flex flex-col">
-      <AppNav active="vcs" isApproved={true} isAdmin={isAdmin} />
-      <main id="main-content" tabIndex={-1} className="flex-1 px-4 sm:px-8 py-10 sm:py-12">
+    <AppShell active="vcs" isAdmin={isAdmin}>
+      <div className="px-4 sm:px-8 py-10 sm:py-12">
         <div className="max-w-[820px] mx-auto">
           <Link href="/my-submissions" className="inline-flex items-center text-[0.8rem] text-text-muted no-underline transition-colors duration-150 hover:text-text-secondary mb-6">
             ← Your submissions
@@ -49,7 +48,7 @@ export default async function EditVcGrantPage({ params }: { params: Promise<Para
             initialValues={initialValues}
           />
         </div>
-      </main>
-    </div>
+      </div>
+    </AppShell>
   );
 }

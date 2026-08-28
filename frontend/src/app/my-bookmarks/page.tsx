@@ -1,5 +1,5 @@
 import Link from "next/link";
-import AppNav from "@/components/AppNav";
+import AppShell from "@/components/app/AppShell";
 import { requireApprovedUser } from "@/lib/auth/guard";
 import { listBookmarkedOpportunities } from "@/lib/data/opportunities";
 import { markedIds } from "@/lib/data/activity";
@@ -18,9 +18,8 @@ export default async function MyBookmarksPage() {
   const bookmarkedIds = items.map((i) => i.id);
 
   return (
-    <div className="min-h-screen bg-bg-primary flex flex-col">
-      <AppNav active="opportunities" isApproved={true} isAdmin={isAdmin} />
-      <main id="main-content" tabIndex={-1} className="flex-1 px-4 sm:px-8 py-10 sm:py-12">
+    <AppShell active="opportunities" isAdmin={isAdmin}>
+      <div className="px-4 sm:px-8 py-10 sm:py-12">
         <div className="max-w-[1200px] mx-auto">
           <div className="mb-8 flex items-start justify-between gap-4 flex-wrap">
             <div className="rule-draw pt-6">
@@ -58,7 +57,7 @@ export default async function MyBookmarksPage() {
             <OpportunitiesClient items={items} bookmarkedIds={bookmarkedIds} appliedIds={appliedIds} removeOnUnbookmark />
           )}
         </div>
-      </main>
-    </div>
+      </div>
+    </AppShell>
   );
 }

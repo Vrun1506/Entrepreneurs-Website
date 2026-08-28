@@ -18,7 +18,7 @@ import type { UserStatus } from "@/lib/database.overrides";
 export const HOME_FOR_STATUS = {
   pending_onboarding: "/onboarding",
   pending_review:     "/pending",
-  approved:           "/community",
+  approved:           "/home",
   rejected:           "/rejected",
 } as const satisfies Record<UserStatus, string>;
 

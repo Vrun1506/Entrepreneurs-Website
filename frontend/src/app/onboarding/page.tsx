@@ -23,7 +23,7 @@ export default async function OnboardingPage() {
   // Admins bypass this so they can preview the form for diagnostics.
   if (!isAdmin) {
     if (profile.status === "pending_review") redirect("/pending");
-    if (profile.status === "approved")       redirect("/community");
+    if (profile.status === "approved")       redirect("/members");
     if (profile.status === "rejected")       redirect("/rejected");
   }
 

@@ -64,7 +64,7 @@ test("home page carries a nonce-based CSP and hydrates with zero violations", as
 
 // ─── Access control: gated routes bounce logged-out visitors to /login ─────
 const GATED_ROUTES = [
-  "/community",
+  "/members",
   "/opportunities",
   "/events",
   "/vcs",

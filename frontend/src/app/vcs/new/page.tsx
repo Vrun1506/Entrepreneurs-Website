@@ -1,4 +1,4 @@
-import AppNav from "@/components/AppNav";
+import AppShell from "@/components/app/AppShell";
 import { requireApprovedUser } from "@/lib/auth/guard";
 import VcForm from "./VcForm";
 
@@ -6,9 +6,8 @@ export default async function NewVcPage() {
   const { isAdmin } = await requireApprovedUser();
 
   return (
-    <div className="min-h-screen bg-bg-primary flex flex-col">
-      <AppNav active="vcs" isApproved={true} isAdmin={isAdmin} />
-      <main id="main-content" tabIndex={-1} className="flex-1 px-4 sm:px-8 py-10 sm:py-12">
+    <AppShell active="vcs" isAdmin={isAdmin}>
+      <div className="px-4 sm:px-8 py-10 sm:py-12">
         <div className="max-w-[720px] mx-auto">
           <div className="mb-8 rule-draw pt-6">
             <p className="label-wide text-text-secondary mb-3">Suggest a VC or grant</p>
@@ -22,7 +21,7 @@ export default async function NewVcPage() {
 
           <VcForm mode="user" />
         </div>
-      </main>
-    </div>
+      </div>
+    </AppShell>
   );
 }

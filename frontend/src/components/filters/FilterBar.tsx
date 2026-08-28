@@ -75,7 +75,7 @@ export function FilterPanel({
           onClick={() => setOpen((o) => !o)}
           aria-expanded={open}
           aria-controls={panelId}
-          className="text-[0.8rem] text-text-secondary hover:text-text-primary bg-transparent border-0 cursor-pointer transition-colors flex items-center gap-1.5 py-2 -my-2"
+          className="flex items-center gap-1.5 px-3 py-2 text-[0.8rem] rounded-lg border border-border-strong bg-white/[0.04] text-text-secondary cursor-pointer transition-colors duration-150 hover:border-accent hover:text-text-primary"
         >
           <FilterIcon />
           Filters
@@ -91,7 +91,7 @@ export function FilterPanel({
           <button
             type="button"
             onClick={onClear}
-            className="text-[0.75rem] text-text-muted hover:text-text-primary bg-transparent border-0 cursor-pointer transition-colors"
+            className="px-3 py-2 text-[0.75rem] rounded-lg border border-border-strong bg-white/[0.04] text-text-secondary cursor-pointer transition-colors duration-150 hover:border-accent hover:text-text-primary"
           >
             Clear all
           </button>

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import AppNav from "@/components/AppNav";
+import AppShell from "@/components/app/AppShell";
 import EmailChangeForm from "./EmailChangeForm";
 import PasswordChangeForm from "./PasswordChangeForm";
 import DeleteAccountSection from "./DeleteAccountSection";
@@ -28,9 +28,8 @@ export default async function SettingsPage() {
   const hasPassword = (user.identities ?? []).some((i) => i.provider === "email");
 
   return (
-    <div className="min-h-screen bg-bg-primary flex flex-col">
-      <AppNav active="settings" isApproved={profile.status === "approved"} isAdmin={isAdmin} />
-      <main id="main-content" tabIndex={-1} className="flex-1 px-4 sm:px-8 py-10 sm:py-12">
+    <AppShell active="settings" isApproved={profile.status === "approved"} isAdmin={isAdmin}>
+      <div className="px-4 sm:px-8 py-10 sm:py-12">
         <div className="max-w-[640px] mx-auto">
           <div className="mb-10 rule-draw pt-6">
             <p className="label-wide text-text-secondary mb-3">Settings</p>
@@ -89,7 +88,7 @@ export default async function SettingsPage() {
             <DeleteAccountSection email={user.email ?? ""} />
           </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </AppShell>
   );
 }

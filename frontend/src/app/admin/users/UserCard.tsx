@@ -5,12 +5,13 @@ import { approveUser, rejectUser } from "./actions";
 import SocialLinks from "@/components/SocialLinks";
 import { formatDate } from "@/lib/dates";
 import { Button } from "@/components/ui/Button";
+import type { Affiliation } from "@/lib/intake/steps";
 
 type Member = {
   id: string;
   firstName: string;
   surname: string;
-  role: "alum" | "student";
+  role: Affiliation;
   course: string | null;
   gradYear: number | null;
   bio: string | null;
