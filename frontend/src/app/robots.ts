@@ -13,7 +13,7 @@ export default function robots(): MetadataRoute.Robots {
         userAgent: "*",
         allow: "/",
         // Auth-gated and machine routes — no SEO value, keep them out of the index.
-        disallow: ["/api/", "/admin", "/home", "/members", "/community", "/onboarding", "/pending", "/rejected", "/reset-password", "/settings", "/my-submissions", "/my-bookmarks", "/my-activity", "/profile"],
+        disallow: ["/api/", "/admin", "/home", "/members", "/messaging", "/community", "/onboarding", "/pending", "/rejected", "/reset-password", "/settings", "/my-submissions", "/my-bookmarks", "/my-activity", "/profile"],
       },
     ],
     sitemap: `${SITE_URL}/sitemap.xml`,

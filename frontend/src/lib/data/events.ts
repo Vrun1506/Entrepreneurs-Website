@@ -11,6 +11,8 @@ export type FoundryEvent = {
   organiserName: string;
   contactEmail: string | null;
   isSocietyEvent: boolean;
+  /** When the row was added, not when the event happens. /home sorts on it. */
+  createdAt: string;
   postedBy: { firstName: string; surname: string; linkedinUrl: string | null };
 };
 
@@ -24,6 +26,7 @@ type Row = {
   organiser_name: string;
   contact_email: string | null;
   is_society_event: boolean;
+  created_at: string;
   poster_first_name: string | null;
   poster_surname: string | null;
   poster_linkedin_url: string | null;
@@ -40,6 +43,7 @@ export function toEvent(r: Row): FoundryEvent {
     organiserName: r.organiser_name,
     contactEmail: r.contact_email,
     isSocietyEvent: r.is_society_event,
+    createdAt: r.created_at,
     postedBy: {
       firstName:   r.poster_first_name ?? "",
       surname:     r.poster_surname    ?? "",
