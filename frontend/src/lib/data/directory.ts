@@ -147,8 +147,6 @@ export type DirectoryMember = ReturnType<typeof toDirectoryMember>;
 
 export type DirectoryPage = {
   members: DirectoryMember[];
-  /** The five most recent members overall, ignoring the filters. */
-  newest: DirectoryMember[];
   facets: Facets;
   /** Members matching the current filters, not members overall. */
   matching: number;
@@ -181,7 +179,22 @@ async function openRolesByPoster(db: Db, ids: string[]) {
 }
 
 /**
- * One page of the member directory, plus the newest strip and the facets.
+ * The most recently joined members, ignoring every filter.
+ *
+ * Was the `newest` field on directoryPage, and moved out when the strip
+ * did: /home renders it now and /members does not, so making the
+ * directory pay for a second RPC on every filter keystroke would be
+ * paying for a query nothing reads.
+ */
+export async function newestMembers(db: Db, limit = 5): Promise<DirectoryMember[]> {
+  const cards = await rows("list_directory_cards (newest)", () =>
+    db.rpc("list_directory_cards", { p_limit: limit, p_sort: "recent" }));
+  const lookingFor = await openRolesByPoster(db, cards.map((r) => r.id));
+  return cards.map((r) => toDirectoryMember(r, lookingFor.get(r.id) ?? []));
+}
+
+/**
+ * One page of the member directory, plus the facets.
  *
  * Filtering and paging happen in Postgres. They have to: the client used
  * to derive its chips and its search from the full member array, which
@@ -194,7 +207,7 @@ export async function directoryPage(
   filters: MemberFilters,
   { isAdmin }: { isAdmin: boolean },
 ): Promise<DirectoryPage> {
-  const [cards, newestCards, facets] = await Promise.all([
+  const [cards, facets] = await Promise.all([
     rows("list_directory_cards", () =>
       db.rpc("list_directory_cards", {
         ...filterArgs(filters),
@@ -202,17 +215,13 @@ export async function directoryPage(
         p_offset: (filters.page - 1) * DIRECTORY_PAGE_SIZE,
         p_sort:   "name",
       })),
-    rows("list_directory_cards (newest)", () =>
-      db.rpc("list_directory_cards", { p_limit: 5, p_sort: "recent" })),
     directoryFacets(db, { skip: isAdmin }),
   ]);
 
-  const ids = [...new Set([...cards, ...newestCards].map((r) => r.id))];
-  const lookingFor = await openRolesByPoster(db, ids);
+  const lookingFor = await openRolesByPoster(db, cards.map((r) => r.id));
 
   return {
     members: cards.map((r) => toDirectoryMember(r, lookingFor.get(r.id) ?? [])),
-    newest: newestCards.map((r) => toDirectoryMember(r, lookingFor.get(r.id) ?? [])),
     facets,
     // total_count rides on every row via a window function, so it is
     // absent exactly when the page is empty.

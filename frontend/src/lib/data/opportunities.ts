@@ -21,6 +21,8 @@ export type Opportunity = {
   contactEmail: string | null;
   applyMethod: "email" | "link";
   applyUrl: string | null;
+  /** When the row was added, not its deadline. /home sorts on it. */
+  createdAt: string;
   postedBy: { firstName: string; surname: string; linkedinUrl: string | null };
   skills: string[];
   sectors: string[];
@@ -48,6 +50,7 @@ type Row = {
   contact_email: string | null;
   apply_method: "email" | "link";
   apply_url: string | null;
+  created_at: string;
   poster_first_name: string | null;
   poster_surname: string | null;
   poster_linkedin_url: string | null;
@@ -72,6 +75,7 @@ export function toOpportunity(r: Row): Opportunity {
     contactEmail: r.contact_email,
     applyMethod: r.apply_method,
     applyUrl: r.apply_url,
+    createdAt: r.created_at,
     postedBy: {
       firstName:   r.poster_first_name ?? "",
       surname:     r.poster_surname    ?? "",

@@ -10,16 +10,52 @@ import { test, expect } from "@playwright/test";
 // ════════════════════════════════════════════════════════════════════
 
 test.describe("home", () => {
-  test("greets the member and renders both sections", async ({ page }) => {
+  test("greets the member and renders every listing section", async ({ page }) => {
     await page.goto("/home");
 
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Upcoming events" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Opportunities" })).toBeVisible();
+
+    for (const name of ["Events", "Opportunities", "VCs and Grants"]) {
+      await expect(page.getByRole("heading", { name, exact: true })).toBeVisible();
+    }
 
     // Either real cards or the empty state — never nothing.
-    const events = page.locator("section", { hasText: "Upcoming events" });
+    const events = page.locator("section", { hasText: "Foundry gatherings" });
     await expect(events.locator("li, p").first()).toBeVisible();
+  });
+
+  test("each section offers a way through to its full page", async ({ page }) => {
+    await page.goto("/home");
+
+    for (const [label, href] of [
+      ["View all Events", "/events"],
+      ["View all Opportunities", "/opportunities"],
+      ["View all VCs and Grants", "/vcs"],
+    ] as const) {
+      await expect(page.getByRole("link", { name: label })).toHaveAttribute("href", href);
+    }
+  });
+
+  test("the newest-members strip moved here, and off the directory", async ({ page }) => {
+    await page.goto("/home");
+    await expect(page.getByRole("heading", { name: /newest members/i })).toBeVisible();
+
+    // The member search that used to sit under the greeting is gone: the
+    // directory owns searching, and one box that navigates away was a
+    // second, worse entry point to it.
+    await expect(page.getByRole("searchbox")).toHaveCount(0);
+
+    await page.goto("/members");
+    await expect(page.getByRole("heading", { name: /newest members/i })).toHaveCount(0);
+  });
+
+  test("messaging is reachable and says so plainly", async ({ page }) => {
+    await page.goto("/home");
+    await page.getByRole("navigation", { name: "Main" })
+      .getByRole("link", { name: "Messaging" }).click();
+
+    await expect(page).toHaveURL(/\/messaging$/);
+    await expect(page.getByRole("heading", { name: "Coming Soon!" })).toBeVisible();
   });
 
   test("the rail links to every destination it lists", async ({ page }) => {
@@ -29,6 +65,7 @@ test.describe("home", () => {
     for (const [label, href] of [
       ["Home", "/home"],
       ["Members", "/members"],
+      ["Messaging", "/messaging"],
       ["Opportunities", "/opportunities"],
       ["Events", "/events"],
       ["Grants & VCs", "/vcs"],
@@ -67,10 +104,4 @@ test.describe("home", () => {
     await expect(page).toHaveURL(/gradMin=2020/);
   });
 
-  test("search hands off to the directory with the query attached", async ({ page }) => {
-    await page.goto("/home");
-    await page.getByRole("searchbox").fill("computing");
-    await page.getByRole("button", { name: "Search" }).click();
-    await expect(page).toHaveURL(/\/members\?q=computing/);
-  });
 });

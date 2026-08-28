@@ -61,6 +61,7 @@ function setNavCollapsed(next: boolean) {
 export type NavKey =
   | "home"
   | "members"
+  | "messaging"
   | "opportunities"
   | "events"
   | "vcs"
@@ -81,6 +82,9 @@ const I = {
       <circle cx="13.5" cy="8.5" r="2" />
       <path d="M3 16c0-2.2 2-3.5 4.5-3.5S12 13.8 12 16M12.5 16c0-1.6.9-2.7 2.5-2.7s2.5 1.1 2.5 2.7" />
     </>
+  ),
+  messaging: (
+    <path d="M4 4.5h12a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H8.5L5 17v-3.5H4a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1Z" />
   ),
   opportunities: (
     <>
@@ -141,6 +145,7 @@ function Icon({ d }: { d: React.ReactNode }) {
 const PRIMARY: Item[] = [
   { key: "home", href: "/home", label: "Home", icon: <Icon d={I.home} /> },
   { key: "members", href: "/members", label: "Members", icon: <Icon d={I.members} /> },
+  { key: "messaging", href: "/messaging", label: "Messaging", icon: <Icon d={I.messaging} /> },
   { key: "opportunities", href: "/opportunities", label: "Opportunities", icon: <Icon d={I.opportunities} /> },
   { key: "events", href: "/events", label: "Events", icon: <Icon d={I.events} /> },
   { key: "vcs", href: "/vcs", label: "Grants & VCs", icon: <Icon d={I.vcs} /> },
