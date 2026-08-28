@@ -6,17 +6,40 @@ import { test, expect } from "@playwright/test";
 // of it, so what's asserted here is precisely what changed: focus enters the
 // dialog, cannot reach the page behind it, and returns to whatever opened it.
 //
-// Runs under the `member` project — /community is member-gated.
+// Runs under the `member` project — /members is member-gated.
+
+/**
+ * Open a directory card's dialog, tolerating the hydration window.
+ *
+ * The cards are server-rendered with role="button" and tabindex="0", so they
+ * are present, focusable and clickable BEFORE React attaches their onClick.
+ * A click inside that window is swallowed and the dialog never opens — the
+ * assertion then fails on a page that works perfectly. This is the same race
+ * untilUrl() exists for in urlfilters.spec.ts, and it is what made
+ * "clicking the backdrop closes the dialog" fail intermittently.
+ *
+ * Replaying the click is safe because opening is idempotent, but it is
+ * guarded on the dialog not already being open: clicking through an open
+ * modal would hit the backdrop and close it again.
+ */
+async function openDialog(
+  page: import("@playwright/test").Page,
+  trigger: import("@playwright/test").Locator,
+) {
+  const dialog = page.locator("dialog");
+  await expect(async () => {
+    if ((await dialog.count()) === 0) await trigger.click();
+    await expect(dialog).toBeVisible({ timeout: 1_000 });
+  }).toPass({ timeout: 15_000 });
+  return dialog;
+}
 
 test("member dialog: focus enters, stays in the top layer, Escape restores focus", async ({ page }) => {
-  await page.goto("/community");
+  await page.goto("/members");
   const trigger = page.locator('[role="button"][tabindex="0"]').first();
   await trigger.waitFor();
   const before = await trigger.evaluate((el) => el.outerHTML.slice(0, 200));
-  await trigger.click();
-
-  const dlg = page.locator("dialog");
-  await expect(dlg).toBeVisible();
+  const dlg = await openDialog(page, trigger);
   expect(await dlg.evaluate((d: HTMLDialogElement) => d.matches(":modal"))).toBe(true);
   expect(await page.evaluate(() => !!document.activeElement?.closest("dialog"))).toBe(true);
 
@@ -45,23 +68,21 @@ test("member dialog: focus enters, stays in the top layer, Escape restores focus
 });
 
 test("dialog close button (not Escape) also restores focus to the trigger", async ({ page }) => {
-  await page.goto("/community");
+  await page.goto("/members");
   const trigger = page.locator('[role="button"][tabindex="0"]').first();
   await trigger.waitFor();
   const before = await trigger.evaluate((el) => el.outerHTML.slice(0, 200));
-  await trigger.click();
-  await expect(page.locator("dialog")).toBeVisible();
+  await openDialog(page, trigger);
   await page.getByRole("button", { name: "Close" }).click();
   await expect(page.locator("dialog")).toHaveCount(0);
   expect(await page.evaluate(() => document.activeElement?.outerHTML.slice(0, 200) ?? "<none>")).toBe(before);
 });
 
 test("clicking the backdrop closes the dialog", async ({ page }) => {
-  await page.goto("/community");
-  await page.locator('[role="button"][tabindex="0"]').first().click();
-  await expect(page.locator("dialog")).toBeVisible();
+  await page.goto("/members");
+  const dlg = await openDialog(page, page.locator('[role="button"][tabindex="0"]').first());
   await page.mouse.click(5, 5);
-  await expect(page.locator("dialog")).toHaveCount(0);
+  await expect(dlg).toHaveCount(0);
 });
 
 test("the dialog loads the full profile the list deliberately doesn't carry", async ({ page }) => {
@@ -76,12 +97,9 @@ test("the dialog loads the full profile the list deliberately doesn't carry", as
   // the value to have actually round-tripped rather than for a banner.
   await expect(page.getByLabel(/^Short bio/)).toHaveValue(long, { timeout: 15_000 });
 
-  await page.goto("/community");
+  await page.goto("/members");
   const card = page.locator('[role="button"][tabindex="0"]').filter({ hasText: "Bio " }).first();
-  await card.click();
-
-  const dialog = page.locator("dialog");
-  await expect(dialog).toBeVisible();
+  const dialog = await openDialog(page, card);
   // The card only carries the first 160 characters; the dialog must end up
   // with all 400+.
   await expect(dialog.getByText(long, { exact: false })).toBeVisible({ timeout: 10_000 });

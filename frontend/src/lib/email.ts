@@ -106,7 +106,7 @@ function escapeHtml(s: string): string {
 // enqueueEmailsBulk in one round trip instead of one insert per member.
 export function renderAcceptanceEmail(opts: {
   firstName: string | null;
-  communityUrl: string;
+  appUrl: string;
 }): { subject: string; text: string; html: string } {
   const greeting = opts.firstName ? `Hi ${escapeName(opts.firstName)},` : "Hi,";
   const subject = "You're in — welcome to Foundry";
@@ -124,7 +124,7 @@ export function renderAcceptanceEmail(opts: {
     "",
     "Take a minute to fill out the rest of your profile — what you're working on, the sectors you care about, and your portfolio links. People can only find you for the things they know you do.",
     "",
-    opts.communityUrl,
+    opts.appUrl,
     "",
     "If you have any questions, just reply to this email.",
     "",
@@ -145,7 +145,7 @@ export function renderAcceptanceEmail(opts: {
       </ul>
       <p>Take a minute to fill out the rest of your profile — what you're working on, the sectors you care about, and your portfolio links. People can only find you for the things they know you do.</p>
       <p style="margin: 20px 0;">
-        <a href="${escapeHtml(opts.communityUrl)}" style="display: inline-block; padding: 10px 18px; border-radius: 8px; background: #c9a84c; color: #0c0c0b; text-decoration: none; font-weight: 500;">Open Foundry →</a>
+        <a href="${escapeHtml(opts.appUrl)}" style="display: inline-block; padding: 10px 18px; border-radius: 8px; background: #c9a84c; color: #0c0c0b; text-decoration: none; font-weight: 500;">Open Foundry →</a>
       </p>
       <p>If you have any questions, just reply to this email.</p>
       <p style="color: #5a5855; margin-top: 32px;">— The Foundry team</p>
@@ -158,11 +158,11 @@ export function renderAcceptanceEmail(opts: {
 export async function sendAcceptanceEmail(opts: {
   to: string;
   firstName: string | null;
-  communityUrl: string;
+  appUrl: string;
 }): Promise<void> {
   const { subject, text, html } = renderAcceptanceEmail({
     firstName:    opts.firstName,
-    communityUrl: opts.communityUrl,
+    appUrl: opts.appUrl,
   });
   await enqueueEmail({ to: opts.to, subject, text, html, replyTo: contactInbox() });
 }

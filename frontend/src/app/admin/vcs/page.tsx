@@ -29,13 +29,7 @@ export default async function AdminVcsPage() {
           </div>
         </div>
 
-        {pending.length === 0 ? (
-          <div className="rounded-lg border border-border bg-bg-card px-6 py-14 text-center text-[0.85rem] text-text-muted">
-            Nothing pending. The queue is clear.
-          </div>
-        ) : (
-          <VcsReview items={pending} />
-        )}
+        <VcsReview items={pending} />
       </div>
     </main>
   );

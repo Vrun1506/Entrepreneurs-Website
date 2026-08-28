@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import AppNav from "@/components/AppNav";
+import AppShell from "@/components/app/AppShell";
 import { BrandLogo } from "@/components/BrandLogo";
 import ContactForm from "./ContactForm";
 
@@ -25,28 +25,9 @@ export default async function ContactPage() {
     }
   }
 
-  return (
-    <div className="min-h-screen bg-bg-primary flex flex-col">
-      {member ? (
-        <AppNav active="settings" isApproved={member.isApproved} isAdmin={member.isAdmin} />
-      ) : (
-        <header className="px-4 sm:px-8 py-4 sm:py-5 border-b border-border-subtle">
-          <div className="max-w-[1200px] mx-auto flex items-center justify-between gap-3">
-            <Link href="/" className="no-underline shrink-0">
-              <BrandLogo size="sm" />
-            </Link>
-            <Link
-              href="/"
-              className="text-[0.8rem] text-text-muted no-underline hover:text-text-secondary transition-colors"
-            >
-              ← Back to home
-            </Link>
-          </div>
-        </header>
-      )}
-
-      <main id="main-content" tabIndex={-1} className="flex-1 px-4 sm:px-8 py-10 sm:py-12">
-        <div className="max-w-[640px] mx-auto">
+  const body = (
+    <div className="px-4 py-10 sm:px-8 sm:py-12">
+      <div className="mx-auto max-w-[640px]">
           {member && (
             <Link
               href="/settings"
@@ -80,7 +61,38 @@ export default async function ContactPage() {
             defaultEmail={user?.email ?? undefined}
             lockEmail={!!user?.email}
           />
+      </div>
+    </div>
+  );
+
+  // Signed in: the member rail, in whatever mode their status allows.
+  // Signed out: a plain header, because /contact is a public front door and
+  // an anonymous visitor has no destinations to put in a rail.
+  if (member) {
+    return (
+      <AppShell active="settings" name={member.name ?? undefined} isApproved={member.isApproved} isAdmin={member.isAdmin}>
+        {body}
+      </AppShell>
+    );
+  }
+
+  return (
+    <div className="flex min-h-screen flex-col bg-bg-primary">
+      <header className="border-b border-border-subtle px-4 py-4 sm:px-8 sm:py-5">
+        <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-3">
+          <Link href="/" className="shrink-0 no-underline">
+            <BrandLogo size="sm" />
+          </Link>
+          <Link
+            href="/"
+            className="text-[0.8rem] text-text-muted no-underline transition-colors hover:text-text-secondary"
+          >
+            ← Back to home
+          </Link>
         </div>
+      </header>
+      <main id="main-content" tabIndex={-1} className="flex-1">
+        {body}
       </main>
     </div>
   );

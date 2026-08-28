@@ -9,7 +9,7 @@ import { test, expect } from "@playwright/test";
 //
 // Runs under the `member` project — most of these routes are gated.
 
-const PAGES = ["/community", "/opportunities", "/events", "/vcs",
+const PAGES = ["/members", "/opportunities", "/events", "/vcs",
                "/opportunities/new", "/events/new", "/vcs/new", "/profile", "/settings", "/contact"];
 
 for (const path of PAGES) {
@@ -38,7 +38,7 @@ for (const path of PAGES) {
 }
 
 test("the skip link is first in the tab order and moves focus into <main>", async ({ page }) => {
-  await page.goto("/community");
+  await page.goto("/members");
   // goto resolves while the route's loading.tsx fallback is still on screen
   // (see the note in community/loading.tsx). Tab then lands on the skeleton's
   // skip link, and focus is lost when the real page streams in and replaces

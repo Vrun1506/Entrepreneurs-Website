@@ -35,7 +35,7 @@ const MAX_LOOKING_FOR = 3;
 // The upside is that a filtered view is now a shareable URL, and the back
 // button steps through filter history.
 // ════════════════════════════════════════════════════════════════════
-export default function CommunityClient({
+export default function MembersClient({
   members, newest, facets, filters, matching, pageSize,
 }: {
   members: DirectoryMember[];

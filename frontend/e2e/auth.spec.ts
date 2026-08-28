@@ -37,10 +37,40 @@ async function mockGoTrue(page: Page, urlGlob: string, body: unknown) {
 }
 
 test.describe("auth entry flows", () => {
-  test("role chooser offers both student and alum", async ({ page }) => {
+  // Six since 20260828000001. Only "Current student" takes the Imperial-OTP
+  // path; the other five sign up with a password and go to admin review, so
+  // the chooser is also the only place those roles can be created.
+  test("role chooser offers all six affiliations", async ({ page }) => {
     await page.goto("/login");
-    await expect(page.getByRole("button", { name: /current Imperial student/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /Imperial alum/i })).toBeVisible();
+    for (const label of [
+      /Current student/i,
+      /Recent graduate/i,
+      /Alumni founder/i,
+      /Mentor/i,
+      /Angel investor/i,
+      /Staff or faculty/i,
+    ]) {
+      await expect(page.getByRole("button", { name: label })).toBeVisible();
+    }
+  });
+
+  // The graduation email links here with ?role=alum. It went unread until
+  // 2026-08-28, which was survivable with two options and is not with six.
+  test("?role= preselects the affiliation the graduation email sends", async ({ page }) => {
+    await page.goto("/login?role=alum");
+    // Straight to the password form, not the chooser.
+    await expect(page.getByRole("button", { name: /Current student/i })).toHaveCount(0);
+    await expect(page.locator("#password")).toBeVisible();
+  });
+
+  test("?role= will not preselect student, which needs a verified address", async ({ page }) => {
+    await page.goto("/login?role=student");
+    await expect(page.getByRole("button", { name: /Current student/i })).toBeVisible();
+  });
+
+  test("?role= ignores a value that is not an affiliation", async ({ page }) => {
+    await page.goto("/login?role=administrator");
+    await expect(page.getByRole("button", { name: /Current student/i })).toBeVisible();
   });
 
   test("student: a non-Imperial email is rejected client-side (no email sent)", async ({ page }) => {
@@ -50,7 +80,7 @@ test.describe("auth entry flows", () => {
     await page.route("**/auth/v1/otp**", (route) => { otpCalled = true; route.abort(); });
 
     await page.goto("/login");
-    await page.getByRole("button", { name: /current Imperial student/i }).click();
+    await page.getByRole("button", { name: /Current student/i }).click();
     await page.getByRole("checkbox").check(); // T&C gates the submit button
     await page.locator("#email").fill("someone@gmail.com");
     await page.getByRole("button", { name: "Send verification code" }).click();
@@ -63,7 +93,7 @@ test.describe("auth entry flows", () => {
     await mockGoTrue(page, "**/auth/v1/otp**", {});
 
     await page.goto("/login");
-    await page.getByRole("button", { name: /current Imperial student/i }).click();
+    await page.getByRole("button", { name: /Current student/i }).click();
     await page.locator("#first-name").fill("Ada");
     await page.locator("#surname").fill("Lovelace");
     await page.locator("#email").fill("ada@imperial.ac.uk");
@@ -109,7 +139,7 @@ test.describe("auth entry flows", () => {
     });
 
     await page.goto("/login");
-    await page.getByRole("button", { name: /current Imperial student/i }).click();
+    await page.getByRole("button", { name: /Current student/i }).click();
     await page.locator("#first-name").fill("Ada");
     await page.locator("#surname").fill("Lovelace");
     await page.locator("#email").fill("ada@imperial.ac.uk");
@@ -143,7 +173,7 @@ test.describe("auth entry flows", () => {
     });
 
     await page.goto("/login");
-    await page.getByRole("button", { name: /current Imperial student/i }).click();
+    await page.getByRole("button", { name: /Current student/i }).click();
     await page.locator("#first-name").fill("Ada");
     await page.locator("#surname").fill("Lovelace");
     await page.locator("#email").fill("ada@imperial.ac.uk");
@@ -158,7 +188,7 @@ test.describe("auth entry flows", () => {
 
   test("alum: the submit button is gated on the T&C checkbox", async ({ page }) => {
     await page.goto("/login");
-    await page.getByRole("button", { name: /Imperial alum/i }).click();
+    await page.getByRole("button", { name: /Alumni founder/i }).click();
 
     const submit = page.getByRole("button", { name: "Create account" });
     await expect(submit).toBeDisabled();
@@ -168,7 +198,7 @@ test.describe("auth entry flows", () => {
 
   test("alum: mismatched passwords are rejected client-side", async ({ page }) => {
     await page.goto("/login");
-    await page.getByRole("button", { name: /Imperial alum/i }).click();
+    await page.getByRole("button", { name: /Alumni founder/i }).click();
     await page.locator("#first-name").fill("Grace");
     await page.locator("#surname").fill("Hopper");
     await page.locator("#email").fill("grace@example.com");
@@ -182,7 +212,7 @@ test.describe("auth entry flows", () => {
 
   test("alum: a password under 8 characters is rejected client-side", async ({ page }) => {
     await page.goto("/login");
-    await page.getByRole("button", { name: /Imperial alum/i }).click();
+    await page.getByRole("button", { name: /Alumni founder/i }).click();
     await page.locator("#first-name").fill("Grace");
     await page.locator("#surname").fill("Hopper");
     await page.locator("#email").fill("grace@example.com");
@@ -204,7 +234,7 @@ test.describe("auth entry flows", () => {
     });
 
     await page.goto("/login");
-    await page.getByRole("button", { name: /Imperial alum/i }).click();
+    await page.getByRole("button", { name: /Alumni founder/i }).click();
     await page.locator("#first-name").fill("New");
     await page.locator("#surname").fill("Alum");
     await page.locator("#email").fill("newalum@example.com");
@@ -235,7 +265,7 @@ test.describe("auth entry flows", () => {
     // the chooser and the forgot link never renders.
     await page.goto("/login");
     await page.getByRole("button", { name: "Sign in" }).click(); // toggle into sign-in mode
-    await page.getByRole("button", { name: /Imperial alum/i }).click();
+    await page.getByRole("button", { name: /Alumni founder/i }).click();
     await page.getByRole("button", { name: "Forgot your password?" }).click();
 
     await page.locator("#reset-email").fill("alum@example.com");

@@ -78,7 +78,7 @@ async function openAlumSignIn(page: import("@playwright/test").Page) {
   // The toggle sits outside the <form>; the submit button inside it carries
   // the same accessible name, so both need scoping.
   await page.getByText("Already have an account?").getByRole("button", { name: "Sign in" }).click();
-  await page.getByRole("button", { name: /Imperial alum/i }).click();
+  await page.getByRole("button", { name: /Alumni founder/i }).click();
 }
 
 /** Sign in through the real form, so the browser holds a real session. */

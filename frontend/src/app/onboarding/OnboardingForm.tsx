@@ -10,6 +10,8 @@ import { ErrorBanner } from "@/components/forms/Banners";
 import { inputCls } from "@/components/forms/styles";
 import { cleanText } from "@/lib/text";
 import { gradYearOptions, validateGradYear } from "@/lib/gradYears";
+import type { Affiliation } from "@/lib/intake/steps";
+import { destinationForStatus } from "@/lib/auth/status";
 import { describeSupabaseError } from "@/lib/supabaseErrors";
 import { Button } from "@/components/ui/Button";
 import { invalidateDirectoryCache } from "@/app/profile/actions";
@@ -17,7 +19,7 @@ import { invalidateDirectoryCache } from "@/app/profile/actions";
 type Lookup = ChipItem;
 
 type Props = {
-  role: "alum" | "student";
+  role: Affiliation;
   firstName: string;
   surname: string;
   skills: Lookup[];
@@ -73,7 +75,8 @@ export default function OnboardingForm({ role, firstName, surname, skills, secto
       const lk = cleanText(linkedin);
       const gh = cleanText(github);
       const pf = cleanText(portfolio);
-      if (role === "alum" && !lk) return "LinkedIn URL is required for alumni.";
+      if (role !== "student" && !lk)
+        return "A LinkedIn URL is required for accounts without an Imperial email address.";
       if (lk && !LINKEDIN_RE.test(lk)) return "Please enter a valid LinkedIn URL.";
       if (gh && !GITHUB_RE.test(gh)) return "Please enter a valid GitHub URL or leave it blank.";
       if (pf && !URL_RE.test(pf)) return "Portfolio URL must start with http:// or https://.";
@@ -121,7 +124,13 @@ export default function OnboardingForm({ role, firstName, surname, skills, secto
       setIsLoading(false);
       return;
     }
-    router.replace(role === "alum" ? "/pending" : "/community");
+    // The RPC decides the status: student ⇒ approved, everything else ⇒
+    // pending_review (allow-list, default deny — 20260828000002). Route on
+    // the same rule, through HOME_FOR_STATUS rather than a second hardcoded
+    // path, so an approved member lands on /home like every other entry point.
+    router.replace(
+      destinationForStatus(role === "student" ? "approved" : "pending_review"),
+    );
     // The RPC above ran client-side, so nothing on the server knows the
     // directory changed. Tell it before refreshing.
     await invalidateDirectoryCache();
@@ -149,7 +158,7 @@ export default function OnboardingForm({ role, firstName, surname, skills, secto
               Tell us about <span className="font-light text-text-secondary">yourself.</span>
             </h1>
             <p className="text-[0.9rem] text-text-secondary leading-[1.7]">
-              {role === "alum"
+              {role !== "student"
                 ? "Help us verify your Imperial connection and your work."
                 : "Help your peers find you in the directory."}
               <br />
@@ -226,7 +235,7 @@ export default function OnboardingForm({ role, firstName, surname, skills, secto
                   size="lg"
                   className="flex-1"
                 >
-                  {role === "alum" ? "Submit for review" : "Finish onboarding"}
+                  {role === "student" ? "Finish onboarding" : "Submit for review"}
                 </Button>
               )}
             </div>
@@ -258,7 +267,7 @@ function ProgressBar({ current, total }: { current: number; total: number }) {
 function EducationStep({
   role, course, setCourse, gradYear, setGradYear, inputCls,
 }: {
-  role: "alum" | "student";
+  role: Affiliation;
   course: string; setCourse: (v: string) => void;
   gradYear: string; setGradYear: (v: string) => void;
   inputCls: string;
@@ -267,12 +276,12 @@ function EducationStep({
     <>
       <div>
         <label htmlFor="course" className="block text-[0.75rem] text-text-muted mb-1.5">
-          {role === "alum" ? "Course studied" : "Course you're studying"} <span className="text-[#ff6b6b]">*</span>
+          {role === "student" ? "Course you're studying" : "Course studied"} <span className="text-[#ff6b6b]">*</span>
         </label>
         <input
           id="course"
           type="text"
-          placeholder={role === "alum" ? "e.g. MEng Computing" : "e.g. BSc Mathematics"}
+          placeholder={role === "student" ? "e.g. BSc Mathematics" : "e.g. MEng Computing"}
           value={course}
           onChange={(e) => setCourse(e.target.value)}
           className={inputCls}
@@ -282,7 +291,7 @@ function EducationStep({
       </div>
       <div>
         <label htmlFor="grad-year" className="block text-[0.75rem] text-text-muted mb-1.5">
-          {role === "alum" ? "Graduation year" : "Expected graduation year"} <span className="text-[#ff6b6b]">*</span>
+          {role === "student" ? "Expected graduation year" : "Graduation year"} <span className="text-[#ff6b6b]">*</span>
         </label>
         <select
           id="grad-year"
@@ -373,7 +382,7 @@ function InterestsStep({
 function LinksStep({
   role, linkedin, setLinkedin, github, setGithub, portfolio, setPortfolio, inputCls,
 }: {
-  role: "alum" | "student";
+  role: Affiliation;
   linkedin: string; setLinkedin: (v: string) => void;
   github: string; setGithub: (v: string) => void;
   portfolio: string; setPortfolio: (v: string) => void;
@@ -384,7 +393,7 @@ function LinksStep({
       <div>
         <label htmlFor="linkedin" className="block text-[0.75rem] text-text-muted mb-1.5">
           LinkedIn URL{" "}
-          {role === "alum"
+          {role !== "student"
             ? <span className="text-[#ff6b6b]">*</span>
             : <span className="text-text-muted/70 ml-1">— optional</span>}
         </label>
@@ -396,7 +405,7 @@ function LinksStep({
           onChange={(e) => setLinkedin(e.target.value)}
           className={inputCls}
           maxLength={512}
-          required={role === "alum"}
+          required={role !== "student"}
         />
       </div>
       <div>

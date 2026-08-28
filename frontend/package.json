@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "node scripts/assert-local-env.mjs && next dev",
+    "dev:prod": "node scripts/dev-remote.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",

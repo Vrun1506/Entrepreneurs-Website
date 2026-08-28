@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import AppNav from "@/components/AppNav";
+import AppShell from "@/components/app/AppShell";
 import SubmittedBanner from "@/components/SubmittedBanner";
 
 // The chrome shared by /opportunities, /events and /vcs: nav, main
@@ -32,10 +32,9 @@ export default function ListingPageShell({
   children: ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-bg-primary flex flex-col">
-      <AppNav active={active} isApproved={true} isAdmin={isAdmin} />
-      <main id="main-content" tabIndex={-1} className="flex-1 px-4 sm:px-8 py-10 sm:py-12">
-        <div className="max-w-[1200px] mx-auto">
+    <AppShell active={active} isAdmin={isAdmin}>
+      <div className="px-4 py-10 sm:px-8 sm:py-12">
+        <div className="mx-auto max-w-[1200px]">
           {justSubmitted && <SubmittedBanner kind={submittedKind} />}
           {/* Same title-block grammar as the marketing sections: a rule
               across the measure, the section's name beneath it, the heading
@@ -65,7 +64,7 @@ export default function ListingPageShell({
           </header>
           {children}
         </div>
-      </main>
-    </div>
+      </div>
+    </AppShell>
   );
 }

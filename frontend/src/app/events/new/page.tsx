@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import AppNav from "@/components/AppNav";
+import AppShell from "@/components/app/AppShell";
 import { requireApprovedUser } from "@/lib/auth/guard";
 import { posterName } from "@/lib/data/profiles";
 import EventForm from "./EventForm";
@@ -11,9 +11,8 @@ export default async function NewEventPage() {
   if (!poster) redirect("/login");
 
   return (
-    <div className="min-h-screen bg-bg-primary flex flex-col">
-      <AppNav active="events" isApproved={true} isAdmin={isAdmin} />
-      <main id="main-content" tabIndex={-1} className="flex-1 px-4 sm:px-8 py-10 sm:py-12">
+    <AppShell active="events" isAdmin={isAdmin}>
+      <div className="px-4 sm:px-8 py-10 sm:py-12">
         <div className="max-w-[720px] mx-auto">
           <div className="mb-8 rule-draw pt-6">
             <p className="label-wide text-text-secondary mb-3">Post an event</p>
@@ -31,7 +30,7 @@ export default async function NewEventPage() {
             mode="user"
           />
         </div>
-      </main>
-    </div>
+      </div>
+    </AppShell>
   );
 }

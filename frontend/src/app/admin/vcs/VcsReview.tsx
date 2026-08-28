@@ -16,6 +16,7 @@ export default function VcsReview({ items }: { items: Item[] }) {
       bulkApprove={bulkApproveVcGrants}
       bulkReject={bulkRejectVcGrants}
       noun="listing"
+      emptyMessage="Nothing pending. The queue is clear."
     />
   );
 }

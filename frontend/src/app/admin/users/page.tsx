@@ -69,13 +69,17 @@ async function PendingCount({ data }: { data: Promise<PendingProfilesPage> }) {
 async function Queue({ data, page }: { data: Promise<PendingProfilesPage>; page: number }) {
   const { items, total } = await data;
 
-  if (items.length === 0) {
-    return (
-      <div className="rounded-lg border border-border bg-bg-card px-6 py-14 text-center text-[0.85rem] text-text-muted">
-        {total === 0 ? "Nothing pending. The queue is clear." : "No profiles on this page."}
-      </div>
-    );
-  }
-
-  return <UsersReview items={items} page={page} total={total} pageSize={PAGE_SIZE} />;
+  // Rendered unconditionally, empty queue included: the empty state belongs
+  // inside BulkReview so that approving or rejecting the LAST batch doesn't
+  // unmount the component holding its own confirmation. See BulkReview's
+  // emptyMessage prop.
+  return (
+    <UsersReview
+      items={items}
+      page={page}
+      total={total}
+      pageSize={PAGE_SIZE}
+      emptyMessage={total === 0 ? "Nothing pending. The queue is clear." : "No profiles on this page."}
+    />
+  );
 }

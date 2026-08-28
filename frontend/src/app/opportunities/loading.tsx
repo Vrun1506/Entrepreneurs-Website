@@ -1,4 +1,4 @@
-import AppNav from "@/components/AppNav";
+import AppShell from "@/components/app/AppShell";
 import { Skeleton, FilterBarSkeleton, RowListSkeleton } from "@/components/ui/Skeleton";
 
 // Painted the instant a navigation to this route starts, before the server
@@ -8,7 +8,7 @@ import { Skeleton, FilterBarSkeleton, RowListSkeleton } from "@/components/ui/Sk
 // Without it the browser sits on the *previous* page until the server
 // responds, which reads as an unresponsive click.
 //
-// AppNav is rendered here too so the chrome doesn't flash: it looks
+// The shell is rendered here too so the chrome doesn't flash: it looks
 // identical either side of the swap. isApproved is true because every
 // route with a loading.tsx is behind requireApprovedUser; the real nav
 // replaces this within the same paint.
@@ -19,9 +19,8 @@ import { Skeleton, FilterBarSkeleton, RowListSkeleton } from "@/components/ui/Sk
 // document finishes loading while the fallback is still displayed.
 export default function Loading() {
   return (
-    <div className="min-h-screen bg-bg-primary flex flex-col">
-      <AppNav active="opportunities" isApproved={true} />
-      <main id="main-content" tabIndex={-1} className="flex-1 px-4 sm:px-8 py-10 sm:py-12">
+    <AppShell active="opportunities">
+      <div className="px-4 sm:px-8 py-10 sm:py-12">
         <div className="max-w-[1200px] mx-auto">
           <div className="mb-8">
             <Skeleton className="h-3 w-24" />
@@ -33,7 +32,7 @@ export default function Loading() {
             <RowListSkeleton />
           </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </AppShell>
   );
 }

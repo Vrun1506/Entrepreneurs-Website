@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
 import { isImperialEmail } from "@/lib/auth/imperialEmail";
+import type { Affiliation } from "@/lib/intake/steps";
 
 // ════════════════════════════════════════════════════════════════════
 // Change your email address.
@@ -68,7 +69,7 @@ export default function EmailChangeForm({
   role,
 }: {
   currentEmail: string;
-  role: "student" | "alum";
+  role: Affiliation;
 }) {
   const supabase = createClient();
   const router = useRouter();

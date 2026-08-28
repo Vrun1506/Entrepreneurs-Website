@@ -7,8 +7,8 @@ import { USERS, storageStatePath } from "./fixtures";
 // were wrong, requireApprovedUser would bounce to /login.
 
 test("approved student reaches the community directory (not bounced to /login)", async ({ page }) => {
-  await page.goto("/community");
-  await expect(page).toHaveURL(/\/community/);
+  await page.goto("/members");
+  await expect(page).toHaveURL(/\/members/);
 });
 
 test("student can open the opportunities, events and vcs tabs", async ({ page }) => {
@@ -401,4 +401,20 @@ test.describe("settings email change", () => {
     ).toBeVisible();
     expect(updateCalled, "no updateUser request should fire for a bad domain").toBe(false);
   });
+});
+
+// ─── Affiliation ─────────────────────────────────────────────────────
+// The seeded member is a student, which is the branch that must NOT offer
+// a picker: 'student' is the only auto-approving role, and graduation is a
+// delete-and-resignup rather than a role change.
+test("a student cannot change their own affiliation", async ({ page }) => {
+  await page.goto("/profile");
+
+  const section = page.locator("section", { hasText: "Your affiliation" });
+  await expect(section).toBeVisible();
+  await expect(section.getByText("Current student")).toBeVisible();
+  await expect(section.getByText(/your student account is closed/i)).toBeVisible();
+
+  await expect(section.getByRole("button", { name: "Save affiliation" })).toHaveCount(0);
+  await expect(section.getByRole("radiogroup")).toHaveCount(0);
 });

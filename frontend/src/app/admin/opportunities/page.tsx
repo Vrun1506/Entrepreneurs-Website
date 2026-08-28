@@ -31,13 +31,7 @@ export default async function AdminOpportunitiesPage() {
           </div>
         </div>
 
-        {pending.length === 0 ? (
-          <div className="rounded-lg border border-border bg-bg-card px-6 py-14 text-center text-[0.85rem] text-text-muted">
-            Nothing pending. The queue is clear.
-          </div>
-        ) : (
-          <OpportunitiesReview items={pending} />
-        )}
+        <OpportunitiesReview items={pending} />
       </div>
     </main>
   );

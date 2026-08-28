@@ -32,7 +32,7 @@ export default async function AdminPage() {
           </div>
           <div className="flex items-center gap-4">
             <Link
-              href="/community"
+              href="/members"
               className="text-[0.8rem] bg-white/[0.05] border border-border-strong text-text-primary no-underline rounded-lg px-4 py-1.5 transition-colors duration-150 hover:bg-white/[0.10] hover:border-accent"
             >
               ← Back to site
