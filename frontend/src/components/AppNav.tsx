@@ -50,7 +50,7 @@ export default function AppNav({
       ];
 
   return (
-    <header className="sticky top-0 z-40 px-4 sm:px-8 py-4 sm:py-5 bg-bg-primary/90 backdrop-blur-md border-b border-border-subtle">
+    <header className="sticky top-0 z-40 px-4 sm:px-8 py-4 sm:py-5 bg-bg-primary/92 backdrop-blur-md border-b border-border">
       <div className="max-w-[1200px] mx-auto flex items-center justify-between gap-3">
         <Link href={homeHref} className="no-underline shrink-0" onClick={() => setMobileOpen(false)}>
           <BrandLogo size="sm" priority />
@@ -66,7 +66,7 @@ export default function AppNav({
           {isAdmin && (
             <Link
               href="/admin"
-              className="ml-2 px-4 py-1.5 rounded-full text-[0.8rem] text-gold no-underline transition-colors duration-150 bg-gold/[0.08] border border-gold/60 hover:bg-gold/[0.14] hover:text-gold-light"
+              className="ml-3 rounded-lg border border-border-strong bg-white/[0.05] px-3.5 py-1.5 text-[0.78rem] text-text-primary no-underline transition-colors duration-150 hover:border-accent hover:bg-white/[0.10]"
             >
               ← Admin
             </Link>
@@ -81,7 +81,7 @@ export default function AppNav({
             onClick={() => setMobileOpen((v) => !v)}
             aria-label={mobileOpen ? "Close menu" : "Open menu"}
             aria-expanded={mobileOpen}
-            className="w-11 h-11 rounded-lg bg-white/[0.05] border border-border-strong text-text-primary cursor-pointer flex items-center justify-center transition-colors hover:bg-white/[0.10] hover:border-gold/50"
+            className="w-11 h-11 rounded-lg bg-white/[0.05] border border-border-strong text-text-primary cursor-pointer flex items-center justify-center transition-colors hover:bg-white/[0.10] hover:border-accent"
           >
             {mobileOpen ? <CloseIcon /> : <MenuIcon />}
           </button>
@@ -95,7 +95,7 @@ export default function AppNav({
 
       {/* Mobile / tablet sheet */}
       {mobileOpen && (
-        <div className="lg:hidden mt-4 -mx-4 sm:-mx-8 border-t border-border-subtle bg-bg-primary">
+        <div className="lg:hidden mt-4 -mx-4 sm:-mx-8 border-t border-border bg-bg-primary">
           <nav className="flex flex-col py-2">
             {navItems.map((it) => (
               <MobileLink
@@ -132,13 +132,15 @@ function NavLink({ href, label, active }: { href: string; label: string; active:
   return (
     <Link
       href={href}
-      className={`px-4 py-1.5 rounded-full text-[0.8rem] no-underline transition-colors duration-150 ${
-        active
-          ? "text-text-primary bg-white/[0.04]"
-          : "text-text-secondary hover:text-text-primary"
+      aria-current={active ? "page" : undefined}
+      className={`relative px-3 py-1.5 text-[0.78rem] no-underline transition-colors duration-150 ${
+        active ? "text-text-primary" : "text-text-secondary hover:text-text-primary"
       }`}
     >
       {label}
+      {/* Sits on the header's bottom rule, so the active tab reads as
+          connected to the page below it rather than as a floating capsule. */}
+      {active && <span aria-hidden className="absolute -bottom-[13px] left-3 right-3 h-px bg-accent" />}
     </Link>
   );
 }
@@ -148,9 +150,9 @@ function MobileLink({
 }: {
   href: string; label: string; active: boolean; onClick: () => void; accent?: boolean;
 }) {
-  const base = "block px-6 py-3 text-[0.95rem] no-underline transition-colors min-h-[44px]";
+  const base = "flex items-center border-b border-border-subtle px-6 py-3 text-[0.9rem] no-underline transition-colors min-h-[44px] last:border-b-0";
   const tone = accent
-    ? "text-gold hover:bg-gold/10"
+    ? "text-text-primary hover:bg-white/[0.06]"
     : active
       ? "text-text-primary bg-white/[0.04]"
       : "text-text-secondary hover:bg-white/[0.02] hover:text-text-primary";

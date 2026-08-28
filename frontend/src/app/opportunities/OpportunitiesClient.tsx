@@ -98,7 +98,7 @@ export default function OpportunitiesClient({
       />
 
       {filtered.length === 0 ? (
-        <div className="text-center py-16 text-text-muted text-[0.85rem]">
+        <div className="rounded-lg border border-border bg-bg-card px-6 py-14 text-center text-[0.85rem] text-text-muted">
           {items.length === 0 ? "No opportunities posted yet." : "No opportunities match your search."}
         </div>
       ) : (
@@ -166,7 +166,7 @@ function OpportunityCard({
   const toggleOpen = () => setOpen((v) => !v);
 
   return (
-    <article ref={articleRef} id={`o-${o.id}`} className="rounded-2xl bg-bg-card border border-border-subtle overflow-hidden relative">
+    <article ref={articleRef} id={`o-${o.id}`} className="rounded-2xl bg-bg-card border border-border overflow-hidden relative">
       {/* Bookmark button — sits outside the toggle area so clicks don't expand. */}
       <div className="absolute top-3 right-3 z-10">
         <BookmarkButton bookmarked={bookmarked} onClick={onToggleBookmark} />
@@ -191,7 +191,7 @@ function OpportunityCard({
               {o.company} · {location} · Starts {start}
             </div>
           </div>
-          <div className="text-[0.75rem] text-gold-light shrink-0">
+          <div className="text-[0.75rem] text-accent-light shrink-0">
             {o.pay}
           </div>
         </div>
@@ -199,10 +199,10 @@ function OpportunityCard({
         {(o.sectors.length > 0 || o.skills.length > 0) && (
           <div className="flex flex-wrap gap-1.5 mt-3">
             {o.sectors.map((s) => (
-              <span key={`sec-${s}`} className="px-2 py-0.5 rounded-full text-[0.7rem] bg-gold-muted text-gold-light border border-gold/20">{s}</span>
+              <span key={`sec-${s}`} className="px-2 py-0.5 rounded-lg text-[0.7rem] bg-accent-muted text-accent-light border border-accent/20">{s}</span>
             ))}
             {o.skills.map((s) => (
-              <span key={`skl-${s}`} className="px-2 py-0.5 rounded-full text-[0.7rem] bg-white/[0.03] text-text-secondary border border-border">{s}</span>
+              <span key={`skl-${s}`} className="px-2 py-0.5 rounded-lg text-[0.7rem] bg-white/[0.03] text-text-secondary border border-border">{s}</span>
             ))}
           </div>
         )}
@@ -235,7 +235,7 @@ function OpportunityCard({
                   href={o.postedBy.linkedinUrl}
                   target="_blank"
                   rel="noreferrer noopener"
-                  className="text-[0.75rem] text-gold no-underline hover:underline"
+                  className="text-[0.75rem] text-text-primary underline underline-offset-[3px] decoration-border-strong transition-colors hover:decoration-accent"
                 >
                   LinkedIn ↗
                 </a>
@@ -256,7 +256,7 @@ function OpportunityCard({
                   target="_blank"
                   rel="noreferrer noopener"
                   onClick={() => recordListingEvent("opportunity", o.id, "apply_click")}
-                  className="inline-block px-4 py-2 rounded-lg bg-gold text-bg-primary text-[0.825rem] font-medium no-underline transition-colors hover:bg-gold-light"
+                  className="inline-block px-4 py-2 rounded-lg bg-accent text-bg-primary text-[0.825rem] font-medium no-underline transition-colors hover:bg-accent-light"
                 >
                   Open application portal ↗
                 </a>
@@ -264,7 +264,7 @@ function OpportunityCard({
                 <a
                   href={`mailto:${o.contactEmail}?subject=${encodeURIComponent(o.positionName)}`}
                   onClick={() => recordListingEvent("opportunity", o.id, "contact_click")}
-                  className="inline-block px-4 py-2 rounded-lg bg-gold text-bg-primary text-[0.825rem] font-medium no-underline transition-colors hover:bg-gold-light"
+                  className="inline-block px-4 py-2 rounded-lg bg-accent text-bg-primary text-[0.825rem] font-medium no-underline transition-colors hover:bg-accent-light"
                 >
                   Email to apply ↗
                 </a>
@@ -291,8 +291,8 @@ function BookmarkButton({ bookmarked, onClick }: { bookmarked: boolean; onClick:
       aria-pressed={bookmarked}
       className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-bg-card/80 backdrop-blur-sm border cursor-pointer transition-colors ${
         bookmarked
-          ? "border-gold/50 text-gold hover:text-gold-light hover:border-gold"
-          : "border-border text-text-muted hover:text-gold hover:border-gold/40"
+          ? "border-accent/50 text-accent hover:text-accent-light hover:border-accent"
+          : "border-border text-text-muted hover:text-accent hover:border-accent"
       }`}
     >
       <svg

@@ -14,7 +14,7 @@ export default function SocialLinks({ linkedinUrl, githubUrl, portfolioUrl }: Pr
           target="_blank"
           rel="noopener noreferrer"
           aria-label="LinkedIn profile"
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#0A66C2]/15 border border-[#0A66C2]/35 text-[#7CB6F0] text-[0.7rem] font-medium no-underline transition-colors duration-150 hover:bg-[#0A66C2]/30 hover:text-white"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-border-strong bg-white/[0.04] px-3 py-1.5 text-[0.7rem] font-medium text-text-secondary no-underline transition-colors duration-150 hover:bg-white/[0.10] hover:text-text-primary hover:border-[#0A66C2]"
         >
           <LinkedInIcon />
           LinkedIn
@@ -26,7 +26,7 @@ export default function SocialLinks({ linkedinUrl, githubUrl, portfolioUrl }: Pr
           target="_blank"
           rel="noopener noreferrer"
           aria-label="GitHub profile"
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.06] border border-white/15 text-text-primary text-[0.7rem] font-medium no-underline transition-colors duration-150 hover:bg-white/15 hover:border-white/30"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-border-strong bg-white/[0.04] px-3 py-1.5 text-[0.7rem] font-medium text-text-secondary no-underline transition-colors duration-150 hover:bg-white/[0.10] hover:text-text-primary hover:border-accent"
         >
           <GitHubIcon />
           GitHub
@@ -38,7 +38,7 @@ export default function SocialLinks({ linkedinUrl, githubUrl, portfolioUrl }: Pr
           target="_blank"
           rel="noopener noreferrer"
           aria-label="Portfolio site"
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gold/10 border border-gold/35 text-gold-light text-[0.7rem] font-medium no-underline transition-colors duration-150 hover:bg-gold/20 hover:text-gold-light"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-border-strong bg-white/[0.04] px-3 py-1.5 text-[0.7rem] font-medium text-text-secondary no-underline transition-colors duration-150 hover:bg-white/[0.10] hover:text-text-primary hover:border-accent"
         >
           <PortfolioIcon />
           Portfolio

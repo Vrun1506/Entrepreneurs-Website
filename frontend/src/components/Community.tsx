@@ -1,5 +1,7 @@
 "use client";
 
+import { SectionHead } from "@/components/SectionHead";
+
 /* ── Data ─────────────────────────────────────────────────────────── */
 const SKILLS = [
   "Machine learning", "Full-stack dev", "Bioengineering", "Product",
@@ -38,19 +40,16 @@ const PROFILES = [
   },
 ];
 
-/* ── Shared sub-components ────────────────────────────────────────── */
-function SectionLabel({ text }: { text: string }) {
-  return (
-    <div className="flex items-center gap-4 mb-6">
-      <div className="w-8 h-px bg-gold shrink-0" />
-      <span className="text-gold text-[0.75rem] font-medium tracking-[0.1em] uppercase">{text}</span>
-    </div>
-  );
-}
-
+/* ── Sub-components ───────────────────────────────────────────────── */
 function Chip({ label, active = false }: { label: string; active?: boolean }) {
   return (
-    <span className={active ? "inline-flex items-center px-3 py-1 rounded-full text-[0.775rem] whitespace-nowrap border transition-colors duration-150 border-gold text-gold bg-gold-muted" : "inline-flex items-center px-3 py-1 rounded-full text-[0.775rem] whitespace-nowrap border transition-colors duration-150 border-border text-text-secondary"}>
+    <span
+      className={
+        active
+          ? "inline-flex items-center whitespace-nowrap rounded-lg border border-accent bg-accent px-3 py-1 text-[0.775rem] font-medium text-bg-primary"
+          : "inline-flex items-center whitespace-nowrap rounded-lg border border-border px-3 py-1 text-[0.775rem] text-text-secondary"
+      }
+    >
       {label}
     </span>
   );
@@ -58,34 +57,35 @@ function Chip({ label, active = false }: { label: string; active?: boolean }) {
 
 function Avatar({ initials }: { initials: string }) {
   return (
-    <div className="w-10 h-10 rounded-full shrink-0 flex items-center justify-center bg-gold/15 border border-gold/30 text-gold text-[0.8rem] font-semibold">
+    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border-strong text-[0.75rem] font-semibold text-text-primary">
       {initials}
     </div>
   );
 }
 
-function ProfileCard({ initials, name, role, bio, skills, looking }: typeof PROFILES[0]) {
+// A cell in the directory table, not a floating card. The hairline between
+// cells is the grid's own `gap-px` showing through, so four of these read as
+// one ruled sheet rather than four identical boxes with their own borders.
+function ProfileCell({ initials, name, role, bio, skills, looking }: typeof PROFILES[0]) {
   return (
-    <div className="p-6 rounded-xl bg-bg-card border border-border-subtle transition-all duration-200 hover:border-gold/25 hover:-translate-y-0.5">
-      <div className="flex items-center gap-3 mb-4">
+    <div className="bg-bg-secondary p-6 transition-colors duration-150 hover:bg-bg-card-hover">
+      <div className="mb-4 flex items-center gap-3">
         <Avatar initials={initials} />
-        <div>
+        <div className="min-w-0">
           <div className="text-[0.9rem] font-medium text-text-primary">{name}</div>
           <div className="text-[0.775rem] text-text-muted">{role}</div>
         </div>
       </div>
 
-      <p className="text-[0.825rem] text-text-secondary leading-relaxed mb-4">{bio}</p>
+      <p className="mb-4 text-[0.825rem] leading-relaxed text-text-secondary">{bio}</p>
 
-      <div className="flex flex-wrap gap-1.5 mb-3">
+      <div className="mb-4 flex flex-wrap gap-1.5">
         {skills.map((s) => <Chip key={s} label={s} />)}
       </div>
 
-      <div className="flex items-center gap-1.5 text-[0.75rem] text-text-muted">
-        <span>Looking for</span>
-        <span className="px-2 py-0.5 rounded-full border border-gold/30 text-gold text-[0.725rem]">
-          {looking}
-        </span>
+      <div className="flex items-baseline gap-2 border-t border-border-subtle pt-3">
+        <span className="label-wide text-text-muted">Looking for</span>
+        <span className="text-[0.8rem] text-text-primary">{looking}</span>
       </div>
     </div>
   );
@@ -94,52 +94,49 @@ function ProfileCard({ initials, name, role, bio, skills, looking }: typeof PROF
 /* ── Section ──────────────────────────────────────────────────────── */
 export default function Community() {
   return (
-    <section
-      id="community"
-      className="py-28 px-8 bg-bg-secondary border-y border-border-subtle"
-    >
-      <div className="max-w-[1200px] mx-auto">
-        <SectionLabel text="Community" />
-
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.4fr] gap-16 items-start">
-          {/* Left: copy + chip selectors */}
-          <div>
-            <h2 className="font-display leading-[1.15] tracking-tight mb-5 text-[clamp(1.8rem,3vw,2.6rem)]">
+    <section id="community" className="border-y border-border-subtle bg-bg-secondary px-8 py-24">
+      <div className="mx-auto max-w-[1200px]">
+        {/* Treatment 2 of 5: scale contrast. The second line is the same
+            weight, set much larger — the emphasis is in the size step, not
+            in a colour or an italic. */}
+        <SectionHead label="Community">
+          <h2 className="leading-[0.98] tracking-[-0.035em] text-text-primary">
+            <span className="block text-[clamp(1.4rem,2.2vw,1.9rem)] font-normal text-text-secondary">
               Build your profile.
-              <br />
-              <em className="text-gold">Get found.</em>
-            </h2>
+            </span>
+            <span className="block text-[clamp(2.4rem,4.4vw,3.8rem)] font-semibold">
+              Get found.
+            </span>
+          </h2>
+        </SectionHead>
 
-            <p className="text-[0.9rem] text-text-secondary font-light leading-[1.75] mb-8">
+        <div className="grid grid-cols-1 items-start gap-x-10 gap-y-14 lg:grid-cols-[10rem_1fr_1.35fr]">
+          <div className="hidden lg:block" />
+
+          <div>
+            <p className="mb-9 max-w-[52ch] text-[0.9rem] leading-[1.75] text-text-secondary">
               Your profile shows what you&apos;re building, what you&apos;re good at, and what
               you&apos;re looking for — skills, sectors, and intent. Smart matching surfaces
               the right people at the right time.
             </p>
 
-            {/* Skills picker */}
-            <div className="mb-6">
-              <p className="text-[0.775rem] text-text-muted uppercase tracking-widest mb-3">
-                Skills · pick up to 5
-              </p>
+            <div className="mb-7 border-t border-border pt-6">
+              <p className="label-wide mb-3 text-text-muted">Skills · pick up to 5</p>
               <div className="flex flex-wrap gap-1.5">
                 {SKILLS.map((s) => <Chip key={s} label={s} active={ACTIVE_SKILLS.has(s)} />)}
               </div>
             </div>
 
-            {/* Sector picker */}
-            <div>
-              <p className="text-[0.775rem] text-text-muted uppercase tracking-widest mb-3">
-                Sector focus · pick up to 2
-              </p>
+            <div className="border-t border-border pt-6">
+              <p className="label-wide mb-3 text-text-muted">Sector focus · pick up to 2</p>
               <div className="flex flex-wrap gap-1.5">
                 {SECTORS.map((s) => <Chip key={s} label={s} active={ACTIVE_SECTORS.has(s)} />)}
               </div>
             </div>
           </div>
 
-          {/* Right: profile cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {PROFILES.map((p) => <ProfileCard key={p.name} {...p} />)}
+          <div className="grid grid-cols-1 gap-px border border-border bg-border sm:grid-cols-2">
+            {PROFILES.map((p) => <ProfileCell key={p.name} {...p} />)}
           </div>
         </div>
       </div>

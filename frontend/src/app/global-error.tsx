@@ -3,6 +3,11 @@
 // global-error renders only when the root layout itself throws — so we
 // can't rely on layout.tsx, fonts, or globals.css. Plain inline styles
 // only. This is the last line of defence.
+//
+// The palette below is therefore the one copy of the design tokens that has
+// to be maintained by hand. The literals mirror --color-bg-primary,
+// --color-text-primary, --color-text-secondary, --color-text-muted and
+// --color-accent in globals.css; change them together.
 export default function GlobalError({
   error,
 }: {
@@ -15,8 +20,8 @@ export default function GlobalError({
         style={{
           margin: 0,
           minHeight: "100vh",
-          backgroundColor: "#0c0c0b",
-          color: "#f0ede6",
+          backgroundColor: "#08080a",
+          color: "#f4f4f5",
           fontFamily: "system-ui, sans-serif",
           display: "flex",
           alignItems: "center",
@@ -26,13 +31,13 @@ export default function GlobalError({
         }}
       >
         <div style={{ maxWidth: 480 }}>
-          <div style={{ color: "#c9a84c", fontSize: "0.75rem", letterSpacing: "0.18em", textTransform: "uppercase", marginBottom: "1rem" }}>
+          <div style={{ color: "#9a9aa2", fontSize: "0.7rem", fontWeight: 500, letterSpacing: "0.18em", textTransform: "uppercase", marginBottom: "1rem" }}>
             Application error
           </div>
           <h1 style={{ fontSize: "1.75rem", margin: "0 0 1rem", lineHeight: 1.2 }}>
             Something went very wrong.
           </h1>
-          <p style={{ color: "#8a8780", fontSize: "0.95rem", lineHeight: 1.7, marginBottom: "1.5rem" }}>
+          <p style={{ color: "#9a9aa2", fontSize: "0.95rem", lineHeight: 1.7, marginBottom: "1.5rem" }}>
             The page couldn&apos;t be rendered. Please refresh, or come back in a moment.
           </p>
           {/* Plain anchor on purpose: global-error renders when the Next.js
@@ -43,18 +48,18 @@ export default function GlobalError({
             style={{
               display: "inline-block",
               padding: "0.75rem 1.5rem",
-              backgroundColor: "#c9a84c",
-              color: "#0c0c0b",
-              borderRadius: 9999,
+              backgroundColor: "#ffffff",
+              color: "#08080a",
+              borderRadius: 3,
               textDecoration: "none",
-              fontWeight: 500,
+              fontWeight: 600,
               fontSize: "0.875rem",
             }}
           >
             Reload home
           </a>
           {error.digest && (
-            <p style={{ marginTop: "2rem", fontSize: "0.7rem", color: "#5a5855" }}>
+            <p style={{ marginTop: "2rem", fontSize: "0.7rem", color: "#7a7a82" }}>
               Error ID: <span style={{ fontFamily: "ui-monospace, monospace" }}>{error.digest}</span>
             </p>
           )}

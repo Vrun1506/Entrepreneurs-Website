@@ -144,13 +144,11 @@ export default function OnboardingForm({ role, firstName, surname, skills, secto
       <main id="main-content" tabIndex={-1} className="flex-1 flex items-start justify-center px-8 py-12">
         <div className="w-full max-w-[640px]">
           <div className="text-center mb-8">
-            <div className="text-[0.7rem] text-gold tracking-[0.18em] uppercase mb-3">
-              Step {step + 1} of {TOTAL_STEPS} · {STEP_TITLES[step]}
-            </div>
+            <p className="label-wide text-text-secondary mb-3">Step {step + 1} of {TOTAL_STEPS} · {STEP_TITLES[step]}</p>
             <h1 className="font-display text-text-primary leading-[1.1] tracking-tight mb-4 text-[clamp(2rem,4vw,2.75rem)]">
-              Tell us about <em className="text-gold">yourself.</em>
+              Tell us about <span className="font-light text-text-secondary">yourself.</span>
             </h1>
-            <p className="text-[0.9rem] text-text-secondary font-light leading-[1.7]">
+            <p className="text-[0.9rem] text-text-secondary leading-[1.7]">
               {role === "alum"
                 ? "Help us verify your Imperial connection and your work."
                 : "Help your peers find you in the directory."}
@@ -163,7 +161,7 @@ export default function OnboardingForm({ role, firstName, surname, skills, secto
 
           <ProgressBar current={step + 1} total={TOTAL_STEPS} />
 
-          <form onSubmit={handleSubmit} className="mt-6 space-y-5 rounded-2xl bg-bg-card border border-border-subtle p-8">
+          <form onSubmit={handleSubmit} className="mt-6 space-y-5 rounded-2xl bg-bg-card border border-border p-8">
             {error && <ErrorBanner>{error}</ErrorBanner>}
 
             {step === 0 && (
@@ -245,7 +243,7 @@ function ProgressBar({ current, total }: { current: number; total: number }) {
     <div className="space-y-2" aria-label={`Step ${current} of ${total}`}>
       <div className="h-1 w-full rounded-full bg-white/[0.04] overflow-hidden">
         <div
-          className="h-full bg-gold transition-[width] duration-300 ease-out"
+          className="h-full bg-accent transition-[width] duration-300 ease-out"
           style={{ width: `${pct}%` }}
         />
       </div>

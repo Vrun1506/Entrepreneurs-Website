@@ -50,12 +50,12 @@ export default async function CommunityPage({
       <AppNav active="community" isApproved={true} isAdmin={isAdmin} />
       <main id="main-content" tabIndex={-1} className="flex-1 px-4 sm:px-8 py-10 sm:py-12">
         <div className="max-w-[1200px] mx-auto">
-          <div className="mb-8">
-            <div className="text-[0.7rem] text-gold tracking-[0.18em] uppercase mb-2">Community</div>
-            <h1 className="font-display text-text-primary leading-[1.1] tracking-tight text-[clamp(1.75rem,3.5vw,2.5rem)]">
+          <div className="mb-8 grid grid-cols-1 gap-x-10 md:grid-cols-[10rem_1fr] border-t border-border pt-6">
+            <p className="label-wide text-text-secondary mb-3 md:mb-0">Community</p>
+            <h1 className="font-display text-text-primary leading-[1.1] tracking-tight text-[clamp(1.75rem,3.5vw,2.5rem)] md:col-start-2 md:row-start-1">
               The Foundry directory
             </h1>
-            <p className="text-[0.875rem] text-text-muted mt-3 leading-relaxed">
+            <p className="text-[0.875rem] text-text-muted mt-3 leading-relaxed md:col-start-2">
               <Suspense fallback={<Skeleton className="h-3 w-24 inline-block align-middle" />}>
                 <MemberCount data={data} />
               </Suspense>

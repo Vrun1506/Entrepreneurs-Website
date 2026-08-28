@@ -35,8 +35,8 @@ export default async function ProfilePage() {
           >
             ← Settings
           </Link>
-          <div className="mb-10">
-            <div className="text-[0.7rem] text-gold tracking-[0.18em] uppercase mb-2">Your profile</div>
+          <div className="mb-10 border-t border-border pt-6">
+            <p className="label-wide text-text-secondary mb-3">Your profile</p>
             <h1 className="font-display text-text-primary leading-[1.1] tracking-tight text-[clamp(1.75rem,3.5vw,2.5rem)]">
               Edit your details
             </h1>

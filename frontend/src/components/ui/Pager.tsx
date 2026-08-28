@@ -36,7 +36,7 @@ export function Pager({
       >
         ← Previous
       </button>
-      <span className="text-[0.8rem] text-text-muted tabular-nums">
+      <span className="tnum text-[0.8rem] text-text-secondary">
         Page {page} of {totalPages}
       </span>
       <button
@@ -52,6 +52,6 @@ export function Pager({
 }
 
 const BUTTON =
-  "px-4 py-2 rounded-lg bg-transparent border border-border text-text-secondary " +
+  "px-4 py-2 rounded-lg bg-white/[0.03] border border-border-strong text-text-secondary " +
   "text-[0.8rem] cursor-pointer transition-colors hover:text-text-primary " +
-  "hover:border-gold/40 disabled:opacity-40 disabled:cursor-not-allowed";
+  "hover:border-accent disabled:opacity-40 disabled:cursor-not-allowed";

@@ -18,8 +18,8 @@ export default function PrivacyPage() {
         <Link href="/login" className="text-[0.8rem] text-text-muted no-underline hover:text-text-secondary transition-colors">
           ← Back
         </Link>
-        <div className="mt-6 mb-10">
-          <div className="text-[0.7rem] text-gold tracking-[0.18em] uppercase mb-2">Legal</div>
+        <div className="mt-6 mb-10 border-t border-border pt-6">
+          <p className="label-wide text-text-secondary mb-3">Legal</p>
           <h1 className="font-display text-[clamp(1.75rem,3vw,2.5rem)] leading-[1.1] tracking-tight">
             Privacy Policy
           </h1>
@@ -69,7 +69,7 @@ export default function PrivacyPage() {
               <li><strong>Showing your profile in the member directory</strong> — your consent. You can withdraw this at any time by editing your profile or deleting your account.</li>
               <li><strong>Sending you service / transactional emails</strong> (sign-in and password reset, decisions on your application and listings, account and content notices, and replies when you contact us) — necessary to perform our contract with you and our legitimate interest in operating the platform.</li>
               <li><strong>Keeping the platform secure</strong> (anti-bot challenges, rate limiting, abuse prevention) — our legitimate interest in protecting members and the service.</li>
-              <li><strong>Understanding how the product is used</strong> (cookieless, pseudonymous analytics) — our legitimate interest in improving Foundry. See our <Link href="/cookies" className="text-gold hover:text-gold-light no-underline">Cookie Policy</Link>.</li>
+              <li><strong>Understanding how the product is used</strong> (cookieless, pseudonymous analytics) — our legitimate interest in improving Foundry. See our <Link href="/cookies" className="text-accent hover:text-accent-light no-underline">Cookie Policy</Link>.</li>
             </ul>
             <p className="mt-2">
               We do not use your data for advertising, we do not sell it, and we do not carry out automated
@@ -160,7 +160,7 @@ export default function PrivacyPage() {
             <p>
               We use only strictly necessary cookies (for your sign-in session and security) and run our analytics
               cookielessly, so we do not show a cookie banner. Full details are in our{" "}
-              <Link href="/cookies" className="text-gold hover:text-gold-light no-underline">Cookie Policy</Link>.
+              <Link href="/cookies" className="text-accent hover:text-accent-light no-underline">Cookie Policy</Link>.
             </p>
           </Section>
 
@@ -183,7 +183,7 @@ export default function PrivacyPage() {
               Contact us about your data at <strong>contact@imperialentrepreneurs.com</strong>. If you are
               unhappy with how we have handled your data you can complain to the UK Information Commissioner&rsquo;s
               Office (ICO) at{" "}
-              <a href="https://ico.org.uk/make-a-complaint/" target="_blank" rel="noopener noreferrer" className="text-gold hover:text-gold-light no-underline">ico.org.uk/make-a-complaint</a>{" "}
+              <a href="https://ico.org.uk/make-a-complaint/" target="_blank" rel="noopener noreferrer" className="text-accent hover:text-accent-light no-underline">ico.org.uk/make-a-complaint</a>{" "}
               or by calling 0303 123 1113. We would appreciate the chance to resolve it with you first.
             </p>
           </Section>

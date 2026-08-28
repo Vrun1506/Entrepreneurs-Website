@@ -35,11 +35,11 @@ function NavLink({ label, href, isActive, onClick }: {
     <a
       href={href}
       onClick={(e) => onClick(e, href)}
-      className={isActive ? "relative text-sm tracking-wide transition-colors duration-150 no-underline text-text-primary font-medium" : "relative text-sm tracking-wide transition-colors duration-150 no-underline text-text-secondary hover:text-text-primary"}
+      className={`relative label-wide no-underline transition-colors duration-150 ${isActive ? "text-text-primary" : "text-text-secondary hover:text-text-primary"}`}
     >
       {label}
       {isActive && (
-        <span className="absolute -bottom-1 left-0 right-0 h-px bg-gold rounded-sm" />
+        <span className="absolute -bottom-1 left-0 right-0 h-px bg-accent" />
       )}
     </a>
   );
@@ -49,7 +49,7 @@ function JoinButton() {
   return (
     <a
       href="/login"
-      className="hidden md:inline-flex items-center px-5 py-2 rounded-full no-underline bg-gold text-bg-primary text-sm font-medium tracking-wide transition-all duration-200 hover:bg-gold-light hover:-translate-y-px"
+      className="hidden md:inline-flex items-center rounded-lg px-5 py-2 text-sm font-semibold no-underline bg-accent text-bg-primary transition-colors duration-150 hover:bg-accent-dim"
     >
       Join Foundry
     </a>
@@ -61,11 +61,11 @@ function HamburgerButton({ open, onClick }: { open: boolean; onClick: () => void
     <button
       onClick={onClick}
       aria-label="Toggle menu"
-      className="md:hidden flex flex-col gap-1 border border-border-strong rounded-lg p-1.5 bg-white/[0.05] cursor-pointer"
+      className="md:hidden flex flex-col gap-1 border border-border-strong rounded-lg p-2 bg-white/[0.05] cursor-pointer"
     >
-      <span className={`block w-[18px] h-px bg-text-secondary rounded transition-all duration-200 ${open ? "rotate-45 translate-x-0.5 translate-y-[5px]" : ""}`} />
-      <span className={`block w-[18px] h-px bg-text-secondary rounded transition-all duration-200 ${open ? "opacity-0" : ""}`} />
-      <span className={`block w-[18px] h-px bg-text-secondary rounded transition-all duration-200 ${open ? "-rotate-45 translate-x-0.5 -translate-y-[5px]" : ""}`} />
+      <span className={`block w-[18px] h-px bg-text-secondary rounded transition-[transform,opacity] duration-200 ${open ? "rotate-45 translate-x-0.5 translate-y-[5px]" : ""}`} />
+      <span className={`block w-[18px] h-px bg-text-secondary rounded transition-[transform,opacity] duration-200 ${open ? "opacity-0" : ""}`} />
+      <span className={`block w-[18px] h-px bg-text-secondary rounded transition-[transform,opacity] duration-200 ${open ? "-rotate-45 translate-x-0.5 -translate-y-[5px]" : ""}`} />
     </button>
   );
 }
@@ -99,9 +99,9 @@ export default function Navbar() {
 
   return (
     <header
-      className={scrolled ? "fixed top-0 left-0 right-0 z-50 transition-all duration-300 bg-bg-primary/90 backdrop-blur-md border-b border-border/60" : "fixed top-0 left-0 right-0 z-50 transition-all duration-300 bg-transparent border-b border-transparent"}
+      className={scrolled ? "fixed top-0 left-0 right-0 z-50 transition-colors duration-300 bg-bg-primary/92 backdrop-blur-md border-b border-border" : "fixed top-0 left-0 right-0 z-50 transition-colors duration-300 bg-transparent border-b border-transparent"}
     >
-      <nav className="max-w-[1200px] mx-auto px-8 h-16 flex items-center justify-between">
+      <nav className="max-w-[1200px] mx-auto px-8 h-16 flex items-center justify-between gap-6">
         <Logo />
 
         {/* Desktop links */}
@@ -130,14 +130,14 @@ export default function Navbar() {
               key={link.href}
               href={link.href}
               onClick={(e) => handleNavClick(e, link.href)}
-              className="text-base text-text-secondary no-underline hover:text-text-primary transition-colors"
+              className="label-wide text-[0.8rem] text-text-secondary no-underline hover:text-text-primary transition-colors"
             >
               {link.label}
             </a>
           ))}
           <a
             href="/login"
-            className="inline-flex items-center justify-center px-5 py-2.5 rounded-full no-underline bg-gold text-bg-primary text-base font-medium tracking-wide"
+            className="inline-flex items-center justify-center rounded-lg px-5 py-2.5 text-base font-semibold no-underline bg-accent text-bg-primary"
           >
             Join Foundry
           </a>

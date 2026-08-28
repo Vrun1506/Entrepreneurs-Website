@@ -51,7 +51,7 @@ export default function VcReviewCard({ vc: v }: { vc: Vc }) {
   };
 
   return (
-    <article className="rounded-2xl bg-bg-card border border-border-subtle overflow-hidden">
+    <article className="rounded-2xl bg-bg-card border border-border overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -71,7 +71,7 @@ export default function VcReviewCard({ vc: v }: { vc: Vc }) {
               {" · submitted "}{submittedOn}
             </div>
           </div>
-          <span className="px-2 py-0.5 rounded-full text-[0.65rem] bg-gold-muted text-gold-light border border-gold/20 uppercase tracking-wider shrink-0">
+          <span className="px-2 py-0.5 rounded-lg text-[0.65rem] bg-accent-muted text-accent-light border border-accent/20 uppercase tracking-wider shrink-0">
             {v.kind === "vc" ? "VC" : "Grant"}
           </span>
         </div>
@@ -86,14 +86,14 @@ export default function VcReviewCard({ vc: v }: { vc: Vc }) {
             <p className="text-[0.85rem] text-text-secondary leading-relaxed whitespace-pre-wrap">{v.description}</p>
           </DetailBlock>
           <DetailBlock label="Link">
-            <a href={v.link} target="_blank" rel="noreferrer noopener" className="text-[0.85rem] text-gold no-underline hover:underline">
+            <a href={v.link} target="_blank" rel="noreferrer noopener" className="text-[0.85rem] text-text-primary underline underline-offset-[3px] decoration-border-strong transition-colors hover:decoration-accent">
               {v.link} ↗
             </a>
           </DetailBlock>
           <DetailBlock label="Poster (signup email)">
             <p className="text-[0.85rem] text-text-secondary">{v.postedBy.signupEmail ?? "—"}</p>
             {v.postedBy.linkedinUrl && (
-              <a href={v.postedBy.linkedinUrl} target="_blank" rel="noreferrer noopener" className="text-[0.75rem] text-gold no-underline hover:underline">LinkedIn ↗</a>
+              <a href={v.postedBy.linkedinUrl} target="_blank" rel="noreferrer noopener" className="text-[0.75rem] text-text-primary underline underline-offset-[3px] decoration-border-strong transition-colors hover:decoration-accent">LinkedIn ↗</a>
             )}
           </DetailBlock>
         </div>
@@ -116,7 +116,7 @@ export default function VcReviewCard({ vc: v }: { vc: Vc }) {
               rows={2}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              className="w-full px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.8rem] text-text-primary placeholder:text-text-muted focus:border-gold/50 resize-none"
+              className="w-full px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.8rem] text-text-primary placeholder:text-text-muted focus:border-accent/50 resize-none"
             />
             <div className="flex gap-2">
               <Button

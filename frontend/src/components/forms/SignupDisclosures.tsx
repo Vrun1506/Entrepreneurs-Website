@@ -22,16 +22,16 @@ export function SignupDisclosures({
           type="checkbox"
           checked={agreed}
           onChange={(e) => onChange(e.target.checked)}
-          className="mt-[3px] w-4 h-4 shrink-0 accent-gold cursor-pointer"
+          className="mt-[3px] w-4 h-4 shrink-0 accent-white cursor-pointer"
           aria-describedby="tc-disclosure"
         />
         <span id="tc-disclosure" className="text-[0.78rem] text-text-secondary leading-relaxed">
           By signing up to <span className="text-text-primary">Imperial Entrepreneurs</span>, you agree to our{" "}
-          <Link href="/terms" target="_blank" className="text-gold hover:text-gold-light no-underline">
+          <Link href="/terms" target="_blank" className="text-accent hover:text-accent-light no-underline">
             Terms &amp; Conditions
           </Link>{" "}
           and{" "}
-          <Link href="/privacy" target="_blank" className="text-gold hover:text-gold-light no-underline">
+          <Link href="/privacy" target="_blank" className="text-accent hover:text-accent-light no-underline">
             Privacy Policy
           </Link>
           .

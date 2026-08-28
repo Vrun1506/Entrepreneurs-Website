@@ -33,3 +33,5 @@ graphify-out/
 supabase/.branches/
 supabase/.temp/
 supabase/.env
+# Design reference library (VoltAgent/awesome-design-md), read-only, not ours to track
+/design-md/

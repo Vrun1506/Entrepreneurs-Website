@@ -152,11 +152,11 @@ export default function CommunityAdminClient({
           skeleton: these rows are still valid, just about to change. */}
       <div className={url.pending ? "opacity-60 transition-opacity duration-150" : undefined}>
         {members.length === 0 ? (
-          <div className="text-center py-16 text-text-muted text-[0.85rem]">
+          <div className="rounded-lg border border-border bg-bg-card px-6 py-14 text-center text-[0.85rem] text-text-muted">
             {facets.total === 0 ? "No members yet." : "No members match your search or filters."}
           </div>
         ) : (
-          <div className="rounded-2xl bg-bg-card border border-border-subtle overflow-hidden">
+          <div className="rounded-2xl bg-bg-card border border-border overflow-hidden">
             <table className="w-full text-[0.825rem]">
               <thead>
                 <tr className="border-b border-border-subtle text-[0.7rem] text-text-muted uppercase tracking-wider">
@@ -235,7 +235,7 @@ function DeleteUserModal({ member, onClose }: { member: AdminMember; onClose: ()
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
       <div className="w-full max-w-[520px] rounded-2xl bg-bg-card border border-[#ff4d4d]/30 p-6">
-        <div className="text-[0.7rem] text-[#ff6b6b] tracking-[0.18em] uppercase mb-2">Danger zone</div>
+        <p className="label-wide text-[#ff8080] mb-3">Danger zone</p>
         <h2 className="font-display text-[1.25rem] text-text-primary mb-2">
           Delete {member.firstName} {member.surname}?
         </h2>

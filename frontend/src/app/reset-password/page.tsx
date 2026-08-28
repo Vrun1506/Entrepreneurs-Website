@@ -20,7 +20,7 @@ export default async function ResetPasswordPage() {
   return (
     <main id="main-content" tabIndex={-1} className="min-h-screen bg-bg-primary flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-[400px]">
-        <div className="rounded-2xl bg-bg-card border border-border-subtle p-8">
+        <div className="rounded-2xl bg-bg-card border border-border p-8">
           <div className="mb-6">
             <h1 className="font-display text-[1.4rem] text-text-primary leading-tight">Set a new password</h1>
             <p className="text-[0.8rem] text-text-muted mt-2 leading-relaxed">

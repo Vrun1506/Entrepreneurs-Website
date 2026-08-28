@@ -37,7 +37,7 @@ export default function SessionsSection() {
   };
 
   return (
-    <div className="rounded-2xl bg-bg-card border border-border-subtle p-8 space-y-5">
+    <div className="rounded-2xl bg-bg-card border border-border p-8 space-y-5">
       <div>
         <div className="text-[0.95rem] font-medium text-text-primary">Active sessions</div>
       </div>

@@ -66,7 +66,7 @@ export default function OpportunityReviewCard({ opportunity: o }: { opportunity:
   };
 
   return (
-    <article className="rounded-2xl bg-bg-card border border-border-subtle overflow-hidden">
+    <article className="rounded-2xl bg-bg-card border border-border overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -86,7 +86,7 @@ export default function OpportunityReviewCard({ opportunity: o }: { opportunity:
               {" · submitted "}{submittedOn}
             </div>
           </div>
-          <div className="text-[0.75rem] text-gold-light shrink-0">{o.pay}</div>
+          <div className="text-[0.75rem] text-accent-light shrink-0">{o.pay}</div>
         </div>
         <div className="text-[0.7rem] text-text-muted mt-3">
           {open ? "▾ Hide full details" : "▸ Show full details"}
@@ -116,7 +116,7 @@ export default function OpportunityReviewCard({ opportunity: o }: { opportunity:
 
           <DetailBlock label="How to apply">
             {o.applyMethod === "link" ? (
-              <a href={o.applyUrl ?? "#"} target="_blank" rel="noreferrer noopener" className="text-[0.85rem] text-gold no-underline hover:underline">
+              <a href={o.applyUrl ?? "#"} target="_blank" rel="noreferrer noopener" className="text-[0.85rem] text-text-primary underline underline-offset-[3px] decoration-border-strong transition-colors hover:decoration-accent">
                 {o.applyUrl} ↗
               </a>
             ) : (
@@ -128,7 +128,7 @@ export default function OpportunityReviewCard({ opportunity: o }: { opportunity:
             <DetailBlock label="Poster (signup email)">
               <p className="text-[0.85rem] text-text-secondary">{o.postedBy.signupEmail ?? "—"}</p>
               {o.postedBy.linkedinUrl && (
-                <a href={o.postedBy.linkedinUrl} target="_blank" rel="noreferrer noopener" className="text-[0.75rem] text-gold no-underline hover:underline">LinkedIn ↗</a>
+                <a href={o.postedBy.linkedinUrl} target="_blank" rel="noreferrer noopener" className="text-[0.75rem] text-text-primary underline underline-offset-[3px] decoration-border-strong transition-colors hover:decoration-accent">LinkedIn ↗</a>
               )}
             </DetailBlock>
             <DetailBlock label="Public contact email">
@@ -145,10 +145,10 @@ export default function OpportunityReviewCard({ opportunity: o }: { opportunity:
             <DetailBlock label="Tags">
               <div className="flex flex-wrap gap-1.5">
                 {o.sectors.map((s) => (
-                  <span key={`sec-${s}`} className="px-2 py-0.5 rounded-full text-[0.7rem] bg-gold-muted text-gold-light border border-gold/20">{s}</span>
+                  <span key={`sec-${s}`} className="px-2 py-0.5 rounded-lg text-[0.7rem] bg-accent-muted text-accent-light border border-accent/20">{s}</span>
                 ))}
                 {o.skills.map((s) => (
-                  <span key={`skl-${s}`} className="px-2 py-0.5 rounded-full text-[0.7rem] bg-white/[0.03] text-text-secondary border border-border">{s}</span>
+                  <span key={`skl-${s}`} className="px-2 py-0.5 rounded-lg text-[0.7rem] bg-white/[0.03] text-text-secondary border border-border">{s}</span>
                 ))}
               </div>
             </DetailBlock>
@@ -174,7 +174,7 @@ export default function OpportunityReviewCard({ opportunity: o }: { opportunity:
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="e.g. Pay missing / duplicate / unclear company"
-              className="w-full px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.8rem] text-text-primary placeholder:text-text-muted focus:border-gold/50 resize-none"
+              className="w-full px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.8rem] text-text-primary placeholder:text-text-muted focus:border-accent/50 resize-none"
             />
             <div className="flex gap-2">
               <Button
