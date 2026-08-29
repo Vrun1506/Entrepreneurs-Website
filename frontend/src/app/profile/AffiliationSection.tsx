@@ -7,7 +7,7 @@ import { ErrorBanner, SuccessBanner } from "@/components/forms/Banners";
 import { ChoiceCards } from "@/components/intake/controls";
 import { describeSupabaseError } from "@/lib/supabaseErrors";
 import { createClient } from "@/lib/supabase/client";
-import { AFFILIATIONS, type Affiliation } from "@/lib/intake/steps";
+import { AFFILIATIONS, NON_STUDENT_AFFILIATIONS, type Affiliation } from "@/lib/intake/steps";
 import { invalidateDirectoryCache } from "@/app/profile/actions";
 
 // ════════════════════════════════════════════════════════════════════
@@ -72,7 +72,7 @@ export default function AffiliationSection({ role }: { role: Affiliation }) {
 
   // Everything except student. Moving into 'student' requires a verified
   // Imperial address, which only the signup flow can establish.
-  const options = AFFILIATIONS.filter((a) => a.value !== "student");
+  const options = NON_STUDENT_AFFILIATIONS;
 
   const save = async () => {
     if (choice === role) return;
