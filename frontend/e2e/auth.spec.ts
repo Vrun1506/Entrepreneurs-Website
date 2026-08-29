@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { startNonStudentSignup, openNonStudentSignIn } from "./fixtures";
 
 // ════════════════════════════════════════════════════════════════════
 // Foundry · Auth entry-flow E2E (logged-out)
@@ -37,30 +38,65 @@ async function mockGoTrue(page: Page, urlGlob: string, body: unknown) {
 }
 
 test.describe("auth entry flows", () => {
-  // Six since 20260828000001. Only "Current student" takes the Imperial-OTP
-  // path; the other five sign up with a password and go to admin review, so
-  // the chooser is also the only place those roles can be created.
-  test("role chooser offers all six affiliations", async ({ page }) => {
+  // Two doors, because only "Current student" takes the Imperial-OTP path
+  // and is auto-approved; the other five all sign up with a password and go
+  // to admin review. The chooser offers the fork that exists, not the six
+  // affiliations — those moved to a field on the form behind the second door.
+  test("the chooser offers the two paths that actually differ", async ({ page }) => {
     await page.goto("/login");
-    for (const label of [
-      /Current student/i,
-      /Recent graduate/i,
-      /Alumni founder/i,
-      /Mentor/i,
-      /Angel investor/i,
-      /Staff or faculty/i,
-    ]) {
-      await expect(page.getByRole("button", { name: label })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Current student/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Alum, mentor, investor or staff/i })).toBeVisible();
+    // The affiliations are no longer top-level choices.
+    for (const gone of [/Recent graduate/i, /Angel investor/i, /Staff or faculty/i]) {
+      await expect(page.getByRole("button", { name: gone })).toHaveCount(0);
     }
+  });
+
+  // Still creatable, just one level in — this is the only place the five
+  // non-student roles can be self-assigned, so losing one would silently
+  // make that affiliation unreachable.
+  test("all five non-student affiliations are offered behind the second door", async ({ page }) => {
+    await page.goto("/login");
+    await page.getByRole("button", { name: /Alum, mentor, investor or staff/i }).click();
+
+    const select = page.locator("#affiliation");
+    await expect(select).toBeVisible();
+    const values = await select.locator("option").evaluateAll(
+      (os) => os.map((o) => (o as HTMLOptionElement).value).filter(Boolean),
+    );
+    expect(values.sort()).toEqual(
+      ["alum", "angel", "mentor", "recent_grad", "staff_faculty"],
+    );
+    // 'student' is not self-assignable here: it would mean auto-approval.
+    expect(values).not.toContain("student");
+  });
+
+  // The affiliation is required, and checked before the rest of the form —
+  // the six-button chooser made it impossible to skip, a dropdown does not.
+  test("signup refuses to proceed without an affiliation", async ({ page }) => {
+    await page.goto("/login");
+    await page.getByRole("button", { name: /Alum, mentor, investor or staff/i }).click();
+    await page.locator("#first-name").fill("Grace");
+    await page.locator("#surname").fill("Hopper");
+    await page.locator("#email").fill("grace@example.com");
+    await page.locator("#password").fill("password123");
+    await page.locator("#repeat-password").fill("password123");
+    await page.getByRole("checkbox").check();
+    await page.getByRole("button", { name: "Create account" }).click();
+
+    await expect(page.getByText(/choose how you.re connected/i)).toBeVisible();
   });
 
   // The graduation email links here with ?role=alum. It went unread until
   // 2026-08-28, which was survivable with two options and is not with six.
   test("?role= preselects the affiliation the graduation email sends", async ({ page }) => {
     await page.goto("/login?role=alum");
-    // Straight to the password form, not the chooser.
+    // Straight to the password form, not the chooser, with the affiliation
+    // already declared — otherwise the link would hand a graduate a form
+    // that stops them on a field the email had already answered.
     await expect(page.getByRole("button", { name: /Current student/i })).toHaveCount(0);
     await expect(page.locator("#password")).toBeVisible();
+    await expect(page.locator("#affiliation")).toHaveValue("alum");
   });
 
   test("?role= will not preselect student, which needs a verified address", async ({ page }) => {
@@ -188,7 +224,7 @@ test.describe("auth entry flows", () => {
 
   test("alum: the submit button is gated on the T&C checkbox", async ({ page }) => {
     await page.goto("/login");
-    await page.getByRole("button", { name: /Alumni founder/i }).click();
+    await startNonStudentSignup(page);
 
     const submit = page.getByRole("button", { name: "Create account" });
     await expect(submit).toBeDisabled();
@@ -198,7 +234,7 @@ test.describe("auth entry flows", () => {
 
   test("alum: mismatched passwords are rejected client-side", async ({ page }) => {
     await page.goto("/login");
-    await page.getByRole("button", { name: /Alumni founder/i }).click();
+    await startNonStudentSignup(page);
     await page.locator("#first-name").fill("Grace");
     await page.locator("#surname").fill("Hopper");
     await page.locator("#email").fill("grace@example.com");
@@ -212,7 +248,7 @@ test.describe("auth entry flows", () => {
 
   test("alum: a password under 8 characters is rejected client-side", async ({ page }) => {
     await page.goto("/login");
-    await page.getByRole("button", { name: /Alumni founder/i }).click();
+    await startNonStudentSignup(page);
     await page.locator("#first-name").fill("Grace");
     await page.locator("#surname").fill("Hopper");
     await page.locator("#email").fill("grace@example.com");
@@ -234,7 +270,7 @@ test.describe("auth entry flows", () => {
     });
 
     await page.goto("/login");
-    await page.getByRole("button", { name: /Alumni founder/i }).click();
+    await startNonStudentSignup(page);
     await page.locator("#first-name").fill("New");
     await page.locator("#surname").fill("Alum");
     await page.locator("#email").fill("newalum@example.com");
@@ -265,7 +301,7 @@ test.describe("auth entry flows", () => {
     // the chooser and the forgot link never renders.
     await page.goto("/login");
     await page.getByRole("button", { name: "Sign in" }).click(); // toggle into sign-in mode
-    await page.getByRole("button", { name: /Alumni founder/i }).click();
+    await openNonStudentSignIn(page);
     await page.getByRole("button", { name: "Forgot your password?" }).click();
 
     await page.locator("#reset-email").fill("alum@example.com");

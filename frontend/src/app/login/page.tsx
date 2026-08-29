@@ -12,7 +12,7 @@ import { BrandLogo } from "@/components/BrandLogo";
 import Starfield from "@/components/Starfield";
 import { destinationForStatus } from "@/lib/auth/status";
 import { Button } from "@/components/ui/Button";
-import { AFFILIATIONS, type Affiliation } from "@/lib/intake/steps";
+import { AFFILIATIONS, NON_STUDENT_AFFILIATIONS, type Affiliation } from "@/lib/intake/steps";
 
 // Auth error text reaches us partly via ?error= in the URL, which is
 // attacker-controllable — rendering it verbatim is a phishing/content-spoof
@@ -79,6 +79,19 @@ type Mode = "signin" | "signup";
 // written into signup metadata.
 type Role = Affiliation | null;
 
+// Which of the two flows the reader is in — the chooser's actual question.
+// It is deliberately not the same thing as `role`: the chooser used to set
+// role directly, which forced it to offer all six affiliations as equal
+// cards just to reach two code paths. Now the door and the declaration are
+// separate, so the door has two options and the declaration is a field.
+//
+// Staff and faculty are in "other" despite holding Imperial addresses. The
+// address is not what separates the flows — admin review is. Only 'student'
+// maps to 'approved' without a human (migration 20260603000001, asserted by
+// supabase/tests/admission_roles.sql), so a "student or staff" door would
+// promise instant access the database then refuses to give.
+type Track = "student" | "other";
+
 export default function LoginPage() {
   const router = useRouter();
   const supabase = createClient();
@@ -93,11 +106,15 @@ export default function LoginPage() {
   // 'student' is deliberately not honoured: that path needs a verified
   // Imperial address and an OTP, and nothing links to it.
   const searchParams = useSearchParams();
-  const [role, setRole] = useState<Role>(() => {
+  const linkedRole = (() => {
     const r = searchParams.get("role");
     const valid = AFFILIATIONS.some((a) => a.value === r && a.value !== "student");
     return valid ? (r as Affiliation) : null;
-  });
+  })();
+  const [role, setRole] = useState<Role>(linkedRole);
+  // A ?role= link skips the chooser and lands on the form with the dropdown
+  // already set, which is what keeps the graduation handoff working.
+  const [track, setTrack] = useState<Track | null>(linkedRole ? "other" : null);
 
   // Alum form fields
   const [firstName, setFirstName] = useState("");
@@ -201,11 +218,13 @@ export default function LoginPage() {
 
   const switchMode = (next: Mode) => {
     setMode(next);
+    setTrack(null);
     setRole(null);
     resetForm();
   };
 
   const backToChooser = () => {
+    setTrack(null);
     setRole(null);
     resetForm();
   };
@@ -414,6 +433,13 @@ export default function LoginPage() {
     setError("");
 
     if (mode === "signup") {
+      // No silent default. The old chooser made this choice unavoidable by
+      // being six buttons; behind a dropdown it can be skipped, and the
+      // value is what an admin verifies you as — so ask rather than guess.
+      if (!role) {
+        setError("Please choose how you're connected to Imperial.");
+        return;
+      }
       const trimmedFirst = cleanName(firstName);
       const trimmedSurname = cleanName(surname);
       if (!trimmedFirst || !trimmedSurname) {
@@ -554,11 +580,11 @@ export default function LoginPage() {
     );
 
   const subtitle =
-    role === null
+    track === null
       ? mode === "signup"
         ? "Tell us how you're connected to Imperial."
         : "Tell us how you sign in."
-      : role === "student"
+      : track === "student"
         ? mode === "signup"
           ? "We'll email a verification code to your Imperial email."
           : "Enter your Imperial email and we'll email you a sign-in code."
@@ -604,11 +630,21 @@ export default function LoginPage() {
               </div>
             )}
 
-            {role === null && (
-              <Chooser onPick={(r) => { setRole(r); setError(""); }} />
+            {track === null && (
+              <Chooser
+                mode={mode}
+                onPick={(t) => {
+                  setTrack(t);
+                  // The student path writes role: "student" itself; keeping
+                  // the state in step means nothing downstream has to know
+                  // which of the two set it.
+                  setRole(t === "student" ? "student" : null);
+                  setError("");
+                }}
+              />
             )}
 
-            {role === "student" && (
+            {track === "student" && (
               <StudentMagicLinkFlow
                 mode={mode}
                 firstName={firstName} setFirstName={setFirstName}
@@ -627,9 +663,10 @@ export default function LoginPage() {
               />
             )}
 
-            {role !== null && role !== "student" && (
+            {track === "other" && (
               <AlumForm
                 mode={mode}
+                role={role} setRole={setRole}
                 firstName={firstName} setFirstName={setFirstName}
                 surname={surname} setSurname={setSurname}
                 email={email} setEmail={setEmail}
@@ -656,7 +693,7 @@ export default function LoginPage() {
                 sub-view (request / resend / forgot); remounts via key to mint a
                 fresh single-use token after each send. Renders nothing unless
                 the public site key is set. */}
-            {turnstileConfigured && role !== null && (
+            {turnstileConfigured && track !== null && (
               <div className="mt-5 flex justify-center">
                 <TurnstileWidget key={turnstileNonce} onToken={setTurnstileToken} />
               </div>
@@ -699,17 +736,39 @@ export default function LoginPage() {
 }
 
 /* ── Chooser ──────────────────────────────────────────────────────── */
-function Chooser({ onPick }: { onPick: (r: Affiliation) => void }) {
+// Two doors, not six.
+//
+// The old chooser laid out all six affiliations as equal cards, which made
+// the reader distinguish "Recent graduate" from "Alumni founder" before
+// they had any reason to care — and on this page that difference decides
+// nothing: both take the identical password-plus-review path. Six near
+// identical boxes are read by scanning, not by knowing, so the fine print
+// was doing the work the layout should have done.
+//
+// These two are the fork that actually exists in the code below. Which of
+// the five someone is moves onto the form, where it is a declaration for
+// the reviewing admin rather than a branch.
+function Chooser({ mode, onPick }: { mode: Mode; onPick: (t: Track) => void }) {
   return (
     <div className="space-y-3">
-      {AFFILIATIONS.map((a) => (
-        <RoleButton
-          key={a.value}
-          title={a.label}
-          blurb={a.blurb}
-          onClick={() => onPick(a.value)}
-        />
-      ))}
+      <RoleButton
+        title="Current student"
+        blurb={
+          mode === "signup"
+            ? "Undergrad, postgrad or PhD. Verified by your Imperial email."
+            : "Sign in with your Imperial email and a code."
+        }
+        onClick={() => onPick("student")}
+      />
+      <RoleButton
+        title="Alum, mentor, investor or staff"
+        blurb={
+          mode === "signup"
+            ? "Everyone else. You'll say which on the next screen, and an admin verifies you."
+            : "Sign in with your email and password."
+        }
+        onClick={() => onPick("other")}
+      />
     </div>
   );
 }
@@ -944,6 +1003,7 @@ function StudentMagicLinkFlow({
 /* ── Alum form ────────────────────────────────────────────────────── */
 function AlumForm({
   mode,
+  role, setRole,
   firstName, setFirstName,
   surname, setSurname,
   email, setEmail,
@@ -957,6 +1017,9 @@ function AlumForm({
   onSubmit, onResend, onGoogle, onForgot, onForgotReset, onBack,
 }: {
   mode: Mode;
+  /** The affiliation being declared. Signup only — sign-in doesn't care
+   *  which of the five you are, only that you use a password. */
+  role: Role; setRole: (v: Role) => void;
   firstName: string; setFirstName: (v: string) => void;
   surname: string; setSurname: (v: string) => void;
   email: string; setEmail: (v: string) => void;
@@ -1083,9 +1146,40 @@ function AlumForm({
     );
   }
 
+  const selected = NON_STUDENT_AFFILIATIONS.find((a) => a.value === role);
+
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <BackLink onClick={onBack} />
+
+      {/* First field, above the sign-up controls, because it is the thing
+          the chooser stopped asking. The blurb below it carries the wording
+          the six cards used to, so nothing that helped someone place
+          themselves was lost in the collapse — it is just no longer six
+          simultaneous walls of text. */}
+      {mode === "signup" && (
+        <div>
+          <label htmlFor="affiliation" className="block text-[0.7rem] font-medium uppercase tracking-[0.14em] text-text-secondary mb-2">
+            How you&apos;re connected
+          </label>
+          <select
+            id="affiliation"
+            value={role ?? ""}
+            onChange={(e) => setRole((e.target.value || null) as Role)}
+            className={inputCls}
+          >
+            <option value="">Select one…</option>
+            {NON_STUDENT_AFFILIATIONS.map((a) => (
+              <option key={a.value} value={a.value}>{a.label}</option>
+            ))}
+          </select>
+          {selected && (
+            <p className="mt-2 text-[0.72rem] leading-relaxed text-text-muted">
+              {selected.blurb}
+            </p>
+          )}
+        </div>
+      )}
 
       <button
         type="button"
@@ -1101,6 +1195,17 @@ function AlumForm({
           checkbox only renders in signup mode, so consent for the Google path
           is captured by this always-visible notice (affirmative action + clear
           terms) rather than the hard checkbox gate used for email/password. */}
+      {/* tg_handle_new_user maps a Google signup to 'alum' outright — the
+          client cannot attach role metadata to an OAuth signup, so the
+          dropdown above genuinely does not reach this button. Saying so is
+          the alternative to a picker that silently doesn't apply. */}
+      {mode === "signup" && role && role !== "alum" && (
+        <p className="text-[0.72rem] leading-relaxed text-text-muted text-center px-2">
+          Google sign-up is recorded as an alumni founder. The admin reviewing
+          you will set it to {selected?.label.toLowerCase()}.
+        </p>
+      )}
+
       <p className="text-[0.72rem] text-text-muted leading-relaxed text-center px-2">
         By continuing with Google, you agree to our{" "}
         <Link href="/terms" target="_blank" className="text-accent hover:text-accent-light no-underline">
