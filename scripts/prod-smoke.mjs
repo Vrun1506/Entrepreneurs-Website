@@ -22,7 +22,7 @@ const PUBLIC_CHECKS = [
   ["/contact", "Get in touch"],
   ["/privacy", "IC Founders"],
   ["/terms", "IC Founders"],
-  ["/cookies", "Cookie Policy"],
+  ["/cookies", "IC Founders"],
 ];
 
 // Gated pages, logged out. These are status-only on purpose: what they prove
