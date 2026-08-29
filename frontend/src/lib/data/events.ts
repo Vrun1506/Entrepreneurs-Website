@@ -78,3 +78,16 @@ export async function eventForEdit(db: Db, id: string) {
     db.rpc("get_event_for_edit", { p_id: id }));
   return data[0] ?? null;
 }
+
+/**
+ * One approved, upcoming event, or null.
+ *
+ * Goes through listApprovedEvents for the same reason approvedOpportunity
+ * goes through its list: contact_email is masked inside the RPC, so a
+ * direct table read would leak it. The RPC's event_at >= now() filter
+ * means an event that has already happened is a miss.
+ */
+export async function approvedEvent(db: Db, id: string): Promise<FoundryEvent | null> {
+  const items = await listApprovedEvents(db);
+  return items.find((e) => e.id === id) ?? null;
+}

@@ -135,11 +135,11 @@ test.describe("filters live in the URL", () => {
   });
 });
 
-test.describe("deep-linked opportunity", () => {
-  // The directory's "Looking for" chips link to /opportunities?o=<id>. The
-  // fragment this replaced never reached the server, so the card could only
-  // pop open after hydration — and doing that needed a setState-in-effect
-  // the lint rule had to be silenced for.
+test.describe("an opportunity's own page", () => {
+  // The directory's "Looking for" chips, /home's cards and /my-activity all
+  // link to /opportunities/<id>. Before that route existed they pointed at
+  // /opportunities?o=<id>, which opened the card in place; that param now
+  // redirects here, so both shapes are covered below.
   let opportunityId = "";
 
   test.beforeAll(async () => {
@@ -190,26 +190,25 @@ test.describe("deep-linked opportunity", () => {
     await admin.from("opportunities").delete().eq("id", opportunityId);
   });
 
-  test("?o=<id> renders the card already expanded, in the server's HTML", async ({ page }) => {
-    const response = await page.goto(`/opportunities?o=${opportunityId}`);
-    const html = (await response!.text());
+  test("the page renders the whole listing in the server's HTML", async ({ page }) => {
+    const response = await page.goto(`/opportunities/${opportunityId}`);
+    const html = await response!.text();
 
-    // Expanded before any JavaScript runs — that is the whole point of
-    // moving this off the fragment.
-    expect(html).toContain("Hide details");
-
-    const card = page.locator(`#o-${opportunityId}`);
-    // Same guard as the sibling test below, and for the same reason plus one
-    // more: Suspense content is streamed into a hidden holder and then swapped
-    // into place, so for one frame the same <article> exists twice. toHaveCount
-    // retries, so it waits that window out — going straight to toContainText
-    // hits a strict-mode violation instead, which says nothing useful.
-    await expect(card).toHaveCount(1);
-    await expect(card.getByRole("button", { expanded: true })).toBeVisible();
-    await expect(card).toContainText("Seeded so the deep-link assertion");
+    // Everything the reader followed the link for, before any JavaScript
+    // runs — the description, the facts, and the way back to the list.
+    expect(html).toContain("Seeded so the deep-link assertion");
+    await expect(page.getByRole("heading", { level: 1, name: "Deep Link Engineer" })).toBeVisible();
+    await expect(page.getByText("Anchor Co", { exact: false }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: "← All opportunities" })).toBeVisible();
   });
 
-  test("a card nobody deep-linked stays collapsed", async ({ page }) => {
+  test("?o=<id> redirects to it", async ({ page }) => {
+    await page.goto(`/opportunities?o=${opportunityId}`);
+    await expect(page).toHaveURL(new RegExp(`/opportunities/${opportunityId}$`));
+    await expect(page.getByRole("heading", { level: 1, name: "Deep Link Engineer" })).toBeVisible();
+  });
+
+  test("the card on the list starts collapsed and links through", async ({ page }) => {
     await page.goto("/opportunities");
     // An id must be unique. Asserting the count first turns a duplicate into
     // "expected 1, received 2" rather than a strict-mode violation on the
@@ -218,5 +217,11 @@ test.describe("deep-linked opportunity", () => {
     await expect(card).toHaveCount(1);
     await expect(card.getByRole("button", { expanded: false })).toBeVisible();
     await expect(card).not.toContainText("Seeded so the deep-link assertion");
+
+    // The link out of the card lives in the panel, because the card's
+    // header is itself the expand toggle.
+    await card.getByRole("button", { expanded: false }).click();
+    await card.getByRole("link", { name: "Open full page →" }).click();
+    await expect(page).toHaveURL(new RegExp(`/opportunities/${opportunityId}$`));
   });
 });

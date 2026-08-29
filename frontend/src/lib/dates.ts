@@ -142,3 +142,8 @@ export function formatDayKeyLong(key: string): string {
 export function formatMonthYear(year: number, month: number): string {
   return `${MONTHS_LONG[month - 1]} ${year}`;
 }
+
+/** "September 2026" shortened to "Sep 2026", from a 1-12 month. */
+export function formatMonthYearShort(year: number, month: number): string {
+  return `${MONTHS[month - 1]} ${year}`;
+}
