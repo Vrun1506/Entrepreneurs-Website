@@ -23,10 +23,12 @@ import { formatDate, formatDateTime } from "@/lib/dates";
 // digest of what is new. The underlying RPCs still drop past events and
 // expired roles, so nothing dead surfaces.
 //
-// Every card links to its listing page with the row's deep-link param
-// (?e=, ?o=, ?v=), which opens that card server-side. There are no
-// /events/<id> detail routes in this app — the cards here used to point
-// at them and 404ed.
+// Every card links to that listing's own page — /events/<id>,
+// /opportunities/<id>, /vcs/<id>. Those routes did not exist when this
+// screen was written: the cards pointed at them anyway and 404ed, then
+// pointed at the list pages with a ?e=/?o=/?v= param that opened the card
+// in place. The param survives as a redirect to these routes, so links
+// shared during that window still land in the right place.
 //
 // The prototype also shows a "Connection requests" block. There is no
 // connections table, so it is not here: a card that renders nothing, or
@@ -198,7 +200,7 @@ async function Events({ data }: { data: ReturnType<typeof listApprovedEvents> })
   return (
     <Grid>
       {latest.map((e) => (
-        <Card key={e.id} href={`/events?e=${e.id}`}>
+        <Card key={e.id} href={`/events/${e.id}`}>
           {e.isSocietyEvent && (
             <span className="mb-3 inline-block rounded border border-signal/40 bg-signal-muted px-2 py-0.5 text-[0.65rem] font-medium uppercase tracking-[0.1em] text-signal">
               Foundry event
@@ -225,7 +227,7 @@ async function Opportunities({ data }: { data: ReturnType<typeof listApprovedOpp
   return (
     <Grid>
       {latest.map((o) => (
-        <Card key={o.id} href={`/opportunities?o=${o.id}`}>
+        <Card key={o.id} href={`/opportunities/${o.id}`}>
           <p className="mb-1.5 font-mono text-[0.7rem] uppercase tracking-[0.08em] text-text-muted">
             {o.locationType}
             {o.locationText ? ` · ${o.locationText}` : ""}
@@ -251,7 +253,7 @@ async function Vcs({ data }: { data: ReturnType<typeof listApprovedVcs> }) {
   return (
     <Grid>
       {latest.map((v) => (
-        <Card key={v.id} href={`/vcs?v=${v.id}`}>
+        <Card key={v.id} href={`/vcs/${v.id}`}>
           <p className="mb-1.5 font-mono text-[0.7rem] uppercase tracking-[0.08em] text-text-muted">
             {v.kind === "vc" ? "VC" : "Grant"}
             {v.stage ? ` · ${v.stage}` : ""}

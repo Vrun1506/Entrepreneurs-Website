@@ -113,7 +113,7 @@ export function MemberDialog({ member: m, onClose }: { member: DirectoryMember; 
               {m.lookingFor.slice(0, MAX_LOOKING_FOR).map((lf) => (
                 <Link
                   key={lf.id}
-                  href={`/opportunities?o=${lf.id}`}
+                  href={`/opportunities/${lf.id}`}
                   className="rounded-lg border border-border-strong px-2.5 py-1 text-[0.725rem] text-text-primary no-underline transition-colors hover:border-accent hover:bg-white/[0.06]"
                 >
                   {lf.role}

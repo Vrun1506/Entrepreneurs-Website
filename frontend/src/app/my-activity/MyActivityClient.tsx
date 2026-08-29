@@ -97,12 +97,16 @@ function Row({ item, onUnmark }: { item: ActivityItem; onUnmark: () => void }) {
     : null;
   const markedLabel = formatDate(item.markedAt);
 
-  // Listings are browsed on the directory list pages — there are no
-  // per-id detail routes — so link the title to the relevant list page.
-  const internalHref =
+  // Straight to the listing's own page. An expired one resolves to that
+  // page's "no longer listed" body, which is the honest answer for a row
+  // this list has already badged as expired — and better than the old link
+  // to the whole directory, which made the reader hunt for a listing that
+  // is no longer in it.
+  const section =
     item.listingKind === "opportunity" ? "/opportunities" :
     item.listingKind === "event"       ? "/events"        :
                                          "/vcs";
+  const internalHref = `${section}/${item.listingId}`;
 
   const expired = item.status === "expired";
 

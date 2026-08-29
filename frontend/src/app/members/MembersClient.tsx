@@ -220,7 +220,7 @@ function MemberCard({ member: m, onClick }: { member: DirectoryMember; onClick: 
           {m.lookingFor.slice(0, MAX_LOOKING_FOR).map((lf) => (
             <Link
               key={lf.id}
-              href={`/opportunities?o=${lf.id}`}
+              href={`/opportunities/${lf.id}`}
               onClick={(e) => e.stopPropagation()}
               className="rounded-lg border border-border-strong px-2 py-0.5 text-[0.7rem] text-text-primary no-underline transition-colors hover:border-accent hover:bg-white/[0.06]"
             >

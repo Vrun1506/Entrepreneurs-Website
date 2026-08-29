@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import ListingPageShell from "@/components/ListingPageShell";
 import { Skeleton, FilterBarSkeleton, RowListSkeleton } from "@/components/ui/Skeleton";
@@ -10,10 +11,20 @@ import VcsClient from "./VcsClient";
 export default async function VcsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ submitted?: string }>;
+  searchParams: Promise<{ submitted?: string; v?: string }>;
 }) {
   const { supabase, isAdmin } = await requireApprovedUser();
-  const justSubmitted = (await searchParams)?.submitted === "1";
+  const sp = await searchParams;
+
+  // /vcs?v=<id> was how a listing was linked to before it had a
+  // page of its own. Those links are out in the world — in members'
+  // browsers, in whatever they pasted them into — so the param stays, as a
+  // redirect to the one canonical address rather than as a second way to
+  // read a listing. encodeURIComponent because the id is user input and
+  // this builds a path.
+  if (sp?.v) redirect(`/vcs/${encodeURIComponent(sp.v)}`);
+
+  const justSubmitted = sp?.submitted === "1";
 
   // Started here but deliberately not awaited: the page returns immediately
   // so the nav and page header reach the browser while the query is still
