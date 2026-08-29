@@ -179,6 +179,18 @@ export const AFFILIATIONS: { value: Affiliation; label: string; blurb: string }[
   { value: "staff_faculty", label: "Staff or faculty", blurb: "Researcher or professor bridging academia and startups." },
 ];
 
+/**
+ * Everyone who is not a current student.
+ *
+ * The two groups differ by how they get in, not by how they describe
+ * themselves: a student is auto-approved off a verified Imperial address,
+ * and every one of these five lands in pending_review for an admin (the
+ * status map in migration 20260603000001). /login offers that split as its
+ * two front doors and this list as the dropdown behind the second; /profile
+ * offers it as the set a member may move between.
+ */
+export const NON_STUDENT_AFFILIATIONS = AFFILIATIONS.filter((a) => a.value !== "student");
+
 /** Graduation year is meaningless for these three. */
 export const NO_GRAD_YEAR: Affiliation[] = ["mentor", "angel", "staff_faculty"];
 

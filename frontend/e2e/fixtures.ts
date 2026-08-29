@@ -58,3 +58,42 @@ export const USERS: Record<Role, SeedUser> = {
 };
 
 export const storageStatePath = (role: Role): string => `e2e/.auth/${role}.json`;
+
+/**
+ * Enter the non-student signup flow and declare an affiliation.
+ *
+ * The chooser used to be six buttons, one per affiliation, so a spec just
+ * clicked "Alumni founder". It is now two doors — student, and everyone
+ * else — with the affiliation as a dropdown on the form behind the second,
+ * because on this page the five non-student roles all take the identical
+ * password-plus-admin-review path.
+ *
+ * Note the affiliation is required before the form's other client-side
+ * validation runs, so a spec asserting on a password error still has to
+ * come through here first.
+ */
+export async function startNonStudentSignup(
+  page: import("@playwright/test").Page,
+  affiliation = "alum",
+): Promise<void> {
+  await openNonStudentDoor(page);
+  await page.locator("#affiliation").selectOption(affiliation);
+}
+
+/**
+ * The same door, in sign-in mode.
+ *
+ * Separate from the signup helper because there is no affiliation field
+ * here, deliberately: signing in cares only that you use a password, not
+ * which of the five you are. Waiting for #affiliation on this path is what
+ * a single shared helper did, and it hung until the test timed out.
+ */
+export async function openNonStudentSignIn(
+  page: import("@playwright/test").Page,
+): Promise<void> {
+  await openNonStudentDoor(page);
+}
+
+async function openNonStudentDoor(page: import("@playwright/test").Page): Promise<void> {
+  await page.getByRole("button", { name: /Alum, mentor, investor or staff/i }).click();
+}

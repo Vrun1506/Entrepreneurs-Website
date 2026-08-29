@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { waitForCode, waitForBody, clearMailbox, expectNoMail } from "./mailpit";
+import { openNonStudentSignIn } from "./fixtures";
 
 // ════════════════════════════════════════════════════════════════════
 // The credential pipelines, end to end.
@@ -78,7 +79,7 @@ async function openAlumSignIn(page: import("@playwright/test").Page) {
   // The toggle sits outside the <form>; the submit button inside it carries
   // the same accessible name, so both need scoping.
   await page.getByText("Already have an account?").getByRole("button", { name: "Sign in" }).click();
-  await page.getByRole("button", { name: /Alumni founder/i }).click();
+  await openNonStudentSignIn(page);
 }
 
 /** Sign in through the real form, so the browser holds a real session. */
