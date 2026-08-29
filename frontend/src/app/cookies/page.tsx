@@ -9,7 +9,7 @@ export const metadata = {
   title: "Cookie Policy · Foundry",
 };
 
-const LAST_UPDATED = "9 June 2026";
+const LAST_UPDATED = "29 August 2026";
 
 type Cookie = { name: string; provider: string; purpose: string; duration: string };
 
@@ -60,6 +60,11 @@ export default function CookiesPage() {
         <article className="space-y-6 text-[0.875rem] text-text-secondary leading-relaxed">
           <Section title="1. The short version">
             <p>
+              Foundry is operated under the name &ldquo;Imperial Entrepreneurs&rdquo; by <strong>IC Founders Ltd</strong>,
+              a company limited by guarantee registered in England and Wales (company number <strong>17171277</strong>),
+              registered office 71–75 Shelton Street, Covent Garden, London, WC2H 9JQ (&ldquo;we&rdquo;, &ldquo;us&rdquo;, &ldquo;our&rdquo;).
+            </p>
+            <p className="mt-2">
               Foundry uses only <strong>strictly necessary</strong> cookies — the ones required to sign you in and
               keep the site secure — and our product analytics run <strong>without cookies</strong>. Because we set
               no advertising, marketing, or non-essential tracking cookies, UK law (PECR) does not require us to ask
