@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import ListingPageShell from "@/components/ListingPageShell";
 import { Skeleton, FilterBarSkeleton, RowListSkeleton } from "@/components/ui/Skeleton";
@@ -10,10 +11,20 @@ import EventsClient from "./EventsClient";
 export default async function EventsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ submitted?: string }>;
+  searchParams: Promise<{ submitted?: string; e?: string }>;
 }) {
   const { supabase, isAdmin } = await requireApprovedUser();
-  const justSubmitted = (await searchParams)?.submitted === "1";
+  const sp = await searchParams;
+
+  // /events?e=<id> was how a listing was linked to before it had a
+  // page of its own. Those links are out in the world — in members'
+  // browsers, in whatever they pasted them into — so the param stays, as a
+  // redirect to the one canonical address rather than as a second way to
+  // read a listing. encodeURIComponent because the id is user input and
+  // this builds a path.
+  if (sp?.e) redirect(`/events/${encodeURIComponent(sp.e)}`);
+
+  const justSubmitted = sp?.submitted === "1";
 
   // Started, not awaited — see the note in app/vcs/page.tsx. One query, two
   // awaits, both resolving in the same tick.

@@ -5,9 +5,9 @@ import { useUrlFilters, useSearchDraft } from "@/lib/filters/useUrlFilters";
 import { SearchInput, FilterPanel, ChipChoice, RangeFilter } from "@/components/filters/FilterBar";
 import { useListingFreshness } from "@/lib/useListingFreshness";
 import { ListingGoneNotice } from "@/components/ListingGoneNotice";
+import { FullPageLink } from "@/components/FullPageLink";
 import { MarkActionPill } from "@/components/MarkActionPill";
 import { recordListingEvent } from "@/lib/analytics";
-import { scrollBehavior } from "@/lib/motion";
 import { formatDate } from "@/lib/dates";
 import type { Vc } from "@/lib/data/vcs";
 
@@ -33,10 +33,6 @@ export default function VcsClient({
   const filter = filters.getOne("kind", KIND_VALUES, "all");
   const from = filters.get("from");
   const to   = filters.get("to");
-  // Deep link: /vcs?v=<id>. Same contract as /opportunities?o=<id> — a
-  // query param reaches the server, so the card is already open in the
-  // first HTML rather than popping open after hydration.
-  const openId = filters.get("v");
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const appliedSet = useMemo(() => new Set(appliedIds), [appliedIds]);
 
@@ -114,33 +110,21 @@ export default function VcsClient({
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((v) => <VcCard key={v.id} vc={v} applied={appliedSet.has(v.id)} defaultOpen={openId === v.id} onDismiss={() => dismiss(v.id)} />)}
+          {filtered.map((v) => <VcCard key={v.id} vc={v} applied={appliedSet.has(v.id)} onDismiss={() => dismiss(v.id)} />)}
         </div>
       )}
     </>
   );
 }
 
-function VcCard({ vc: v, applied, defaultOpen, onDismiss }: {
+function VcCard({ vc: v, applied, onDismiss }: {
   vc: Vc;
   applied: boolean;
-  /** True when ?v=<id> named this card. Server-known, so it is safe as an
-   *  initial state — the card is open in the first paint, not after it. */
-  defaultOpen: boolean;
   onDismiss: () => void;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
+  const [open, setOpen] = useState(false);
   const { checking, stale, check } = useListingFreshness("vcs_grants", v.id);
   const expandRecorded = useRef(false);
-  const articleRef = useRef<HTMLElement | null>(null);
-
-  // The deep-linked card is already open in the markup; all that is left is
-  // bringing it into view, which only the browser can do.
-  useEffect(() => {
-    if (defaultOpen) {
-      articleRef.current?.scrollIntoView({ behavior: scrollBehavior(), block: "center" });
-    }
-  }, [defaultOpen]);
 
   useEffect(() => {
     if (!open) return;
@@ -157,7 +141,7 @@ function VcCard({ vc: v, applied, defaultOpen, onDismiss }: {
   const kindLabel = v.kind === "vc" ? "VC" : "Grant";
 
   return (
-    <article ref={articleRef} id={`v-${v.id}`} className="rounded-2xl bg-bg-card border border-border overflow-hidden">
+    <article id={`v-${v.id}`} className="rounded-2xl bg-bg-card border border-border overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -213,6 +197,7 @@ function VcCard({ vc: v, applied, defaultOpen, onDismiss }: {
               Open link ↗
             </a>
             <MarkActionPill kind="vc_grant" id={v.id} initial={applied} />
+            <FullPageLink href={`/vcs/${v.id}`} />
           </div>
         </div>
       )}

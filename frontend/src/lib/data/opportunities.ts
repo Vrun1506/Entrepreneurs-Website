@@ -138,3 +138,19 @@ export async function opportunityForEdit(db: Db, id: string) {
     db.rpc("get_opportunity_for_edit", { p_id: id }));
   return data[0] ?? null;
 }
+
+/**
+ * One approved, still-open opportunity, or null.
+ *
+ * Reads through listApprovedOpportunities rather than selecting the row
+ * directly, because the RPC is what masks contact_email from anyone who
+ * isn't the poster or an admin — a table read here would hand out an
+ * address the poster chose to hide. The list is already bounded by
+ * application_deadline >= current_date, so a closed role is a miss, and
+ * /opportunities/[id] renders that as "no longer available" rather than
+ * pretending the role is live.
+ */
+export async function approvedOpportunity(db: Db, id: string): Promise<Opportunity | null> {
+  const items = await listApprovedOpportunities(db);
+  return items.find((o) => o.id === id) ?? null;
+}

@@ -106,3 +106,15 @@ export async function vcForEdit(db: Db, id: string) {
       .eq("id", id)
       .single());
 }
+
+/**
+ * One approved VC/grant, or null.
+ *
+ * Reads the same cached list /vcs renders, so a detail view costs nothing
+ * extra once the list is warm. `isAdmin` skips the cache for the same
+ * reason it does there — an admin should see an approval immediately.
+ */
+export async function approvedVc(db: Db, id: string, isAdmin: boolean): Promise<Vc | null> {
+  const items = await listApprovedVcs(db, isAdmin);
+  return items.find((v) => v.id === id) ?? null;
+}
