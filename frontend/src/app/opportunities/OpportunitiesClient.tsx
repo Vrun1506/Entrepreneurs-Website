@@ -5,14 +5,14 @@ import { useUrlFilters, useSearchDraft } from "@/lib/filters/useUrlFilters";
 import { SearchInput } from "@/components/filters/FilterBar";
 import { useListingFreshness } from "@/lib/useListingFreshness";
 import { ListingGoneNotice } from "@/components/ListingGoneNotice";
+import { FullPageLink } from "@/components/FullPageLink";
+import { BookmarkButton } from "@/components/BookmarkButton";
 import { MarkActionPill } from "@/components/MarkActionPill";
 import { recordListingEvent } from "@/lib/analytics";
 import { formatDate } from "@/lib/dates";
-import { scrollBehavior } from "@/lib/motion";
+import { startLabel, locationLabel } from "@/lib/listings/format";
 import { toggleOpportunityBookmark } from "./actions";
 import type { Opportunity } from "@/lib/data/opportunities";
-
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 export default function OpportunitiesClient({
   items, bookmarkedIds, appliedIds = [], removeOnUnbookmark = false,
@@ -31,11 +31,6 @@ export default function OpportunitiesClient({
   // filter is a local operation and the URL is kept in step for free.
   const filters = useUrlFilters();
   const [query, setQuery] = useSearchDraft(filters);
-  // Deep link from a profile's "Looking for" chip: /opportunities?o=<id>.
-  // A query param, unlike the fragment it replaced, reaches the server — so
-  // the card renders open in the first HTML rather than popping open after
-  // hydration.
-  const openId = filters.get("o");
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [bookmarks, setBookmarks] = useState<Set<string>>(new Set(bookmarkedIds));
   const appliedSet = useMemo(() => new Set(appliedIds), [appliedIds]);
@@ -109,7 +104,6 @@ export default function OpportunitiesClient({
               opportunity={o}
               bookmarked={bookmarks.has(o.id)}
               applied={appliedSet.has(o.id)}
-              defaultOpen={openId === o.id}
               onToggleBookmark={() => handleToggleBookmark(o.id)}
               onDismiss={() => dismiss(o.id)}
             />
@@ -121,29 +115,17 @@ export default function OpportunitiesClient({
 }
 
 function OpportunityCard({
-  opportunity: o, bookmarked, applied, defaultOpen, onToggleBookmark, onDismiss,
+  opportunity: o, bookmarked, applied, onToggleBookmark, onDismiss,
 }: {
   opportunity: Opportunity;
   bookmarked: boolean;
   applied: boolean;
-  /** True when ?o= names this card. Server and client agree on it, so it is
-   *  safe as an initial state — which the old #fragment check was not. */
-  defaultOpen: boolean;
   onToggleBookmark: () => void;
   onDismiss: () => void;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
+  const [open, setOpen] = useState(false);
   const { checking, stale, check } = useListingFreshness("opportunities", o.id);
   const expandRecorded = useRef(false);
-  const articleRef = useRef<HTMLElement | null>(null);
-
-  // The deep-linked card is already open in the markup; all that is left is
-  // bringing it into view, which only the browser can do.
-  useEffect(() => {
-    if (defaultOpen) {
-      articleRef.current?.scrollIntoView({ behavior: scrollBehavior(), block: "center" });
-    }
-  }, [defaultOpen]);
 
   useEffect(() => {
     if (!open) return;
@@ -154,19 +136,14 @@ function OpportunityCard({
     }
   }, [open, check, o.id]);
 
-  const start = `${MONTHS[o.startMonth - 1]} ${o.startYear}`;
+  const start = startLabel(o);
   const deadline = formatDate(o.applicationDeadline);
-  const location =
-    o.locationType === "remote"
-      ? "Remote"
-      : o.locationType === "hybrid"
-      ? `Hybrid${o.locationText ? ` · ${o.locationText}` : ""}`
-      : o.locationText || "Onsite";
+  const location = locationLabel(o);
 
   const toggleOpen = () => setOpen((v) => !v);
 
   return (
-    <article ref={articleRef} id={`o-${o.id}`} className="rounded-2xl bg-bg-card border border-border overflow-hidden relative">
+    <article id={`o-${o.id}`} className="rounded-2xl bg-bg-card border border-border overflow-hidden relative">
       {/* Bookmark button — sits outside the toggle area so clicks don't expand. */}
       <div className="absolute top-3 right-3 z-10">
         <BookmarkButton bookmarked={bookmarked} onClick={onToggleBookmark} />
@@ -274,35 +251,11 @@ function OpportunityCard({
                 </p>
               )}
               <MarkActionPill kind="opportunity" id={o.id} initial={applied} />
+              <FullPageLink href={`/opportunities/${o.id}`} />
             </div>
           </div>
         </div>
       )}
     </article>
-  );
-}
-
-function BookmarkButton({ bookmarked, onClick }: { bookmarked: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={(e) => { e.stopPropagation(); onClick(); }}
-      aria-label={bookmarked ? "Remove bookmark" : "Bookmark this opportunity"}
-      aria-pressed={bookmarked}
-      className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-bg-card/80 backdrop-blur-sm border cursor-pointer transition-colors ${
-        bookmarked
-          ? "border-accent/50 text-accent hover:text-accent-light hover:border-accent"
-          : "border-border text-text-muted hover:text-accent hover:border-accent"
-      }`}
-    >
-      <svg
-        width="15" height="15" viewBox="0 0 24 24"
-        fill={bookmarked ? "currentColor" : "none"}
-        stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-        aria-hidden
-      >
-        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
-      </svg>
-    </button>
   );
 }

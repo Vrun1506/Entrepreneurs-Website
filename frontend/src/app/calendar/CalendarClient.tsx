@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Dialog, closeDialog } from "@/components/ui/Dialog";
 import {
@@ -31,6 +32,13 @@ export type CalItem = {
 };
 
 type View = "list" | "month";
+
+/** Where each kind's own page lives, for the dialog's link through. */
+const SECTION: Record<ListingKind, string> = {
+  opportunity: "/opportunities",
+  event:       "/events",
+  vc_grant:    "/vcs",
+};
 
 const KIND_DOT: Record<ListingKind, string> = {
   opportunity:  "bg-accent",
@@ -321,6 +329,17 @@ function DetailDialog({ item, onClose }: { item: CalItem; onClose: () => void })
           <div className="text-[0.7rem] text-text-muted uppercase tracking-wider mb-2">Description</div>
           <p className="text-[0.85rem] text-text-secondary leading-relaxed whitespace-pre-line">{item.description}</p>
         </div>
+      )}
+
+      {/* Only for approved listings: a pending one has no page yet, which
+          the banner above already says. */}
+      {item.status === "approved" && (
+        <Link
+          href={`${SECTION[item.listingKind]}/${item.listingId}`}
+          className="mt-5 inline-flex items-center rounded-lg border border-border-strong bg-white/[0.05] px-4 py-2 text-[0.8rem] text-text-primary no-underline transition-colors hover:bg-white/[0.10] hover:border-accent"
+        >
+          Open full page →
+        </Link>
       )}
     </Dialog>
   );

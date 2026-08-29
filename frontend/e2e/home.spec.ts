@@ -166,23 +166,48 @@ test.describe("home", () => {
     }
   });
 
-  test("a deep-linked card arrives open, in the server's HTML", async ({ page }) => {
-    // Server-rendered open, not opened after hydration — so JS-off and
-    // slow-hydration readers see the thing they followed the link for.
-    for (const [list, param, prefix] of [
-      ["/events", "e", "e"],
-      ["/opportunities", "o", "o"],
-      ["/vcs", "v", "v"],
+  test("every listing kind has a page of its own", async ({ page }) => {
+    for (const [href, title] of [
+      [`/events/${seeded.events}`, TITLES.event],
+      [`/opportunities/${seeded.opportunities}`, TITLES.opp],
+      [`/vcs/${seeded.vcs_grants}`, TITLES.vc],
     ] as const) {
-      await page.goto(list);
-      const first = page.locator("article[id]").first();
-      await expect(first).toBeVisible();
-      const id = (await first.getAttribute("id"))!.slice(prefix.length + 1);
+      const res = await page.goto(href);
+      expect(res?.status(), `${href} should resolve`).toBe(200);
+      await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
+    }
+  });
 
+  // The three deep-link params predate the detail routes and were the only
+  // way to link to a single listing for a while, so links using them are
+  // out in the world. They redirect rather than 404 or fall back to the
+  // unfiltered list.
+  test("the old ?e=/?o=/?v= deep links redirect to those pages", async ({ page }) => {
+    for (const [list, param, id] of [
+      ["/events", "e", seeded.events],
+      ["/opportunities", "o", seeded.opportunities],
+      ["/vcs", "v", seeded.vcs_grants],
+    ] as const) {
       await page.goto(`${list}?${param}=${id}`);
-      await expect(
-        page.locator(`article#${prefix}-${id}`).getByText(/Hide details/),
-      ).toBeVisible();
+      await expect(page).toHaveURL(new RegExp(`${list}/${id}$`));
+    }
+  });
+
+  // Every one of these ids resolves to a real row today and stops doing so
+  // the moment the event happens, the deadline passes or an admin pulls it
+  // — which is most of what /my-activity links to. A signed-out-looking 404
+  // is the wrong answer for a signed-in member.
+  test("a listing that is gone says so, inside the app", async ({ page }) => {
+    const dead = "00000000-0000-0000-0000-000000000000";
+    for (const [href, heading] of [
+      [`/events/${dead}`, /no longer listed/i],
+      [`/opportunities/${dead}`, /no longer listed/i],
+      [`/vcs/${dead}`, /no longer available/i],
+    ] as const) {
+      const res = await page.goto(href);
+      expect(res?.status(), `${href} should not 404`).toBe(200);
+      await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
+      await expect(page.getByRole("navigation", { name: "Main" })).toBeVisible();
     }
   });
 

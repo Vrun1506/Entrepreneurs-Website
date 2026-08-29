@@ -5,10 +5,10 @@ import { useUrlFilters, useSearchDraft } from "@/lib/filters/useUrlFilters";
 import { SearchInput, FilterPanel, ChipChoice, RangeFilter } from "@/components/filters/FilterBar";
 import { useListingFreshness } from "@/lib/useListingFreshness";
 import { ListingGoneNotice } from "@/components/ListingGoneNotice";
+import { FullPageLink } from "@/components/FullPageLink";
 import { MarkActionPill } from "@/components/MarkActionPill";
 import { AddToCalendarMenu } from "@/components/AddToCalendarMenu";
 import { recordListingEvent } from "@/lib/analytics";
-import { scrollBehavior } from "@/lib/motion";
 import { formatDateWeekday, formatTime } from "@/lib/dates";
 import type { FoundryEvent } from "@/lib/data/events";
 
@@ -40,8 +40,6 @@ export default function EventsClient({
   const mode = filters.getOne("mode", MODE_VALUES, "all");
   const from = filters.get("from");
   const to   = filters.get("to");
-  // Deep link: /events?e=<id>. Same contract as /opportunities?o=<id>.
-  const openId = filters.get("e");
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const goingSet = useMemo(() => new Set(goingIds), [goingIds]);
 
@@ -118,29 +116,20 @@ export default function EventsClient({
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filtered.map((e) => <EventCard key={e.id} ev={e} going={goingSet.has(e.id)} defaultOpen={openId === e.id} onDismiss={() => dismiss(e.id)} />)}
+          {filtered.map((e) => <EventCard key={e.id} ev={e} going={goingSet.has(e.id)} onDismiss={() => dismiss(e.id)} />)}
         </div>
       )}
     </>
   );
 }
 
-function EventCard({ ev, going, defaultOpen, onDismiss }: {
+function EventCard({ ev, going, onDismiss }: {
   ev: FoundryEvent;
   going: boolean;
-  /** True when ?e=<id> named this card. See the note on OpportunityCard. */
-  defaultOpen: boolean;
   onDismiss: () => void;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
+  const [open, setOpen] = useState(false);
   const { checking, stale, check } = useListingFreshness("events", ev.id);
-  const articleRef = useRef<HTMLElement | null>(null);
-
-  useEffect(() => {
-    if (defaultOpen) {
-      articleRef.current?.scrollIntoView({ behavior: scrollBehavior(), block: "center" });
-    }
-  }, [defaultOpen]);
   const expandRecorded = useRef(false);
 
   useEffect(() => {
@@ -159,7 +148,6 @@ function EventCard({ ev, going, defaultOpen, onDismiss }: {
 
   return (
     <article
-      ref={articleRef}
       id={`e-${ev.id}`}
       className={`rounded-2xl bg-bg-card border overflow-hidden ${
         ev.isSocietyEvent ? "border-accent/45" : "border-border-subtle"
@@ -256,6 +244,7 @@ function EventCard({ ev, going, defaultOpen, onDismiss }: {
               url={ev.lumaLink}
             />
             <MarkActionPill kind="event" id={ev.id} initial={going} />
+            <FullPageLink href={`/events/${ev.id}`} />
           </div>
         </div>
       )}
