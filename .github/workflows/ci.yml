@@ -72,6 +72,33 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
 
+  gateway:
+    name: Upload gateway (pytest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          # 3.12 to match Ubuntu 24.04 on the VM (`python3.12-venv` in the
+          # runbook). Testing on a newer interpreter than the one that runs in
+          # production is how a Pillow or PyJWT behaviour difference reaches
+          # the box unnoticed.
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: server/pyproject.toml
+
+      - run: pip install -e '.[dev]'
+
+      # These are the security tests, not smoke tests: SVG rejection, magic-byte
+      # typing, decompression bombs, EXIF/GPS absence from the re-encoded output,
+      # polyglot neutralisation, and JWT algorithm confusion. Storage is stubbed,
+      # so no Azure credentials and no network are involved.
+      - run: pytest -q
+
   rls-smoke:
     name: RLS smoke (Supabase)
     runs-on: ubuntu-latest

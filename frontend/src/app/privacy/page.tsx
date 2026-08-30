@@ -9,7 +9,7 @@ export const metadata = {
   title: "Privacy Policy · Foundry",
 };
 
-const LAST_UPDATED = "9 June 2026";
+const LAST_UPDATED = "29 August 2026";
 
 export default function PrivacyPage() {
   return (
@@ -52,7 +52,8 @@ export default function PrivacyPage() {
               <li><strong>Account data</strong> — your name and email address. If you sign in with Google, Google provides your name and email to us (see section 4).</li>
               <li><strong>Profile data (onboarding)</strong> — the course you study or studied, your graduation year, an optional short bio and &ldquo;what you&rsquo;re working on&rdquo;, optional LinkedIn / GitHub / portfolio links, and the sectors and skills you select.</li>
               <li><strong>Membership status</strong> — whether you are a current student or alum, and your approval status, which our admins set during review.</li>
-              <li><strong>Content you post</strong> — the opportunities, events, and VC / grant listings you submit, including any contact email you choose to attach to a listing.</li>
+              <li><strong>Content you post</strong> — the opportunities, events, and VC / grant listings you submit, including any contact email you choose to attach to a listing; and your community posts, including any images you attach and the text you write to describe them.</li>
+              <li><strong>Reports and moderation records</strong> — if you report a community post, what you tell us about it; and if one of your posts is removed by an admin, a record of the post and the reason it was removed. See section 8 for how long we keep these.</li>
               <li><strong>Engagement data</strong> — anonymised-to-others counts of views and click-throughs on listings you posted, so you can see how your content performs.</li>
               <li><strong>Technical and security data</strong> — your IP address and request metadata, used by our edge provider and rate limiter to prevent abuse, and limited error diagnostics (e.g. URL, browser, your user ID) if something goes wrong.</li>
             </ul>
@@ -94,6 +95,7 @@ export default function PrivacyPage() {
             <ul className="list-disc pl-5 space-y-1 mt-2">
               <li><strong>Supabase</strong> (EU / London) — database, authentication, and storage. Holds your profile and the content you post.</li>
               <li><strong>Vercel</strong> (EU / Frankfurt) — application hosting and serving.</li>
+              <li><strong>Microsoft Azure</strong> (UK South) — image storage and processing. Holds images you attach to community posts; the processing service strips embedded metadata, including any location recorded by your camera, before an image is stored.</li>
               <li><strong>Resend</strong> (EU) — sending our service emails; processes the recipient address and message content in transit.</li>
               <li><strong>Cloudflare</strong> (EU) — DNS, inbound contact-email routing, edge security, and the Turnstile anti-bot challenge on our forms. Processes request metadata such as your IP address to block abuse.</li>
               <li><strong>Upstash</strong> (EU) — rate limiting. Stores only short-lived request counters keyed to your user ID or IP; no profile data.</li>
@@ -129,6 +131,14 @@ export default function PrivacyPage() {
               notice giving you the option to reapply as an alum. Residual copies may persist briefly in encrypted
               backups before being overwritten on our providers&rsquo; normal backup cycle.
             </p>
+            <p className="mt-3">
+              Some things have a fixed retention period, enforced automatically:
+            </p>
+            <ul className="list-disc pl-5 space-y-1 mt-2">
+              <li><strong>Community posts and their images — 7 days.</strong> Every post is deleted automatically seven days after it is published, along with any images attached to it. You can delete a post sooner at any time from Community → My posts.</li>
+              <li><strong>Moderation records — 12 months.</strong> If an admin removes one of your posts, we keep a record of the removal: the post&rsquo;s title and text, the reason given, and who removed it and when. We keep this so that a removal can be explained, reviewed, or defended if it is challenged, which is a legitimate interest and, where the record relates to a potential legal claim, is permitted under Article 17(3)(e) UK GDPR even if you ask us to erase your data. It is deleted after 12 months unless a specific dispute is still live.</li>
+              <li><strong>Reports — 12 months.</strong> If you report a post, we keep your report, what you told us, and the outcome, on the same 12-month clock.</li>
+            </ul>
           </Section>
 
           <Section title="9. How we protect it">

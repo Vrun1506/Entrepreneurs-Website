@@ -249,10 +249,18 @@ test.describe("home", () => {
     await expect(page.getByRole("button", { name: "Expand navigation" })).toBeVisible();
   });
 
-  test("the old /community route still lands, filters intact", async ({ page }) => {
+  test("/community now serves the feed, and the directory lives at /members", async ({ page }) => {
+    // /community used to 307 here, holding the name while the post feed was
+    // being built. It now serves that feed, which is the whole point of the
+    // 307 having been temporary — so what this asserts is that the two are
+    // distinct pages and neither has swallowed the other.
+    await page.goto("/community");
+    await expect(page).toHaveURL(/\/community$/);
+    await expect(page.getByRole("heading", { name: /happening/i })).toBeVisible();
+
     // Filtered directory views are links people have already shared, so the
-    // redirect has to carry the query — not just the path.
-    await page.goto("/community?role=alum&gradMin=2020");
+    // query has to survive on the route that still owns those filters.
+    await page.goto("/members?role=alum&gradMin=2020");
     await expect(page).toHaveURL(/\/members\?.*role=alum/);
     await expect(page).toHaveURL(/gradMin=2020/);
   });

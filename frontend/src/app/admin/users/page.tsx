@@ -6,7 +6,7 @@ import { listPendingProfiles, type PendingProfilesPage } from "@/lib/data/admin"
 import type { Db } from "@/lib/data/query";
 import UsersReview from "./UsersReview";
 
-// Smaller than /admin/community's 50: each row here is a full review card
+// Smaller than /admin/members's 50: each row here is a full review card
 // with bio, what they're working on, and their links — the heaviest
 // per-row shape in the app.
 export const PAGE_SIZE = 25;

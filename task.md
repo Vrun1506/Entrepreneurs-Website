@@ -245,7 +245,7 @@ into the workspace.
 - **Supabase CLI is pinned to 2.105.0.** 2.106.0 broke local default table
   grants. `npx supabase@2.105.0` locally; `supabase/setup-cli@v2` with
   `version: 2.105.0` in CI.
-- **Delete members through `/admin/community`, never the Supabase console.**
+- **Delete members through `/admin/members`, never the Supabase console.**
   `admin_actions.admin_id` and `opportunities`/`events`/`vcs_grants.posted_by`
   are `RESTRICT`; the dashboard doesn't clear them and reports only "Database
   error deleting user". Anyone who has ever taken an admin action will always

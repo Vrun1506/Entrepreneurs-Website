@@ -5,15 +5,15 @@
 -- pages have the identical bug and are strictly worse, because they are
 -- the pages an admin would use to *find* the member who has gone missing:
 --
---   app/admin/community/page.tsx  select every profile, no bound
+--   app/admin/members/page.tsx  select every profile, no bound
 --   app/admin/users/page.tsx      select every pending_review profile
 --
 -- PostgREST caps each response at max_rows (1000, supabase/config.toml)
--- and reports no error when it does. At 1,001 members /admin/community
+-- and reports no error when it does. At 1,001 members /admin/members
 -- renders "1000 total" and member 1,001 cannot be found by any search or
 -- filter on that page. Nothing indicates the list is incomplete.
 --
--- /admin/community compounds it one line further down: it feeds the
+-- /admin/members compounds it one line further down: it feeds the
 -- truncated id list into admin_get_signup_emails, so the emails are cut
 -- to match. Two silent truncations, one visible symptom — none.
 --
@@ -59,7 +59,7 @@ begin
 end;
 $$;
 
--- ─── /admin/community: every profile, filtered and paged ────────────
+-- ─── /admin/members: every profile, filtered and paged ────────────
 create or replace function public.admin_list_profiles(
   p_query    text     default null,
   p_roles    text[]   default null,
@@ -176,7 +176,7 @@ grant execute on function public.admin_list_profiles(
   text, text[], text[], text[], text[], text[], int, int, int, int
 ) to authenticated;
 
--- ─── Filter chip values for /admin/community ────────────────────────
+-- ─── Filter chip values for /admin/members ────────────────────────
 -- Distinct from list_directory_facets: that one is scoped to approved
 -- members, and this page's whole purpose is the ones who aren't. Both
 -- exist because they answer different questions, not by duplication.

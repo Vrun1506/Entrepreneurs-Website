@@ -86,8 +86,9 @@ export default async function AdminPage() {
             Search the full membership and remove accounts. Use the graduate cleanup once a year to roll out current students whose graduation year has passed.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <DiagLink href="/admin/community" label="All members · search + delete" />
+            <DiagLink href="/admin/members" label="Member directory · search + delete" />
             <DiagLink href="/admin/graduates" label="Graduate cleanup" />
+            <DiagLink href="/admin/reports" label="Reported posts · moderation queue" />
           </div>
         </div>
 

@@ -34,7 +34,7 @@ test("admin can open each review queue", async ({ page }) => {
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { USERS } from "./fixtures";
 
-/** Bigger than /admin/community's page of 50, so page 2 is non-empty. */
+/** Bigger than /admin/members's page of 50, so page 2 is non-empty. */
 const SEEDED = 55;
 const SEED_PREFIX = "e2e-paging";
 
@@ -92,7 +92,7 @@ test.describe("admin profile lists are paged", () => {
   });
 
   test("page 2 of the member list holds different people", async ({ page }) => {
-    await page.goto("/admin/community");
+    await page.goto("/admin/members");
 
     const pager = page.getByRole("navigation", { name: "Member pages" });
     await expect(pager).toBeVisible();
@@ -112,7 +112,7 @@ test.describe("admin profile lists are paged", () => {
   });
 
   test("a filter narrows the whole set, not the page", async ({ page }) => {
-    await page.goto("/admin/community");
+    await page.goto("/admin/members");
     await page.getByRole("button", { name: "Filters" }).click();
 
     await page.getByRole("button", { name: "Awaiting review", exact: true }).click();
@@ -130,7 +130,7 @@ test.describe("admin profile lists are paged", () => {
   test("searching finds a member who is not on the first page", async ({ page }) => {
     // Member54 sorts late and is seeded last, so on an unpaged page it
     // would be one of the rows the row cap dropped.
-    await page.goto("/admin/community?q=Member54");
+    await page.goto("/admin/members?q=Member54");
     await expect(page.locator("tbody tr")).toHaveCount(1);
     await expect(page.locator("tbody")).toContainText("Member54");
   });

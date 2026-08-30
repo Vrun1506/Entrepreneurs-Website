@@ -1,113 +1,36 @@
-import { Suspense } from "react";
-import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
-import { Skeleton, FilterBarSkeleton, TableSkeleton } from "@/components/ui/Skeleton";
-import {
-  adminMemberPage,
-  ADMIN_COMMUNITY_PAGE_SIZE,
-  type AdminMemberFilters,
-  type AdminMemberPage,
-} from "@/lib/data/admin";
-import CommunityAdminClient from "./CommunityAdminClient";
+import { redirect } from "next/navigation";
 
-type SearchParams = {
-  q?: string; role?: string; status?: string; course?: string;
-  sector?: string; skill?: string; gradMin?: string; gradMax?: string; page?: string;
-};
+// ════════════════════════════════════════════════════════════════════
+// Foundry · /admin/community → /admin/members
+//
+// This route was the admin view of the member directory. With a
+// member-facing post feed now living at /community, the name meant two
+// different things depending on whether it had /admin in front of it —
+// so it has moved to /admin/members, matching the /members it manages.
+//
+// 307, not 308, matching the redirect /community itself used while it was
+// waiting for the feed: a permanent redirect gets cached by browsers and
+// intermediaries, and an admin who visited the old path once would be
+// stuck with a cached hop long after this file is deleted.
+//
+// The query string is carried across because the directory's filters live
+// in the URL, and admins have those links saved.
+// ════════════════════════════════════════════════════════════════════
 
-const ROLES: string[] = ["student", "alum"];
-const STATUSES: string[] = ["pending_onboarding", "pending_review", "approved", "rejected"];
-
-const list = (v: string | undefined): string[] =>
-  (v ?? "").split(",").map((s) => s.trim()).filter(Boolean);
-
-function parseFilters(sp: SearchParams): AdminMemberFilters {
-  const page = Number.parseInt(sp.page ?? "1", 10);
-  return {
-    q: sp.q ?? "",
-    // Dropping unknown values rather than passing them through: ?role=nonsense
-    // is a reachable URL, and an unrecognised value must narrow to nothing
-    // rather than be handed to the query as if it were a role.
-    roles: list(sp.role).filter((r) => ROLES.includes(r)),
-    statuses: list(sp.status).filter((s) => STATUSES.includes(s)),
-    courses: list(sp.course),
-    sectors: list(sp.sector),
-    skills: list(sp.skill),
-    gradMin: sp.gradMin ?? "",
-    gradMax: sp.gradMax ?? "",
-    page: Number.isFinite(page) && page > 0 ? page : 1,
-  };
-}
-
-export default async function AdminCommunityPage({
+export default async function AdminCommunityRedirect({
   searchParams,
 }: {
-  searchParams: Promise<SearchParams>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const supabase = await createClient();
-  const filters = parseFilters(await searchParams);
-
-  // Started, not awaited: the header renders while the query is in flight.
-  const data = adminMemberPage(supabase, filters);
-
-  return (
-    <main id="main-content" tabIndex={-1} className="min-h-screen bg-bg-primary text-text-primary px-8 py-12">
-      <div className="max-w-[1200px] mx-auto">
-        <div className="flex flex-wrap items-start justify-between gap-4 mb-8 rule-draw pt-6">
-          <div className="min-w-0">
-            <p className="label-wide text-text-secondary mb-3">Admin · community</p>
-            <h1 className="font-display text-[clamp(1.75rem,3vw,2.5rem)] leading-[1.1] tracking-tight">
-              All members
-            </h1>
-            <p className="text-[0.85rem] text-text-muted mt-2">
-              <Suspense fallback={<Skeleton className="h-3 w-16 inline-block align-middle" />}>
-                <MemberTotal data={data} />
-              </Suspense>{" "}
-              Filter by role, status, course, year, interests, or skills. Deletion is permanent and notifies the user by email.
-            </p>
-          </div>
-          <Link
-            href="/admin"
-            className="text-[0.8rem] text-text-secondary no-underline transition-colors duration-150 hover:text-text-primary"
-          >
-            ← Admin home
-          </Link>
-        </div>
-
-        <Suspense
-          fallback={
-            <>
-              <FilterBarSkeleton />
-              <TableSkeleton className="mt-8" rows={10} />
-            </>
-          }
-        >
-          <MemberTable data={data} filters={filters} />
-        </Suspense>
-      </div>
-    </main>
-  );
-}
-
-async function MemberTotal({ data }: { data: Promise<AdminMemberPage> }) {
-  const { facets } = await data;
-  return <>{facets.total} total.</>;
-}
-
-async function MemberTable({
-  data, filters,
-}: {
-  data: Promise<AdminMemberPage>;
-  filters: AdminMemberFilters;
-}) {
-  const { members, facets, matching } = await data;
-  return (
-    <CommunityAdminClient
-      members={members}
-      facets={facets}
-      filters={filters}
-      matching={matching}
-      pageSize={ADMIN_COMMUNITY_PAGE_SIZE}
-    />
-  );
+  const sp = await searchParams;
+  const qs = new URLSearchParams();
+  for (const [key, value] of Object.entries(sp)) {
+    if (Array.isArray(value)) {
+      for (const v of value) qs.append(key, v);
+    } else if (value !== undefined) {
+      qs.set(key, value);
+    }
+  }
+  const query = qs.toString();
+  redirect(query ? `/admin/members?${query}` : "/admin/members");
 }

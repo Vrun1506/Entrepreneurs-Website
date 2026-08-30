@@ -10,7 +10,7 @@ import { USERS } from "./fixtures";
 //  1. In "client" mode the filters travel through window.history.pushState,
 //     which Next patches so useSearchParams observes it. That is a promise
 //     about a framework internal — if it ever stops holding, every filter
-//     on /events, /vcs, /opportunities and /admin/community silently stops
+//     on /events, /vcs, /opportunities and /admin/members silently stops
 //     responding to a click. Nothing but a browser can tell us.
 //
 //  2. Client mode must not cost a server round trip. That was the whole

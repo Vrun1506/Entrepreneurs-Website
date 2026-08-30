@@ -39,10 +39,25 @@ export function buildCsp(nonce: string): string {
 
   const turnstile = "https://challenges.cloudflare.com";
 
-  const connectSrc = ["'self'", supabaseOrigin, supabaseWs, posthogOrigin, posthogAssets, sentryOrigin, turnstile].filter(
-    Boolean,
-  );
-  const imgSrc = ["'self'", "data:", "blob:", supabaseOrigin].filter(Boolean);
+  // Community post images. Served straight from Azure Blob over a
+  // short-expiry SAS, so the browser fetches them from the storage account
+  // host rather than from us. Derived from the same env the URL signer
+  // uses — a literal here would drift the moment the account is renamed.
+  //
+  // Built by hand rather than through originOf(): AZURE_STORAGE_ACCOUNT is
+  // an account name, not a URL. This module runs in the edge runtime, so it
+  // cannot import lib/storage/blobRead.ts (server-only, pulls in the SDK).
+  const azureAccount = process.env.AZURE_STORAGE_ACCOUNT;
+  const blobOrigin = azureAccount ? `https://${azureAccount}.blob.core.windows.net` : null;
+
+  // The upload gateway belongs in connect-src, not img-src: the browser
+  // POSTs image bytes to it and never renders anything from it.
+  const gatewayOrigin = originOf(process.env.UPLOAD_GATEWAY_URL);
+
+  const connectSrc = [
+    "'self'", supabaseOrigin, supabaseWs, posthogOrigin, posthogAssets, sentryOrigin, turnstile, gatewayOrigin,
+  ].filter(Boolean);
+  const imgSrc = ["'self'", "data:", "blob:", supabaseOrigin, blobOrigin].filter(Boolean);
 
   // React uses eval() in development for richer error stacks; not needed in prod.
   const devEval = process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : "";
