@@ -319,14 +319,24 @@ else
   if az consumption budget show-with-rg -g "$RG" -n "$BUDGET_NAME" -o none 2>/dev/null; then
     skip "budget $BUDGET_NAME already exists"
   else
+    # Both quirks below are this az CLI version's (2.87.0) budget schema, not
+    # documentation guesswork — found by hitting the real 400s and reading
+    # `az consumption budget create-with-rg --notifications '??'` /
+    # `--time-period '??'` for the actual accepted fields.
     TIME_PERIOD=$(mktemp)
     cat > "$TIME_PERIOD" <<JSON
-{"startDate":"$(date -u +%Y-%m-01)","endDate":"2099-12-31"}
+{"startDate":"$(date -u +%Y-%m-01)T00:00:00Z","endDate":"2099-12-31T00:00:00Z"}
 JSON
+    # A bare date ("2026-08-01") fails with "Start date should be the first
+    # day of the month" even though it is — the API wants a full datetime.
+    #
+    # contactEmails is a required field on each notification even though we
+    # only want the action-group email; thresholdType doesn't exist in this
+    # CLI's model at all (fails to parse, not just rejected server-side).
     NOTIFICATIONS=$(mktemp)
     cat > "$NOTIFICATIONS" <<JSON
-{"Actual_GreaterThan_80":{"enabled":true,"operator":"GreaterThan","threshold":80,"contactGroups":["$AG_ID"],"thresholdType":"Actual"},
-"Actual_GreaterThan_100":{"enabled":true,"operator":"GreaterThan","threshold":100,"contactGroups":["$AG_ID"],"thresholdType":"Actual"}}
+{"Actual_GreaterThan_80":{"enabled":true,"operator":"GreaterThan","threshold":80,"contactEmails":["$BUDGET_ALERT_EMAIL"],"contactGroups":["$AG_ID"]},
+"Actual_GreaterThan_100":{"enabled":true,"operator":"GreaterThan","threshold":100,"contactEmails":["$BUDGET_ALERT_EMAIL"],"contactGroups":["$AG_ID"]}}
 JSON
     az consumption budget create-with-rg \
       -g "$RG" -n "$BUDGET_NAME" \
