@@ -92,7 +92,7 @@ export async function deleteGraduates(cutoffYear: number): Promise<DeleteResult>
       // Membership changed, so the cached directory is stale.
       await invalidate("directoryFacets");
       revalidatePath("/admin");
-      revalidatePath("/admin/community");
+      revalidatePath("/admin/members");
       revalidatePath("/members");
       return {
         ok: false,
@@ -103,7 +103,7 @@ export async function deleteGraduates(cutoffYear: number): Promise<DeleteResult>
   // Membership changed, so the cached directory is stale.
   await invalidate("directoryFacets");
   revalidatePath("/admin");
-  revalidatePath("/admin/community");
+  revalidatePath("/admin/members");
   revalidatePath("/members");
 
   return { ok: true, deleted: rows.length, emailsQueued };

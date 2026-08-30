@@ -47,6 +47,14 @@ function appealsInbox(): string {
   return process.env.APPEALS_EMAIL ?? "appeals@imperialentrepreneurs.com";
 }
 
+// Where a new content report lands. Falls back to the contact inbox so
+// reports always reach somebody monitored, even before MODERATION_INBOX_EMAIL
+// is configured — an unrouted report is the one failure this whole path
+// exists to prevent.
+function moderationInbox(): string {
+  return process.env.MODERATION_INBOX_EMAIL ?? contactInbox();
+}
+
 // ─── Enqueue helpers ────────────────────────────────────────────────
 // Service-role insert. outbound_email has RLS deny-all for
 // authenticated/anon; the service role bypasses RLS and writes
@@ -366,7 +374,203 @@ export async function sendListingRejectionEmail(opts: {
 /** Reply-to for the listing rejection email, exported for the bulk path. */
 export const listingRejectionReplyTo = appealsInbox;
 
+// ─── Community post takedown ────────────────────────────────────────
+// Sent when an admin removes a post. Four things have to be in here for
+// the removal to be defensible, and one thing has to be left out.
+//
+// In: what was removed and when it was posted; that a person removed it
+// and when; the reason; and how to appeal. A takedown a member cannot
+// identify or contest is not moderation, it is just deletion.
+//
+// Out: the body of the post. Quoting back the content we have just
+// destroyed would undercut the deletion — and the member wrote it, so
+// they are the one person who does not need a copy.
+//
+// The 12-month retention line is deliberate too: telling someone a record
+// is kept, and for how long, is the transparency half of relying on
+// Article 17(3)(e) to keep it.
+export function renderPostTakedownEmail(opts: {
+  firstName: string | null;
+  postTitle: string;
+  postedAt: Date;
+  reason: string;
+}): { subject: string; text: string; html: string } {
+  const greeting = opts.firstName ? `Hi ${escapeName(opts.firstName)},` : "Hi,";
+  const posted = opts.postedAt.toLocaleDateString("en-GB", {
+    day: "numeric", month: "long", year: "numeric",
+  });
+  const subject = "Your Foundry community post has been removed";
+
+  const text = [
+    greeting,
+    "",
+    `Your community post "${opts.postTitle}", published on ${posted}, has been removed by a Foundry admin. Their reason:`,
+    "",
+    opts.reason,
+    "",
+    "Posting guidelines are in our Terms of Use. We keep a record of removals like this one for 12 months.",
+    "",
+    "If you think this was a mistake, reply to this email and we'll review it.",
+    "",
+    "— The Foundry team",
+  ].join("\n");
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; line-height: 1.6;">
+      <p>${escapeHtml(greeting)}</p>
+      <p>Your community post &ldquo;${escapeHtml(opts.postTitle)}&rdquo;, published on ${escapeHtml(posted)}, has been removed by a Foundry admin. Their reason:</p>
+      <blockquote style="margin: 16px 0; padding: 12px 16px; background: #f6f5f1; border-left: 3px solid #c9a84c; white-space: pre-wrap;">${escapeHtml(opts.reason)}</blockquote>
+      <p>Posting guidelines are in our Terms of Use. We keep a record of removals like this one for 12 months.</p>
+      <p>If you think this was a mistake, reply to this email and we&rsquo;ll review it.</p>
+      <p style="color: #5a5855; margin-top: 32px;">&mdash; The Foundry team</p>
+    </div>`;
+
+  return { subject, text, html };
+}
+
+export async function sendPostTakedownEmail(opts: {
+  to: string;
+  firstName: string | null;
+  postTitle: string;
+  postedAt: Date;
+  reason: string;
+}): Promise<void> {
+  const { subject, text, html } = renderPostTakedownEmail(opts);
+  await enqueueEmail({ to: opts.to, subject, text, html, replyTo: appealsInbox() });
+}
+
+export const postTakedownReplyTo = appealsInbox;
+
+// ─── Report outcome ─────────────────────────────────────────────────
+// Closes the loop with whoever reported a post. This is the half of a
+// complaints process that is easiest to skip and the half that makes it
+// real: a report route that never reports back trains members to stop
+// using it, and leaves us with a documented notification and no evidence
+// we did anything about it.
+//
+// Sent for BOTH outcomes. "We looked and took no action" is a result;
+// silence is not.
+export function renderReportOutcomeEmail(opts: {
+  firstName: string | null;
+  postTitle: string;
+  outcome: "actioned" | "dismissed";
+  note: string | null;
+}): { subject: string; text: string; html: string } {
+  const greeting = opts.firstName ? `Hi ${escapeName(opts.firstName)},` : "Hi,";
+  const subject = "We've reviewed your Foundry report";
+
+  const verdict =
+    opts.outcome === "actioned"
+      ? "We agreed, and the post has been removed."
+      : "We reviewed it and decided it doesn't breach our posting guidelines, so it will stay up.";
+
+  const text = [
+    greeting,
+    "",
+    `Thanks for reporting the community post "${opts.postTitle}". An admin has now reviewed it.`,
+    "",
+    verdict,
+    ...(opts.note ? ["", "They added:", "", opts.note] : []),
+    "",
+    "If you disagree with this outcome, reply to this email and we'll take another look.",
+    "",
+    "— The Foundry team",
+  ].join("\n");
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; line-height: 1.6;">
+      <p>${escapeHtml(greeting)}</p>
+      <p>Thanks for reporting the community post &ldquo;${escapeHtml(opts.postTitle)}&rdquo;. An admin has now reviewed it.</p>
+      <p>${escapeHtml(verdict)}</p>
+      ${opts.note
+        ? `<p>They added:</p><blockquote style="margin: 16px 0; padding: 12px 16px; background: #f6f5f1; border-left: 3px solid #c9a84c; white-space: pre-wrap;">${escapeHtml(opts.note)}</blockquote>`
+        : ""}
+      <p>If you disagree with this outcome, reply to this email and we&rsquo;ll take another look.</p>
+      <p style="color: #5a5855; margin-top: 32px;">&mdash; The Foundry team</p>
+    </div>`;
+
+  return { subject, text, html };
+}
+
+export async function sendReportOutcomeEmail(opts: {
+  to: string;
+  firstName: string | null;
+  postTitle: string;
+  outcome: "actioned" | "dismissed";
+  note: string | null;
+}): Promise<void> {
+  const { subject, text, html } = renderReportOutcomeEmail(opts);
+  await enqueueEmail({ to: opts.to, subject, text, html, replyTo: appealsInbox() });
+}
+
 // ─── Contact form ───────────────────────────────────────────────────
+// ─── New report notification (to us, not to a member) ───────────────
+// The Online Safety Act asks a user-to-user service to act on illegal
+// content once it knows about it, and knowing cannot depend on somebody
+// remembering to open /admin/reports. This turns the queue from a page you
+// have to visit into a message that arrives.
+//
+// Deliberately does NOT quote the reported post's body. The admin can read
+// it in the app behind an admin session; putting members' content into an
+// inbox spreads it further than the report asked us to.
+export function renderPostReportEmail(opts: {
+  category: string;
+  reason: string;
+  postTitle: string;
+  reportedAt: Date;
+  siteUrl: string;
+}): { subject: string; text: string; html: string } {
+  const when = opts.reportedAt.toLocaleString("en-GB", {
+    day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit",
+  });
+  const queue = `${opts.siteUrl.replace(/\/$/, "")}/admin/reports`;
+  // Category first, so severity is legible in a notification list without
+  // opening anything.
+  const subject = `[Foundry] Post reported — ${opts.category}`;
+
+  const text = [
+    `A member reported a community post on ${when}.`,
+    "",
+    `Category: ${opts.category}`,
+    `Post:     "${opts.postTitle}"`,
+    "",
+    "What they said:",
+    opts.reason,
+    "",
+    `Review it: ${queue}`,
+    "",
+    "The reporter is identified in the admin queue, not here.",
+  ].join("\n");
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; line-height: 1.6;">
+      <p>A member reported a community post on ${escapeHtml(when)}.</p>
+      <table style="border-collapse: collapse; margin: 16px 0;">
+        <tr><td style="padding: 2px 12px 2px 0; color: #5a5855;">Category</td><td style="padding: 2px 0;"><strong>${escapeHtml(opts.category)}</strong></td></tr>
+        <tr><td style="padding: 2px 12px 2px 0; color: #5a5855;">Post</td><td style="padding: 2px 0;">&ldquo;${escapeHtml(opts.postTitle)}&rdquo;</td></tr>
+      </table>
+      <p style="margin-bottom: 4px;">What they said:</p>
+      <blockquote style="margin: 4px 0 16px; padding: 12px 16px; background: #f6f5f1; border-left: 3px solid #c9a84c; white-space: pre-wrap;">${escapeHtml(opts.reason)}</blockquote>
+      <p><a href="${escapeHtml(queue)}" style="color: #1a1a1a;">Review it in the admin queue</a></p>
+      <p style="color: #5a5855; font-size: 13px; margin-top: 24px;">The reporter is identified in the admin queue, not here.</p>
+    </div>`;
+
+  return { subject, text, html };
+}
+
+export async function sendPostReportEmail(opts: {
+  category: string;
+  reason: string;
+  postTitle: string;
+  reportedAt: Date;
+  siteUrl: string;
+}): Promise<void> {
+  const { subject, text, html } = renderPostReportEmail(opts);
+  await enqueueEmail({ to: moderationInbox(), subject, text, html });
+}
+
+export const postReportRecipient = moderationInbox;
+
 export async function sendContactTicket(opts: {
   fromEmail: string;
   firstName: string | null;

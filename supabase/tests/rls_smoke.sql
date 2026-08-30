@@ -744,6 +744,11 @@ declare
     'get_opportunity_for_edit','get_event_for_edit',
     -- listing engagement
     'mark_listing_action','unmark_listing_action','record_listing_event',
+    -- community posts (member)
+    'posting_enabled','issue_upload_ticket','create_post','delete_my_post',
+    'report_post','list_community_feed','list_my_posts',
+    -- community posts (admin)
+    'admin_delete_post','admin_resolve_post_report','admin_list_post_reports',
     -- this test's OWN role-impersonation helper (created near the top of this
     -- file, dropped in cleanup below). Not an app RPC — it only exists during
     -- the test run, where Supabase default privileges make it anon-callable;
@@ -1075,7 +1080,7 @@ $$;
 
 -- ─── 27. The admin profile lists page, and count what they didn't return ──
 --     PostgREST silently truncates any response at max_rows (1000), which
---     is how /admin/community came to show 1000 of however many members
+--     is how /admin/members came to show 1000 of however many members
 --     there were. The fix only works if two things hold: a page really is
 --     capped at p_limit, and total_count reports the whole match rather
 --     than the page. If total_count ever tracked the page, the pager would
@@ -1372,6 +1377,435 @@ begin
   if v_rows <> 0 then
     raise exception
       'FAIL: % email_change_log row(s) survived the account being deleted', v_rows;
+  end if;
+end;
+$$;
+
+-- ─── 31. Community posts: authorisation, retention, and the audit trail ──
+-- The Community feed is the only content type here that publishes without
+-- review, so the guarantees below are the whole safety model. Each block
+-- asserts one of them.
+--
+-- Note on role switching: upload_tickets, post_reports, post_moderation_log
+-- and blob_deletion_queue are deny-all to `authenticated`, so any check that
+-- reads them has to run as the owner role. That this is necessary is itself
+-- the assertion in 31f.
+set local role postgres;
+
+-- 31a. The kill switch actually gates creation, and defaults closed.
+do $$
+declare v_ok boolean := false;
+begin
+  perform set_config('request.jwt.claims', json_build_object('role','service_role')::text, true);
+  delete from public.app_config where key = 'community_posts_enabled';
+
+  perform _set_caller((select id from public.profiles where status='approved' limit 1));
+  begin
+    perform public.create_post('A blocked title', 'body text');
+  exception when others then v_ok := true;
+  end;
+  if not v_ok then
+    raise exception 'FAIL: create_post succeeded with no community_posts_enabled row (must default closed)';
+  end if;
+
+  set local role postgres;
+  perform set_config('request.jwt.claims', json_build_object('role','service_role')::text, true);
+  insert into public.app_config (key, value) values ('community_posts_enabled','true')
+  on conflict (key) do update set value = 'true';
+end;
+$$;
+
+-- 31b. An upload ticket is single-use and bound to the member it was issued
+--      to. Without this, a client could attach another member's image to its
+--      own post.
+do $$
+declare
+  v_a uuid; v_b uuid; v_key text; v_ok boolean := false;
+begin
+  set local role postgres;
+  select id into v_a from public.profiles where status='approved' order by created_at limit 1;
+  select id into v_b from public.profiles where status='approved' and id <> v_a order by created_at limit 1;
+
+  perform _set_caller(v_b);
+  v_key := public.issue_upload_ticket('post_image');
+
+  perform _set_caller(v_a);
+  begin
+    perform public.create_post('Ticket theft', 'body text',
+      jsonb_build_array(jsonb_build_object(
+        'blob_key', v_key, 'alt_text','x','width',10,'height',10,'byte_size',10)));
+  exception when others then v_ok := true;
+  end;
+  if not v_ok then
+    raise exception 'FAIL: a member consumed another member''s upload ticket';
+  end if;
+end;
+$$;
+
+-- 31c. Only the author may delete their own post.
+do $$
+declare v_a uuid; v_b uuid; v_post uuid; v_ok boolean := false;
+begin
+  set local role postgres;
+  select id into v_a from public.profiles where status='approved' order by created_at limit 1;
+  select id into v_b from public.profiles where status='approved' and id <> v_a order by created_at limit 1;
+
+  perform _set_caller(v_a);
+  select cp.id into v_post from public.create_post('Owner only', 'This belongs to A.') cp;
+
+  perform _set_caller(v_b);
+  begin
+    perform public.delete_my_post(v_post);
+  exception when others then v_ok := true;
+  end;
+  if not v_ok then raise exception 'FAIL: a member deleted another member''s post'; end if;
+end;
+$$;
+
+-- 31d. Admin takedown snapshots the content and audits, BEFORE deleting.
+--      An appeal is the only time this log is ever read, and by then the
+--      post is gone — so a log without the snapshot would be worthless.
+do $$
+declare v_a uuid; v_admin uuid; v_post uuid; v_n int;
+begin
+  set local role postgres;
+  select id into v_a from public.profiles where status='approved' order by created_at limit 1;
+  select user_id into v_admin from public.admins limit 1;
+
+  perform _set_caller(v_a);
+  select cp.id into v_post from public.create_post('Takedown target', 'Objectionable content here.') cp;
+
+  perform _set_caller(v_admin);
+  perform public.admin_delete_post(v_post, 'Breaches guideline 3.');
+
+  set local role postgres;
+  select count(*) into v_n from public.post_moderation_log
+   where post_id = v_post
+     and body_snapshot = 'Objectionable content here.'
+     and reason = 'Breaches guideline 3.'
+     and purge_after > now() + interval '11 months';
+  if v_n <> 1 then
+    raise exception 'FAIL: takedown did not write a complete 12-month moderation record';
+  end if;
+
+  select count(*) into v_n from public.posts where id = v_post;
+  if v_n <> 0 then raise exception 'FAIL: post survived an admin takedown'; end if;
+end;
+$$;
+
+-- 31e. Deleting an image ALWAYS schedules its bytes. This one trigger is
+--      what makes an erasure request actually complete rather than merely
+--      appear to, across every deletion path.
+do $$
+declare v_a uuid; v_key text; v_post uuid; v_n int;
+begin
+  set local role postgres;
+  select id into v_a from public.profiles where status='approved' order by created_at limit 1;
+
+  perform _set_caller(v_a);
+  v_key  := public.issue_upload_ticket('post_image');
+  select cp.id into v_post from public.create_post('With an image', 'body text',
+    jsonb_build_array(jsonb_build_object(
+      'blob_key', v_key, 'alt_text','A photo','width',800,'height',600,'byte_size',1234))) cp;
+  perform public.delete_my_post(v_post);
+
+  set local role postgres;
+  select count(*) into v_n from public.blob_deletion_queue where blob_key = v_key;
+  if v_n <> 1 then
+    raise exception 'FAIL: deleting a post did not queue its image bytes for destruction';
+  end if;
+end;
+$$;
+
+-- 31f. The four deny-all tables are opaque to `authenticated`. A reporter
+--      must not be able to read who reported what, and an audit log the
+--      application can read is one it can be tricked into leaking.
+do $$
+declare v_a uuid; v_n int;
+begin
+  set local role postgres;
+  select id into v_a from public.profiles where status='approved' order by created_at limit 1;
+  perform _set_caller(v_a);
+
+  select count(*) into v_n from public.post_moderation_log;
+  if v_n <> 0 then raise exception 'FAIL: authenticated read % post_moderation_log row(s)', v_n; end if;
+  select count(*) into v_n from public.post_reports;
+  if v_n <> 0 then raise exception 'FAIL: authenticated read % post_reports row(s)', v_n; end if;
+  select count(*) into v_n from public.upload_tickets;
+  if v_n <> 0 then raise exception 'FAIL: authenticated read % upload_tickets row(s)', v_n; end if;
+  select count(*) into v_n from public.blob_deletion_queue;
+  if v_n <> 0 then raise exception 'FAIL: authenticated read % blob_deletion_queue row(s)', v_n; end if;
+end;
+$$;
+
+-- 31g. A banned member's posts go with them. Leaving them in the feed is
+--      the outcome the ban exists to prevent, and banned_until can take an
+--      hour to invalidate their JWT.
+do $$
+declare v_victim uuid; v_n int;
+begin
+  set local role postgres;
+  perform set_config('request.jwt.claims', json_build_object('role','service_role')::text, true);
+  select id into v_victim from public.profiles where status='approved' order by created_at limit 1;
+
+  perform _set_caller(v_victim);
+  perform public.create_post('Doomed by ban', 'This should vanish with the account.');
+
+  set local role postgres;
+  perform set_config('request.jwt.claims', json_build_object('role','service_role')::text, true);
+  update public.profiles set status = 'rejected' where id = v_victim;
+
+  select count(*) into v_n from public.posts where author_id = v_victim;
+  if v_n <> 0 then
+    raise exception 'FAIL: a banned member kept % post(s) live on the feed', v_n;
+  end if;
+end;
+$$;
+
+-- 31h. Retention purges run, and legal_hold survives them — so one record
+--      can outlive the window for a live claim without the purge having to
+--      be disabled for everyone.
+do $$
+declare v_n int;
+begin
+  set local role postgres;
+  update public.post_moderation_log set purge_after = now() - interval '1 day';
+  update public.post_moderation_log set legal_hold = true
+   where id = (select id from public.post_moderation_log limit 1);
+
+  perform public.purge_moderation_records();
+
+  select count(*) into v_n from public.post_moderation_log;
+  if v_n <> 1 then
+    raise exception 'FAIL: expected exactly the legal_hold row to survive the purge, got %', v_n;
+  end if;
+end;
+$$;
+
+-- 31i. An admin CANNOT delete a post straight off the table. This is the
+--      one that keeps the moderation log meaningful: a DELETE through
+--      PostgREST would remove the post while writing no audit row, no
+--      admin_actions entry and sending the author no notice. The RPC is
+--      the only takedown route, and it is SECURITY DEFINER, so it does not
+--      need — and must not have — an RLS policy backing it up.
+do $$
+declare
+  v_admin uuid; v_author uuid; v_post uuid; v_n int;
+begin
+  set local role postgres;
+  select user_id into v_admin from public.admins limit 1;
+  select id into v_author from public.profiles where status='approved' and id <> v_admin limit 1;
+
+  perform _set_caller(v_author);
+  select cp.id into v_post from public.create_post('Admin bypass probe', 'body text long enough') cp;
+
+  perform _set_caller(v_admin);
+  delete from public.posts where id = v_post;
+
+  set local role postgres;
+  select count(*) into v_n from public.posts where id = v_post;
+  if v_n <> 1 then
+    raise exception 'FAIL: an admin deleted a post directly, bypassing admin_delete_post and the moderation log';
+  end if;
+
+  select count(*) into v_n from public.post_moderation_log where post_id = v_post;
+  if v_n <> 0 then
+    raise exception 'FAIL: a direct delete somehow wrote a moderation row';
+  end if;
+
+  -- And the supported route still works, without an RLS policy helping it.
+  perform _set_caller(v_admin);
+  perform public.admin_delete_post(v_post, 'Removed by the supported route.');
+  set local role postgres;
+  select count(*) into v_n from public.posts where id = v_post;
+  if v_n <> 0 then
+    raise exception 'FAIL: admin_delete_post left the post behind';
+  end if;
+end;
+$$;
+
+-- 31j. The posting ceiling lives in the database, not only in the server
+--      action. create_post is EXECUTE-able by `authenticated`, so anyone
+--      who can open devtools can skip the Upstash limiter entirely — on a
+--      surface that publishes straight to every member with no queue in
+--      between. The action stays the limit members meet; this is the floor
+--      under it.
+do $$
+declare
+  v_author uuid; v_i int; v_ok boolean := false;
+begin
+  set local role postgres;
+  select id into v_author from public.profiles where status='approved' limit 1;
+  delete from public.posts where author_id = v_author;
+
+  perform _set_caller(v_author);
+  for v_i in 1..15 loop
+    perform public.create_post('Flood probe ' || v_i, 'body text long enough ' || v_i);
+  end loop;
+
+  begin
+    perform public.create_post('Flood probe 16', 'body text long enough 16');
+  exception when others then v_ok := true;
+  end;
+  if not v_ok then
+    raise exception 'FAIL: create_post accepted a 16th post in 24h — the rate backstop is not enforced in the database';
+  end if;
+
+  set local role postgres;
+  delete from public.posts where author_id = v_author;
+end;
+$$;
+
+-- 31k. Same argument for reporting. The unique index already stops the same
+--      post being reported twice; this stops one member working through
+--      everyone else's posts through the RPC directly.
+do $$
+declare
+  v_reporter uuid; v_author uuid; v_post uuid; v_i int; v_ok boolean := false;
+begin
+  set local role postgres;
+  select id into v_author   from public.profiles where status='approved' order by created_at limit 1;
+  select id into v_reporter from public.profiles where status='approved' and id <> v_author order by created_at limit 1;
+  delete from public.post_reports where reporter_id = v_reporter;
+
+  for v_i in 1..11 loop
+    perform _set_caller(v_author);
+    select cp.id into v_post from public.create_post('Report target ' || v_i, 'body text long enough ' || v_i) cp;
+
+    perform _set_caller(v_reporter);
+    begin
+      perform public.report_post(v_post, 'spam', 'Repeated advertising from this account.');
+    exception when others then v_ok := true;
+    end;
+    exit when v_ok;
+  end loop;
+
+  if not v_ok then
+    raise exception 'FAIL: report_post accepted an 11th report in 24h — report-bombing is not bounded in the database';
+  end if;
+
+  set local role postgres;
+  delete from public.post_reports where reporter_id = v_reporter;
+  delete from public.posts where author_id = v_author;
+end;
+$$;
+
+-- 31l. An expired post is invisible before the hourly purge reaches it.
+--      The privacy page promises seven days; the cron reclaims the row, but
+--      the read is what makes the promise exact for the member.
+do $$
+declare
+  v_author uuid; v_post uuid; v_n int;
+begin
+  set local role postgres;
+  select id into v_author from public.profiles where status='approved' limit 1;
+
+  perform _set_caller(v_author);
+  select cp.id into v_post from public.create_post('Expiry probe', 'body text long enough') cp;
+
+  set local role postgres;
+  update public.posts set expires_at = now() - interval '1 minute' where id = v_post;
+
+  perform _set_caller(v_author);
+  select count(*) into v_n from public.list_community_feed(null, null, 50) f where f.id = v_post;
+  if v_n <> 0 then
+    raise exception 'FAIL: an expired post is still served by list_community_feed';
+  end if;
+
+  select count(*) into v_n from public.list_my_posts(null, null, 50) f where f.id = v_post;
+  if v_n <> 0 then
+    raise exception 'FAIL: an expired post is still served by list_my_posts';
+  end if;
+
+  set local role postgres;
+  delete from public.posts where id = v_post;
+end;
+$$;
+
+-- ─── 32. No pre-community-posts member RPC is callable by `anon` ─────
+-- Section 28 asserts this for the admin RPCs (20260827000001). This is the
+-- same claim for the 22 member-facing RPCs 20260830000005 locked down —
+-- everything from before the community-posts feature that reads or writes
+-- on the caller's own behalf: update_profile, submit_opportunity,
+-- list_approved_events, and the rest.
+--
+-- Their in-body auth.uid() check (direct, or through is_approved()) already
+-- rejects an anonymous caller, so this is defence in depth, not a live
+-- hole — same reasoning as section 28. It is here because that in-body
+-- check is one edit away from being the only thing standing there, and
+-- because Supabase's default privileges re-grant EXECUTE to anon every
+-- time one of these functions is re-created, so 20260830000005's revoke
+-- needs something that notices when a later `create or replace` quietly
+-- undoes it.
+--
+-- Matched by NAME, exactly as 20260830000005 does, so a signature change
+-- cannot slip a function past either of them.
+set local role postgres;
+do $$
+declare
+  v_leaked  text;
+  v_targets text[] := array[
+    'delete_my_account', 'get_event_for_edit', 'get_my_activity',
+    'get_my_listing_actions', 'get_my_listing_stats', 'get_opportunity_for_edit',
+    'list_approved_events', 'list_approved_opportunities',
+    'list_directory_cards', 'list_directory_facets',
+    'list_my_bookmarked_opportunities', 'mark_listing_action',
+    'record_listing_event', 'submit_event', 'submit_onboarding',
+    'submit_opportunity', 'submit_vc_grant', 'unmark_listing_action',
+    'update_event', 'update_opportunity', 'update_profile', 'update_vc_grant'
+  ];
+begin
+  select string_agg(distinct p.proname, ', ' order by p.proname)
+    into v_leaked
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace and n.nspname = 'public'
+   where p.prokind = 'f'
+     and not exists (
+       select 1 from pg_depend d
+        where d.objid = p.oid and d.deptype = 'e')
+     and p.proname = any(v_targets)
+     and has_function_privilege('anon', p.oid, 'EXECUTE');
+  if v_leaked is not null then
+    raise exception
+      'FAIL: member RPC(s) EXECUTE-able by anon: %. A re-created function picks up '
+      'Supabase''s default grant again — re-apply the revoke from '
+      'migration 20260830000005.', v_leaked;
+  end if;
+end;
+$$;
+
+-- And the same functions must still be reachable by a signed-in member —
+-- a revoke that took `authenticated` with it would lock every submission
+-- and profile-edit form, while every in-body check kept passing.
+set local role postgres;
+do $$
+declare
+  v_locked  text;
+  v_targets text[] := array[
+    'delete_my_account', 'get_event_for_edit', 'get_my_activity',
+    'get_my_listing_actions', 'get_my_listing_stats', 'get_opportunity_for_edit',
+    'list_approved_events', 'list_approved_opportunities',
+    'list_directory_cards', 'list_directory_facets',
+    'list_my_bookmarked_opportunities', 'mark_listing_action',
+    'record_listing_event', 'submit_event', 'submit_onboarding',
+    'submit_opportunity', 'submit_vc_grant', 'unmark_listing_action',
+    'update_event', 'update_opportunity', 'update_profile', 'update_vc_grant'
+  ];
+begin
+  select string_agg(distinct p.proname, ', ' order by p.proname)
+    into v_locked
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace and n.nspname = 'public'
+   where p.prokind = 'f'
+     and not exists (
+       select 1 from pg_depend d
+        where d.objid = p.oid and d.deptype = 'e')
+     and p.proname = any(v_targets)
+     and not has_function_privilege('authenticated', p.oid, 'EXECUTE');
+  if v_locked is not null then
+    raise exception
+      'FAIL: member RPC(s) no longer EXECUTE-able by authenticated: % — the revoke '
+      'took every member-facing form with it', v_locked;
   end if;
 end;
 $$;

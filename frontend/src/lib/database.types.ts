@@ -97,6 +97,39 @@ export type Database = {
         }
         Relationships: []
       }
+      blob_deletion_queue: {
+        Row: {
+          attempts: number
+          blob_key: string
+          deleted_at: string | null
+          enqueued_at: string
+          id: string
+          last_error: string | null
+          max_attempts: number
+          next_attempt_at: string
+        }
+        Insert: {
+          attempts?: number
+          blob_key: string
+          deleted_at?: string | null
+          enqueued_at?: string
+          id?: string
+          last_error?: string | null
+          max_attempts?: number
+          next_attempt_at?: string
+        }
+        Update: {
+          attempts?: number
+          blob_key?: string
+          deleted_at?: string | null
+          enqueued_at?: string
+          id?: string
+          last_error?: string | null
+          max_attempts?: number
+          next_attempt_at?: string
+        }
+        Relationships: []
+      }
       email_change_log: {
         Row: {
           changed_at: string
@@ -433,6 +466,187 @@ export type Database = {
         }
         Relationships: []
       }
+      post_images: {
+        Row: {
+          alt_text: string
+          blob_key: string
+          byte_size: number
+          created_at: string
+          height: number
+          id: string
+          position: number
+          post_id: string
+          width: number
+        }
+        Insert: {
+          alt_text: string
+          blob_key: string
+          byte_size: number
+          created_at?: string
+          height: number
+          id?: string
+          position: number
+          post_id: string
+          width: number
+        }
+        Update: {
+          alt_text?: string
+          blob_key?: string
+          byte_size?: number
+          created_at?: string
+          height?: number
+          id?: string
+          position?: number
+          post_id?: string
+          width?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_images_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      post_moderation_log: {
+        Row: {
+          admin_id: string | null
+          author_email_snapshot: string | null
+          author_id: string | null
+          body_snapshot: string
+          id: string
+          image_count: number
+          legal_hold: boolean
+          post_id: string
+          posted_at: string
+          purge_after: string
+          reason: string
+          removed_at: string
+          title_snapshot: string
+        }
+        Insert: {
+          admin_id?: string | null
+          author_email_snapshot?: string | null
+          author_id?: string | null
+          body_snapshot: string
+          id?: string
+          image_count?: number
+          legal_hold?: boolean
+          post_id: string
+          posted_at: string
+          purge_after?: string
+          reason: string
+          removed_at?: string
+          title_snapshot: string
+        }
+        Update: {
+          admin_id?: string | null
+          author_email_snapshot?: string | null
+          author_id?: string | null
+          body_snapshot?: string
+          id?: string
+          image_count?: number
+          legal_hold?: boolean
+          post_id?: string
+          posted_at?: string
+          purge_after?: string
+          reason?: string
+          removed_at?: string
+          title_snapshot?: string
+        }
+        Relationships: []
+      }
+      post_reports: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          post_id: string | null
+          post_title_snapshot: string
+          purge_after: string
+          reason: string
+          reporter_id: string | null
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          id?: string
+          post_id?: string | null
+          post_title_snapshot: string
+          purge_after?: string
+          reason: string
+          reporter_id?: string | null
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          post_id?: string | null
+          post_title_snapshot?: string
+          purge_after?: string
+          reason?: string
+          reporter_id?: string | null
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_reports_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      posts: {
+        Row: {
+          author_id: string
+          body: string
+          created_at: string
+          expires_at: string
+          id: string
+          kind: string
+          source_id: string | null
+          source_table: string | null
+          title: string
+        }
+        Insert: {
+          author_id: string
+          body: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          kind?: string
+          source_id?: string | null
+          source_table?: string | null
+          title: string
+        }
+        Update: {
+          author_id?: string
+          body?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          kind?: string
+          source_id?: string | null
+          source_table?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
       profile_sectors: {
         Row: {
           profile_id: string
@@ -595,6 +809,30 @@ export type Database = {
         }
         Relationships: []
       }
+      upload_tickets: {
+        Row: {
+          blob_key: string
+          consumed_at: string | null
+          issued_at: string
+          purpose: string
+          user_id: string
+        }
+        Insert: {
+          blob_key: string
+          consumed_at?: string | null
+          issued_at?: string
+          purpose: string
+          user_id: string
+        }
+        Update: {
+          blob_key?: string
+          consumed_at?: string | null
+          issued_at?: string
+          purpose?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_listing_actions: {
         Row: {
           action_type: Database["public"]["Enums"]["user_action_type"]
@@ -740,6 +978,15 @@ export type Database = {
           user_id: string
         }[]
       }
+      admin_delete_post: {
+        Args: { p_post_id: string; p_reason: string }
+        Returns: {
+          email: string
+          first_name: string
+          posted_at: string
+          title: string
+        }[]
+      }
       admin_delete_user: {
         Args: { p_reason: string; p_user_id: string }
         Returns: {
@@ -773,6 +1020,27 @@ export type Database = {
           surname: string
           total_count: number
           working_on: string
+        }[]
+      }
+      admin_list_post_reports: {
+        Args: { p_limit?: number; p_offset?: number; p_status?: string }
+        Returns: {
+          author_first_name: string
+          author_id: string
+          author_surname: string
+          category: string
+          created_at: string
+          id: string
+          post_id: string
+          post_still_exists: boolean
+          post_title_snapshot: string
+          reason: string
+          reporter_first_name: string
+          reporter_surname: string
+          resolution_note: string
+          resolved_at: string
+          status: string
+          total_count: number
         }[]
       }
       admin_list_profiles: {
@@ -823,6 +1091,14 @@ export type Database = {
           total: number
         }[]
       }
+      admin_resolve_post_report: {
+        Args: { p_note?: string; p_report_id: string; p_status: string }
+        Returns: {
+          email: string
+          first_name: string
+          post_title: string
+        }[]
+      }
       approve_event: {
         Args: { p_event_id: string; p_notes?: string }
         Returns: undefined
@@ -842,6 +1118,15 @@ export type Database = {
         Args: { p_id: string; p_notes?: string }
         Returns: undefined
       }
+      claim_blob_deletion_batch: {
+        Args: { p_limit?: number }
+        Returns: {
+          attempts: number
+          blob_key: string
+          id: string
+          max_attempts: number
+        }[]
+      }
       claim_outbound_email_batch: {
         Args: { p_limit?: number }
         Returns: {
@@ -855,8 +1140,31 @@ export type Database = {
           to_address: string
         }[]
       }
+      create_post: {
+        Args: { p_body: string; p_images?: Json; p_title: string }
+        Returns: {
+          author_first_name: string
+          author_role: Database["public"]["Enums"]["user_role"]
+          author_surname: string
+          created_at: string
+          expires_at: string
+          id: string
+        }[]
+      }
+      create_system_post: {
+        Args: {
+          p_author_id: string
+          p_body: string
+          p_source_id: string
+          p_source_table: string
+          p_title: string
+        }
+        Returns: undefined
+      }
+      cron_drain_blob_deletions: { Args: never; Returns: undefined }
       cron_drain_outbound_email: { Args: never; Returns: undefined }
       delete_my_account: { Args: never; Returns: undefined }
+      delete_my_post: { Args: { p_post_id: string }; Returns: undefined }
       enqueue_outbound_email: {
         Args: {
           p_html: string
@@ -943,6 +1251,7 @@ export type Database = {
       is_admin: { Args: never; Returns: boolean }
       is_approved: { Args: never; Returns: boolean }
       is_imperial_email: { Args: { p_email: string }; Returns: boolean }
+      issue_upload_ticket: { Args: { p_purpose?: string }; Returns: string }
       list_approved_events: {
         Args: never
         Returns: {
@@ -987,6 +1296,28 @@ export type Database = {
           skill_names: string[]
           start_month: number
           start_year: number
+        }[]
+      }
+      list_community_feed: {
+        Args: {
+          p_cursor_created_at?: string
+          p_cursor_id?: string
+          p_limit?: number
+        }
+        Returns: {
+          author_first_name: string
+          author_id: string
+          author_role: Database["public"]["Enums"]["user_role"]
+          author_surname: string
+          body: string
+          created_at: string
+          expires_at: string
+          id: string
+          images: Json
+          kind: string
+          source_id: string
+          source_table: string
+          title: string
         }[]
       }
       list_directory_cards: {
@@ -1055,6 +1386,21 @@ export type Database = {
           start_year: number
         }[]
       }
+      list_my_posts: {
+        Args: {
+          p_cursor_created_at?: string
+          p_cursor_id?: string
+          p_limit?: number
+        }
+        Returns: {
+          body: string
+          created_at: string
+          expires_at: string
+          id: string
+          images: Json
+          title: string
+        }[]
+      }
       list_pending_events_admin: {
         Args: never
         Returns: {
@@ -1108,7 +1454,11 @@ export type Database = {
         }
         Returns: undefined
       }
+      posting_enabled: { Args: never; Returns: boolean }
+      purge_expired_posts: { Args: never; Returns: number }
+      purge_moderation_records: { Args: never; Returns: number }
       purge_rejected_listings: { Args: never; Returns: number }
+      purge_stale_upload_tickets: { Args: never; Returns: number }
       record_listing_event: {
         Args: {
           p_event_type: Database["public"]["Enums"]["listing_event_type"]
@@ -1146,6 +1496,13 @@ export type Database = {
           email: string
           first_name: string
           title: string
+        }[]
+      }
+      report_post: {
+        Args: { p_category: string; p_post_id: string; p_reason: string }
+        Returns: {
+          filed: boolean
+          post_title: string
         }[]
       }
       set_my_affiliation: {

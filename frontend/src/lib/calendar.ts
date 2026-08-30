@@ -138,11 +138,21 @@ function foldLine(line: string): string {
   return chunks.join("\r\n");
 }
 
-// Tiny UID generator. crypto.randomUUID is available in modern
-// browsers + Node 19+, but we guard for older runtimes.
+// Tiny UID generator for the iCalendar UID property.
+//
+// Nothing authenticates on this value — RFC 5545 wants a string unique
+// enough that two events do not collide in someone's calendar. The
+// fallback nonetheless uses getRandomValues rather than Math.random,
+// because a weak PRNG sitting in a function called from an id path is a
+// standing invitation for the next person to reuse it somewhere it does
+// matter, and it is the same three lines either way. CodeQL flagged the
+// old fallback as js/insecure-randomness for exactly that reason.
 function cryptoLikeId(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
   }
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  const bytes = new Uint8Array(10);
+  crypto.getRandomValues(bytes);
+  const suffix = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  return `${Date.now()}-${suffix}`;
 }

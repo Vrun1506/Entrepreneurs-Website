@@ -9,7 +9,7 @@ export const metadata = {
   title: "Terms & Conditions · Foundry",
 };
 
-const LAST_UPDATED = "9 June 2026";
+const LAST_UPDATED = "29 August 2026";
 
 export default function TermsPage() {
   return (
@@ -77,6 +77,30 @@ export default function TermsPage() {
               content from our live systems as described in the{" "}
               <Link href="/privacy" className="text-accent hover:text-accent-light no-underline">Privacy Policy</Link>.
             </p>
+            <p className="mt-3">
+              <strong>Community posts are temporary.</strong> A post you publish to the Community feed is deleted
+              automatically seven days after it is published, together with any images attached to it. You can
+              delete a post sooner from Community → My posts. Do not use the feed as a place to store anything you
+              would be sorry to lose.
+            </p>
+            <p className="mt-3">
+              <strong>Community guidelines.</strong> The Community feed is published immediately, without review,
+              so what keeps it usable is that everyone posting to it sticks to the same rules. In addition to the
+              acceptable use terms in section 3, do not post:
+            </p>
+            <ul className="list-disc pl-5 space-y-1 mt-2">
+              <li>anything illegal, or content that encourages or assists a criminal offence;</li>
+              <li>abuse, harassment, threats, or content that attacks someone for who they are;</li>
+              <li>sexual or explicit material;</li>
+              <li>someone else&rsquo;s personal information, or a photograph of an identifiable person who has not agreed to appear in it;</li>
+              <li>spam, chain messages, or repeated promotion of the same thing;</li>
+              <li>links intended to deceive — in particular, anything imitating an Imperial College or Foundry sign-in page;</li>
+              <li>content you do not have the right to share, including copyrighted material.</li>
+            </ul>
+            <p className="mt-3">
+              Every member can report a post. If you see something that breaches these rules, use the Report
+              control on the post — an admin will review it and email you the outcome either way.
+            </p>
           </Section>
 
           <Section title="5. Listings are signposting, not endorsements">
@@ -97,6 +121,14 @@ export default function TermsPage() {
               final year (with an option to reapply as an alum). Where we suspend or remove your account we will aim
               to notify you by email with a reason. If you believe a decision was wrong, you can appeal by emailing{" "}
               <strong>appeals@imperialentrepreneurs.com</strong>.
+            </p>
+            <p className="mt-3">
+              If we remove one of your community posts, we will email you saying what was removed, when, and why.
+              We keep a record of that removal — including the text of the post and the reason given — for 12
+              months, so that the decision can be explained or reviewed if you challenge it. That record is kept
+              even if you delete your account, and section 8 of the{" "}
+              <Link href="/privacy" className="text-accent hover:text-accent-light no-underline">Privacy Policy</Link>{" "}
+              explains the basis for keeping it.
             </p>
           </Section>
 

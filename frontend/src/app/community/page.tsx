@@ -1,36 +1,58 @@
-import { redirect } from "next/navigation";
+import type { Metadata } from "next";
+import AppShell from "@/components/app/AppShell";
+import { requireApprovedUser } from "@/lib/auth/guard";
+import { communityFeedPage } from "@/lib/data/posts";
+import { uploadsEnabled } from "@/lib/storage/uploadTicket";
+import { toFeedView } from "./feedView";
+import CommunityClient from "./CommunityClient";
 
 // ════════════════════════════════════════════════════════════════════
-// Foundry · /community → /members
+// Foundry · /community
 //
-// This route was the member directory. It has been renamed to /members,
-// which is what it actually is, freeing the name /community for the post
-// feed the prototype specifies — a different thing entirely.
+// This route used to 307 to /members, holding the name for exactly this.
 //
-// 307, not 308. A permanent redirect would be cached by browsers and
-// intermediaries, and we intend to serve real content from /community
-// again once the feed exists. A cached 308 would make that route
-// unreachable for anyone who had visited it in between.
-//
-// The query string is carried across because directory filters live in
-// the URL by design — a filtered view is a link you can send someone, and
-// those links are already in people's messages.
+// noindex is not cosmetic. The feed is member-written content behind an
+// approved-members-only gate, and robots.ts already disallows /community
+// — but its own comment records that Cloudflare serves a managed
+// robots.txt which shadows the app's. This metadata is therefore the
+// control that actually works, and the robots entry is belt and braces.
 // ════════════════════════════════════════════════════════════════════
 
-export default async function CommunityRedirect({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
-  const sp = await searchParams;
-  const qs = new URLSearchParams();
-  for (const [key, value] of Object.entries(sp)) {
-    if (Array.isArray(value)) {
-      for (const v of value) qs.append(key, v);
-    } else if (value !== undefined) {
-      qs.set(key, value);
-    }
-  }
-  const query = qs.toString();
-  redirect(query ? `/members?${query}` : "/members");
+export const metadata: Metadata = {
+  title: "Community",
+  robots: { index: false, follow: false },
+};
+
+export default async function CommunityPage() {
+  const { supabase, user, isAdmin } = await requireApprovedUser();
+
+  const { posts, nextCursor } = await communityFeedPage(supabase, null);
+
+  return (
+    <AppShell active="community" isAdmin={isAdmin}>
+      <div className="px-4 sm:px-8 py-10 sm:py-12">
+        <div className="max-w-[720px] mx-auto">
+          <div className="mb-8 rule-draw pt-4">
+            <p className="label-wide text-text-muted mb-6">Community</p>
+            <h1 className="font-display text-text-primary leading-[1.1] tracking-tight text-[clamp(1.75rem,3vw,2.5rem)]">
+              What&rsquo;s happening
+            </h1>
+            <p className="mt-3 text-[0.875rem] text-text-secondary leading-relaxed">
+              Share what you&rsquo;re building, ask for help, or point people at something worth
+              seeing. Posts are visible to approved members only and are deleted automatically
+              after seven days.
+            </p>
+          </div>
+
+          <CommunityClient
+            initialPosts={await toFeedView(posts)}
+            initialCursor={nextCursor}
+            currentUserId={user.id}
+            isAdmin={isAdmin}
+            uploadsAvailable={uploadsEnabled()}
+          />
+        </div>
+      </div>
+    </AppShell>
+  );
 }

@@ -79,7 +79,8 @@ export async function listApprovedVcs(db: Db, isAdmin: boolean): Promise<Vc[]> {
             profiles:posted_by ( first_name, surname )
           `)
           .eq("status", "approved")
-          .order("created_at", { ascending: false }),
+          .order("created_at", { ascending: false })
+          .limit(1000),
       );
       return (data as unknown as RawRow[]).map(toVc);
     },

@@ -134,4 +134,12 @@ const CHECK_CONSTRAINT_MESSAGES: Record<string, string> = {
   vcs_grants_description_len:                 "Description must be between 20 and 5000 characters.",
   vcs_grants_link_format:                     "Link must be a valid URL.",
   vcs_grants_link_len:                        "Link must be 512 characters or fewer.",
+  posts_title_len:                            "Title must be between 3 and 120 characters.",
+  posts_body_len:                             "Post must be between 1 and 3000 characters.",
+  post_images_alt_len:                        "Image description must be between 1 and 200 characters.",
+  post_images_position:                       "A post can have at most 2 images.",
+  post_images_dims:                           "That image's dimensions are outside the supported range.",
+  post_images_byte_size:                      "That image is too large — the limit is 8MB.",
+  post_reports_reason_len:                    "Report reason must be between 1 and 1000 characters.",
+  post_reports_category:                      "Choose one of the listed reasons.",
 };

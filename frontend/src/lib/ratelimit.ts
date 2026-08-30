@@ -24,7 +24,13 @@ export const rateLimitEnabled = Boolean(url && token);
 
 const redis = rateLimitEnabled ? new Redis({ url: url!, token: token! }) : null;
 
-export type RateBucket = "mutations" | "anonMutations" | "submit";
+export type RateBucket =
+  | "mutations"
+  | "anonMutations"
+  | "submit"
+  | "communityPost"
+  | "communityUpload"
+  | "postReport";
 
 // Factory per bucket. slidingWindow chosen for smooth limiting; analytics
 // off to keep the command count (and cost) down.
@@ -45,6 +51,35 @@ const BUCKETS: Record<RateBucket, () => Ratelimit> = {
   // Precise per-user limit on listing/contact submissions.
   submit: () =>
     new Ratelimit({ redis: redis!, limiter: Ratelimit.slidingWindow(10, "1 h"), prefix: "rl:sub", analytics: false }),
+  // Community posts. Its own bucket rather than sharing `submit`, because
+  // posting to the feed should not consume the quota for posting a job.
+  //
+  // 10/day, and deliberately not also a tighter burst limit. One a day was
+  // considered and rejected: it throttles hardest exactly the members
+  // keeping a new feed alive, while the abuse case is a script, which
+  // 10/day stops dead either way. A separate per-hour bucket was also
+  // rejected — the `mutations` backstop above already caps any one account
+  // at 60 POSTs/minute, so a burst check would spend Upstash commands (a
+  // budget shared with the response cache on the free tier) to re-enforce
+  // something already enforced.
+  communityPost: () =>
+    new Ratelimit({ redis: redis!, limiter: Ratelimit.slidingWindow(10, "24 h"), prefix: "rl:post", analytics: false }),
+  // Report-bombing — one member mass-reporting someone they dislike — is a
+  // real abuse vector, and a lower ceiling than posting because a member
+  // with more than a handful of genuine reports in a day is an outlier
+  // worth an admin noticing.
+  postReport: () =>
+    new Ratelimit({ redis: redis!, limiter: Ratelimit.slidingWindow(5, "24 h"), prefix: "rl:rep", analytics: false }),
+  // Uploads get their own allowance rather than drawing on `communityPost`.
+  // Sharing looked tidy and was wrong: a post with two images spent three
+  // tokens, so the real ceiling for anyone who posts pictures was three a
+  // day rather than the ten the limit advertises — and swapping an attached
+  // image for a different one burned another token without ever publishing
+  // anything. 40 covers ten two-image posts with room to change your mind,
+  // and the ceiling that actually matters (how much reaches the feed) is
+  // still `communityPost`.
+  communityUpload: () =>
+    new Ratelimit({ redis: redis!, limiter: Ratelimit.slidingWindow(40, "24 h"), prefix: "rl:upl", analytics: false }),
 };
 
 const instances = new Map<RateBucket, Ratelimit>();
@@ -64,8 +99,16 @@ function instance(bucket: RateBucket): Ratelimit | null {
 // Redis blip must not take down all traffic. The security-sensitive
 // `submit` bucket fails CLOSED — an outage must not become a way to bypass
 // the per-user abuse limit on submissions.
+//
+// `communityPost` and `postReport` join `submit` on the fail-CLOSED side.
+// They are abuse limits on an unmoderated, publish-immediately surface, so
+// a Redis outage becoming an unlimited-posting window is the one outcome
+// worth refusing traffic to avoid. NOTE: this is a list, not a default —
+// a new bucket added without being named here silently fails OPEN.
+const FAIL_CLOSED: readonly RateBucket[] = ["submit", "communityPost", "communityUpload", "postReport"];
+
 export function failOpen(bucket: RateBucket): boolean {
-  return bucket !== "submit";
+  return !FAIL_CLOSED.includes(bucket);
 }
 
 /**

@@ -60,6 +60,7 @@ function setNavCollapsed(next: boolean) {
 
 export type NavKey =
   | "home"
+  | "community"
   | "members"
   | "messaging"
   | "opportunities"
@@ -75,6 +76,11 @@ type Item = { key: NavKey; href: string; label: string; icon: React.ReactNode };
 const I = {
   home: (
     <path d="M3 9.5 10 4l7 5.5V16a1 1 0 0 1-1 1h-4v-4H8v4H4a1 1 0 0 1-1-1V9.5Z" />
+  ),
+  community: (
+    <>
+      <path d="M3.5 5.5h13M3.5 10h13M3.5 14.5h8" />
+    </>
   ),
   members: (
     <>
@@ -139,11 +145,18 @@ function Icon({ d }: { d: React.ReactNode }) {
   );
 }
 
-// /members is the directory (renamed from /community, which 307s here).
-// The name /community is deliberately left free for the post feed the
-// prototype shows, which is a different thing entirely.
+// /members is the directory; /community is the post feed the name was
+// being held for. They are different things and both are top-level.
+//
+// "My posts" is deliberately NOT here. It lives as a tab on /community
+// itself (/community/mine). This rail is already at seven primary rows
+// plus four secondary, which is past the point where every destination
+// reads at a glance — and a twelfth entry that only matters to members
+// who have posted is worse information architecture than putting the
+// control where the posts already are.
 const PRIMARY: Item[] = [
   { key: "home", href: "/home", label: "Home", icon: <Icon d={I.home} /> },
+  { key: "community", href: "/community", label: "Community", icon: <Icon d={I.community} /> },
   { key: "members", href: "/members", label: "Members", icon: <Icon d={I.members} /> },
   { key: "messaging", href: "/messaging", label: "Messaging", icon: <Icon d={I.messaging} /> },
   { key: "opportunities", href: "/opportunities", label: "Opportunities", icon: <Icon d={I.opportunities} /> },

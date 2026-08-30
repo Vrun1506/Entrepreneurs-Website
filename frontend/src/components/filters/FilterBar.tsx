@@ -4,7 +4,7 @@ import { useId, useState, type ReactNode } from "react";
 
 // ════════════════════════════════════════════════════════════════════
 // The filter chrome shared by /community, /opportunities, /events,
-// /vcs and /admin/community. It was pasted five times and had already
+// /vcs and /admin/members. It was pasted five times and had already
 // drifted — one copy had lost its focus padding, another its
 // aria-expanded — which is the usual argument for extracting it, plus a
 // sharper one: these are the controls that write to the URL, and a
