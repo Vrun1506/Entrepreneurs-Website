@@ -29,6 +29,7 @@ export type RateBucket =
   | "anonMutations"
   | "submit"
   | "communityPost"
+  | "communityUpload"
   | "postReport";
 
 // Factory per bucket. slidingWindow chosen for smooth limiting; analytics
@@ -69,6 +70,16 @@ const BUCKETS: Record<RateBucket, () => Ratelimit> = {
   // worth an admin noticing.
   postReport: () =>
     new Ratelimit({ redis: redis!, limiter: Ratelimit.slidingWindow(5, "24 h"), prefix: "rl:rep", analytics: false }),
+  // Uploads get their own allowance rather than drawing on `communityPost`.
+  // Sharing looked tidy and was wrong: a post with two images spent three
+  // tokens, so the real ceiling for anyone who posts pictures was three a
+  // day rather than the ten the limit advertises — and swapping an attached
+  // image for a different one burned another token without ever publishing
+  // anything. 40 covers ten two-image posts with room to change your mind,
+  // and the ceiling that actually matters (how much reaches the feed) is
+  // still `communityPost`.
+  communityUpload: () =>
+    new Ratelimit({ redis: redis!, limiter: Ratelimit.slidingWindow(40, "24 h"), prefix: "rl:upl", analytics: false }),
 };
 
 const instances = new Map<RateBucket, Ratelimit>();
@@ -94,7 +105,7 @@ function instance(bucket: RateBucket): Ratelimit | null {
 // a Redis outage becoming an unlimited-posting window is the one outcome
 // worth refusing traffic to avoid. NOTE: this is a list, not a default —
 // a new bucket added without being named here silently fails OPEN.
-const FAIL_CLOSED: readonly RateBucket[] = ["submit", "communityPost", "postReport"];
+const FAIL_CLOSED: readonly RateBucket[] = ["submit", "communityPost", "communityUpload", "postReport"];
 
 export function failOpen(bucket: RateBucket): boolean {
   return !FAIL_CLOSED.includes(bucket);

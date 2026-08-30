@@ -35,6 +35,17 @@ _KEY_PATTERN = re.compile(
 )
 
 
+def is_valid_key(key: object) -> bool:
+    """True when `key` is a blob key this service is willing to touch.
+
+    Used on both paths. A key is always a path component by the time it
+    reaches Azure, and the rule is that a path component is never trusted on
+    the word of whoever sent it — not the ticket signer, and not the holder
+    of the service token either.
+    """
+    return isinstance(key, str) and _KEY_PATTERN.match(key) is not None
+
+
 @dataclass(frozen=True)
 class Ticket:
     sub: str

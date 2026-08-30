@@ -35,7 +35,18 @@ export const runtime = "nodejs";
 // what keeps a backlog inside the budget rather than timing out on it.
 export const maxDuration = 60;
 
-const BATCH_SIZE = 50;
+// Sized against the rate-limit ceiling, not expected traffic, because the
+// consequence of under-sizing is a compliance one rather than a cost one:
+// a drain that cannot keep up leaves images of deleted posts in the
+// container, and the 30-day lifecycle rule that would eventually collect
+// them is far longer than the 7 days the privacy page promises.
+//
+// Ceiling: 2,000 members x 10 posts x 2 images = 40,000 images/day created,
+// all of which expire seven days later, so ~1,700 deletions an hour in the
+// steady state. At 12 runs an hour this batch drains 2,400 — clear of it
+// with margin. 40 waves of 5 finish in a few seconds, well inside the 60s
+// budget, so the headroom is close to free.
+const BATCH_SIZE = 200;
 const CONCURRENCY = 5;
 
 type ClaimedRow = {

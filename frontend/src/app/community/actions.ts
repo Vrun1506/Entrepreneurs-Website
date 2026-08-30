@@ -79,10 +79,16 @@ export async function requestUploadTicket(): Promise<
   if (!guard.ok) return guard;
   const { supabase, user } = guard.data;
 
-  // Shares the posting bucket on purpose: a ticket is only useful attached
-  // to a post, so letting uploads have their own allowance would just move
-  // the ceiling without raising it.
-  const rate = await guardRate("communityPost", user.id, "You're posting too frequently. Try again later.");
+  // Its own bucket, not the posting one. Sharing meant a two-image post
+  // spent three tokens out of ten, so the effective limit for anyone
+  // posting pictures was three a day — and re-attaching a different image
+  // spent another without publishing anything. What has to be capped at ten
+  // is posts reaching the feed, and create_post caps that.
+  const rate = await guardRate(
+    "communityUpload",
+    user.id,
+    "You've attached a lot of images today. Try again tomorrow.",
+  );
   if (!rate.ok) return rate;
 
   const { data, error } = await supabase.rpc("issue_upload_ticket", { p_purpose: "post_image" });

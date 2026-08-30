@@ -20,7 +20,7 @@ from fastapi import FastAPI, Header, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from .auth import InvalidTicket, verify_service_token, verify_ticket
+from .auth import InvalidTicket, is_valid_key, verify_service_token, verify_ticket
 from .config import settings
 from .images import RejectedImage, sanitise
 from .storage import BlobAlreadyExists, delete_image, put_image
@@ -129,6 +129,12 @@ async def delete_blobs(
         raise HTTPException(status_code=400, detail="keys must be a list of strings.")
     if len(keys) > 100:
         raise HTTPException(status_code=400, detail="At most 100 keys per request.")
+    # Same rule as the upload path: a key becomes a path component, so it is
+    # validated on arrival rather than trusted because the caller held the
+    # service token. Holding that token means "you may delete post images",
+    # not "you may name any object in the container".
+    if not all(is_valid_key(k) for k in keys):
+        raise HTTPException(status_code=400, detail="keys must be post-image blob keys.")
 
     deleted, missing = 0, 0
     for key in keys:

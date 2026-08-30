@@ -1582,6 +1582,146 @@ begin
 end;
 $$;
 
+-- 31i. An admin CANNOT delete a post straight off the table. This is the
+--      one that keeps the moderation log meaningful: a DELETE through
+--      PostgREST would remove the post while writing no audit row, no
+--      admin_actions entry and sending the author no notice. The RPC is
+--      the only takedown route, and it is SECURITY DEFINER, so it does not
+--      need — and must not have — an RLS policy backing it up.
+do $$
+declare
+  v_admin uuid; v_author uuid; v_post uuid; v_n int;
+begin
+  set local role postgres;
+  select user_id into v_admin from public.admins limit 1;
+  select id into v_author from public.profiles where status='approved' and id <> v_admin limit 1;
+
+  perform _set_caller(v_author);
+  select cp.id into v_post from public.create_post('Admin bypass probe', 'body text long enough') cp;
+
+  perform _set_caller(v_admin);
+  delete from public.posts where id = v_post;
+
+  set local role postgres;
+  select count(*) into v_n from public.posts where id = v_post;
+  if v_n <> 1 then
+    raise exception 'FAIL: an admin deleted a post directly, bypassing admin_delete_post and the moderation log';
+  end if;
+
+  select count(*) into v_n from public.post_moderation_log where post_id = v_post;
+  if v_n <> 0 then
+    raise exception 'FAIL: a direct delete somehow wrote a moderation row';
+  end if;
+
+  -- And the supported route still works, without an RLS policy helping it.
+  perform _set_caller(v_admin);
+  perform public.admin_delete_post(v_post, 'Removed by the supported route.');
+  set local role postgres;
+  select count(*) into v_n from public.posts where id = v_post;
+  if v_n <> 0 then
+    raise exception 'FAIL: admin_delete_post left the post behind';
+  end if;
+end;
+$$;
+
+-- 31j. The posting ceiling lives in the database, not only in the server
+--      action. create_post is EXECUTE-able by `authenticated`, so anyone
+--      who can open devtools can skip the Upstash limiter entirely — on a
+--      surface that publishes straight to every member with no queue in
+--      between. The action stays the limit members meet; this is the floor
+--      under it.
+do $$
+declare
+  v_author uuid; v_i int; v_ok boolean := false;
+begin
+  set local role postgres;
+  select id into v_author from public.profiles where status='approved' limit 1;
+  delete from public.posts where author_id = v_author;
+
+  perform _set_caller(v_author);
+  for v_i in 1..15 loop
+    perform public.create_post('Flood probe ' || v_i, 'body text long enough ' || v_i);
+  end loop;
+
+  begin
+    perform public.create_post('Flood probe 16', 'body text long enough 16');
+  exception when others then v_ok := true;
+  end;
+  if not v_ok then
+    raise exception 'FAIL: create_post accepted a 16th post in 24h — the rate backstop is not enforced in the database';
+  end if;
+
+  set local role postgres;
+  delete from public.posts where author_id = v_author;
+end;
+$$;
+
+-- 31k. Same argument for reporting. The unique index already stops the same
+--      post being reported twice; this stops one member working through
+--      everyone else's posts through the RPC directly.
+do $$
+declare
+  v_reporter uuid; v_author uuid; v_post uuid; v_i int; v_ok boolean := false;
+begin
+  set local role postgres;
+  select id into v_author   from public.profiles where status='approved' order by created_at limit 1;
+  select id into v_reporter from public.profiles where status='approved' and id <> v_author order by created_at limit 1;
+  delete from public.post_reports where reporter_id = v_reporter;
+
+  for v_i in 1..11 loop
+    perform _set_caller(v_author);
+    select cp.id into v_post from public.create_post('Report target ' || v_i, 'body text long enough ' || v_i) cp;
+
+    perform _set_caller(v_reporter);
+    begin
+      perform public.report_post(v_post, 'spam', 'Repeated advertising from this account.');
+    exception when others then v_ok := true;
+    end;
+    exit when v_ok;
+  end loop;
+
+  if not v_ok then
+    raise exception 'FAIL: report_post accepted an 11th report in 24h — report-bombing is not bounded in the database';
+  end if;
+
+  set local role postgres;
+  delete from public.post_reports where reporter_id = v_reporter;
+  delete from public.posts where author_id = v_author;
+end;
+$$;
+
+-- 31l. An expired post is invisible before the hourly purge reaches it.
+--      The privacy page promises seven days; the cron reclaims the row, but
+--      the read is what makes the promise exact for the member.
+do $$
+declare
+  v_author uuid; v_post uuid; v_n int;
+begin
+  set local role postgres;
+  select id into v_author from public.profiles where status='approved' limit 1;
+
+  perform _set_caller(v_author);
+  select cp.id into v_post from public.create_post('Expiry probe', 'body text long enough') cp;
+
+  set local role postgres;
+  update public.posts set expires_at = now() - interval '1 minute' where id = v_post;
+
+  perform _set_caller(v_author);
+  select count(*) into v_n from public.list_community_feed(null, null, 50) f where f.id = v_post;
+  if v_n <> 0 then
+    raise exception 'FAIL: an expired post is still served by list_community_feed';
+  end if;
+
+  select count(*) into v_n from public.list_my_posts(null, null, 50) f where f.id = v_post;
+  if v_n <> 0 then
+    raise exception 'FAIL: an expired post is still served by list_my_posts';
+  end if;
+
+  set local role postgres;
+  delete from public.posts where id = v_post;
+end;
+$$;
+
 -- ─── Cleanup ────────────────────────────────────────────────────────
 -- The test blocks leak the transaction-local 'authenticated' role (see note
 -- above), so reset to the owner role before dropping the helper function.
