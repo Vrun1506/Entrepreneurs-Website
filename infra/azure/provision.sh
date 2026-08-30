@@ -100,7 +100,13 @@ if [[ -z "$SA" ]]; then
   SA=$(az storage account list -g "$RG" --query "[0].name" -o tsv 2>/dev/null || true)
 fi
 if [[ -z "$SA" || "$SA" == "None" ]]; then
-  SA="foundry$(LC_ALL=C tr -dc 'a-z0-9' </dev/urandom | head -c 12)"
+  # `|| true` on the pipeline itself, not after the substitution: `head -c 12`
+  # closing the pipe early sends `tr` a SIGPIPE, and under pipefail that's a
+  # 141 exit that `set -e` treats as this line failing — the script died
+  # right here with no message, since -e doesn't print anything on its way
+  # out. The 12 bytes `head` already wrote are unaffected by tr's exit code,
+  # so this is safe to swallow.
+  SA="foundry$(LC_ALL=C tr -dc 'a-z0-9' </dev/urandom | head -c 12 || true)"
 fi
 
 SCOPE="/subscriptions/$SUB_ID/resourceGroups/$RG/providers/Microsoft.Storage/storageAccounts/$SA/blobServices/default/containers/$CONTAINER"
