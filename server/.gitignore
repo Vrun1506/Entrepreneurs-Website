@@ -1,6 +1,11 @@
 # Created by venv; see https://docs.python.org/3/library/venv.html
 .env
+# Both conventions, and any suffixed variant. A venv created as `.venv` was
+# previously caught only by the .gitignore Python writes INSIDE it — which
+# works, but means our own ignore rules were not the thing protecting a
+# 100MB directory from `git add -A`.
 venv/
+.venv*/
 __pycache__/
 *.py[co]
 .pytest_cache/
