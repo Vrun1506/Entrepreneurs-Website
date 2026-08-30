@@ -1,8 +1,11 @@
 name: CodeQL
 
-# Static analysis (SAST) for the Next.js/TypeScript app. Free on public repos;
-# results land in the repo's Security → Code scanning tab. JavaScript/TypeScript
-# is analysed straight from source — no build step required.
+# Static analysis (SAST). Results land in the repo's Security → Code scanning tab.
+#
+# Two languages, because the codebase now has two. The Python half is the upload
+# gateway in `server/`, which decodes attacker-supplied image bytes and verifies
+# JWTs — the code in this repo with the most to gain from a second pair of eyes.
+# Both analyse straight from source; neither needs a build step.
 on:
   push:
     branches: [main]
@@ -18,17 +21,22 @@ permissions:
 
 jobs:
   analyze:
-    name: Analyze (javascript-typescript)
+    name: Analyze (${{ matrix.language }})
     runs-on: ubuntu-latest
+    strategy:
+      # One language failing should not hide the other's findings.
+      fail-fast: false
+      matrix:
+        language: [javascript-typescript, python]
     steps:
       - uses: actions/checkout@v5
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
-          languages: javascript-typescript
+          languages: ${{ matrix.language }}
 
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@v3
         with:
-          category: "/language:javascript-typescript"
+          category: "/language:${{ matrix.language }}"

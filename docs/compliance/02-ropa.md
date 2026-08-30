@@ -111,6 +111,46 @@ Prepared under **Article 30, UK GDPR**. DRAFT for Imperial DPO review.
 | **Retention** | Retained as an audit record; admin's own authored actions removed if that admin deletes their account |
 | **Location** | Supabase (⚠ confirm region) |
 
+### J. Community posts (member-to-member feed)
+| Field | Detail |
+|-------|--------|
+| **Data** | Post title and body written by the member; 0–2 attached images and the alt text describing them; author identity |
+| **Purpose** | Operating the member-to-member Community feed |
+| **Suggested basis** | Performance of contract (the membership service), supported by consent at the point of posting |
+| **Recipients** | Supabase (post text); Microsoft Azure UK South (images only) |
+| **Retention** | **7 days from publication**, enforced by `purge_expired_posts()` hourly. Sooner on member request (self-delete), on admin takedown, on ban, or on account deletion |
+| **Location** | Supabase (EU/London) + Azure Blob Storage (UK South), private container, read only via short-expiry SAS |
+
+Images are re-encoded on upload and all embedded metadata is discarded, including EXIF GPS
+coordinates written by phone cameras. The original file is never stored.
+
+### K. Post reports (complaints mechanism)
+| Field | Detail |
+|-------|--------|
+| **Data** | Reporter identity, the post reported (title snapshotted so it survives removal), category, free-text reason, outcome and any note |
+| **Purpose** | Operating a complaints and illegal-content reporting route, and evidencing that reports were acted on |
+| **Suggested basis** | Legitimate interests (member safety, platform integrity), and compliance with a legal obligation where the report concerns illegal content |
+| **Recipients** | Supabase only (admin-readable via RPC; the table itself is deny-all) |
+| **Retention** | **12 months** from creation, via `purge_moderation_records()` daily |
+| **Location** | Supabase |
+
+The reporter is never disclosed to the author of the reported post.
+
+### L. Post moderation log (takedown record)
+| Field | Detail |
+|-------|--------|
+| **Data** | Snapshot of the removed post's title and body, author id and email at time of removal, acting admin, reason given, timestamps |
+| **Purpose** | Explaining, reviewing, and if necessary defending a moderation decision that a member challenges |
+| **Suggested basis** | Legitimate interests; and Art. 17(3)(e) where retention is necessary for the establishment, exercise or defence of legal claims |
+| **Recipients** | No application access at all — service role / direct SQL only |
+| **Retention** | **12 months**, via `purge_moderation_records()` daily. A `legal_hold` flag exempts a single record while a dispute is live |
+| **Location** | Supabase |
+
+⚠ **This is the one record that deliberately survives account deletion.** `author_id` carries no
+foreign key precisely so that a member cannot erase the record of their own moderation by closing
+their account — the record exists for the case where that matters. The member is told this in
+Privacy §8 and Terms §6. **This design decision should be confirmed with the DPO before launch.**
+
 ---
 
 ## Retention summary (as actually implemented in code)
@@ -120,6 +160,11 @@ Prepared under **Article 30, UK GDPR**. DRAFT for Imperial DPO review.
 | Rejected listings | 2 days after review | `purge_rejected_listings()` daily cron (02:30) |
 | Expired opportunities / events / VC-grants | Removed once expired | Three daily expire crons (02:00 / 02:05 / 02:10) |
 | Outbound email queue | Transient | Drained every 5 min |
+| Community posts + attached images | 7 days after publication | `purge_expired_posts()` hourly (:15) |
+| Abandoned image uploads | 24 hours | `purge_stale_upload_tickets()` hourly (:25) |
+| Image bytes in Azure Blob | Follows the post; queued on delete | `blob_deletion_queue` → drained every 5 min; 30-day account lifecycle rule as backstop |
+| Post reports | 12 months | `purge_moderation_records()` daily (02:35) |
+| Post moderation log (takedowns) | 12 months, unless `legal_hold` | `purge_moderation_records()` daily (02:35) |
 | Account & all user-owned data | Immediate on request | `delete_my_account()` (user-initiated) |
 | Contact/appeals messages | ⚠ Policy to be set (proposed: end of following academic year) | Manual / not yet automated |
 | Inactive accounts | ⚠ **Proposed, not implemented** (DART draft's "24 months" is aspirational) | Would require a new cron |

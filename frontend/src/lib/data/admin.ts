@@ -375,11 +375,11 @@ export async function listPendingProfiles(
 }
 
 // ────────────────────────────────────────────────────────────────────
-// The full membership (paged) — /admin/community
+// The full membership (paged) — /admin/members
 // ────────────────────────────────────────────────────────────────────
 
 /** One screen of rows. A table, not cards, so larger than the directory's. */
-export const ADMIN_COMMUNITY_PAGE_SIZE = 50;
+export const ADMIN_MEMBERS_PAGE_SIZE = 50;
 
 /** The directory filters plus the one an admin has and a member does not. */
 export type AdminMemberFilters = MemberFilters & { statuses: string[] };
@@ -449,8 +449,8 @@ export async function adminMemberPage(
       db.rpc("admin_list_profiles", {
         ...filterArgs(filters),
         p_statuses: filters.statuses.length ? filters.statuses : undefined,
-        p_limit:    ADMIN_COMMUNITY_PAGE_SIZE,
-        p_offset:   (filters.page - 1) * ADMIN_COMMUNITY_PAGE_SIZE,
+        p_limit:    ADMIN_MEMBERS_PAGE_SIZE,
+        p_offset:   (filters.page - 1) * ADMIN_MEMBERS_PAGE_SIZE,
       })),
     adminFacets(db),
   ]);

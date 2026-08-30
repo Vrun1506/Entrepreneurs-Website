@@ -9,7 +9,7 @@ import * as Sentry from "@sentry/nextjs";
 // exactly like a list that has not. That is the entire problem: the
 // failure has no symptom until someone notices a member is missing.
 //
-// Two pages already hit it — the member directory and /admin/community —
+// Two pages already hit it — the member directory and /admin/members —
 // and both are fixed properly, by paging in Postgres (migrations
 // 20260826000003 and ...004). This is for everything else: the lists that
 // grow with submissions rather than with the member count, where paging

@@ -21,6 +21,8 @@ templates (e.g. DART 2.0).
 | 03 | [Third-Party Processor & DPA Register](./03-third-party-dpa-register.md) | Every sub-processor, the data they handle, and DPA status |
 | 04 | [Internal Data Handling Protocol](./04-internal-data-handling-protocol.md) | How the team accesses, secures, and minimises data |
 | 05 | [Data Breach Incident Response Plan](./05-data-breach-incident-response-plan.md) | Detection, containment, ICO/Imperial notification, recovery |
+| 06 | [Information Items Checklist](./06-info-items-checklist.md) | Outstanding factual inputs |
+| 07 | [DPIA Screening — Community posts](./07-dpia-screening.md) | Art. 35 screening for the member-to-member feed, and why a full DPIA is not required |
 
 ## Three inputs needed before these are presentation-ready
 

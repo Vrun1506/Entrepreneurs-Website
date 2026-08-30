@@ -26,7 +26,7 @@ export async function adminDeleteUser(userId: string, reason: string): Promise<R
     console.warn("admin_delete_user returned no email for user:", userId);
     // Membership changed, so the cached directory is stale.
     await invalidate("directoryFacets");
-    revalidatePath("/admin/community");
+    revalidatePath("/admin/members");
     return { ok: true };
   }
 
@@ -40,11 +40,11 @@ export async function adminDeleteUser(userId: string, reason: string): Promise<R
     const msg = e instanceof Error ? e.message : String(e);
     // Membership changed, so the cached directory is stale.
     await invalidate("directoryFacets");
-    revalidatePath("/admin/community");
+    revalidatePath("/admin/members");
     return { ok: false, error: `User deleted, but email failed to send: ${msg}` };
   }
   // Membership changed, so the cached directory is stale.
   await invalidate("directoryFacets");
-  revalidatePath("/admin/community");
+  revalidatePath("/admin/members");
   return { ok: true };
 }

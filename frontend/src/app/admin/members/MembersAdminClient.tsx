@@ -24,7 +24,7 @@ const STATUS_LABEL: Record<Status, string> = {
 
 const FILTER_KEYS = ["role", "status", "course", "sector", "skill", "gradMin", "gradMax"];
 
-export default function CommunityAdminClient({
+export default function MembersAdminClient({
   members, facets, filters, matching, pageSize,
 }: {
   /** One page of members, already filtered and sorted by Postgres. */

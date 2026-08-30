@@ -6,7 +6,7 @@ import type { Affiliation } from "@/lib/intake/steps";
 // ════════════════════════════════════════════════════════════════════
 // Foundry · The member directory
 //
-// /community and /admin/community are the same read wearing two hats:
+// /community and /admin/members are the same read wearing two hats:
 // filter members in Postgres, page them, and hand the client the facet
 // lists its chips are built from. Between the two pages and their two
 // client components the Facets shape was declared four times and the
