@@ -24,7 +24,15 @@ RG="${RG:-foundry-rg}"
 LOC="${LOC:-uksouth}"
 CONTAINER="${CONTAINER:-post-images}"
 VM="${VM:-foundry-gateway}"
-VM_SIZE="${VM_SIZE:-Standard_B2s}"
+# The original-generation B-series (B1s, B2s, ...) is capacity-restricted
+# for this subscription in uksouth — confirmed via `az vm list-skus`, not a
+# real regional shortage, just a new-subscription gate. The v2 generation
+# is unrestricted here. B2als_v2 (AMD, still linux/amd64 — the "p" sizes
+# are ARM and would break the gateway's --platform linux/amd64 build) has
+# the same 2 vCPU / 4GB spec as the original B2s, at a slightly lower
+# on-demand price ($0.0425/hr vs $0.0472/hr in uksouth). B2s_v2 was also
+# available but doubles the price for 8GB this stateless service never uses.
+VM_SIZE="${VM_SIZE:-Standard_B2als_v2}"
 SP_NAME="${SP_NAME:-foundry-vercel-blob-reader}"
 # The storage account name must be globally unique, lowercase, 3-24 chars.
 # Derived from the resource group so a re-run finds the same one rather than
