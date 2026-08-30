@@ -47,6 +47,14 @@ function appealsInbox(): string {
   return process.env.APPEALS_EMAIL ?? "appeals@imperialentrepreneurs.com";
 }
 
+// Where a new content report lands. Falls back to the contact inbox so
+// reports always reach somebody monitored, even before MODERATION_INBOX_EMAIL
+// is configured — an unrouted report is the one failure this whole path
+// exists to prevent.
+function moderationInbox(): string {
+  return process.env.MODERATION_INBOX_EMAIL ?? contactInbox();
+}
+
 // ─── Enqueue helpers ────────────────────────────────────────────────
 // Service-role insert. outbound_email has RLS deny-all for
 // authenticated/anon; the service role bypasses RLS and writes
@@ -496,6 +504,73 @@ export async function sendReportOutcomeEmail(opts: {
 }
 
 // ─── Contact form ───────────────────────────────────────────────────
+// ─── New report notification (to us, not to a member) ───────────────
+// The Online Safety Act asks a user-to-user service to act on illegal
+// content once it knows about it, and knowing cannot depend on somebody
+// remembering to open /admin/reports. This turns the queue from a page you
+// have to visit into a message that arrives.
+//
+// Deliberately does NOT quote the reported post's body. The admin can read
+// it in the app behind an admin session; putting members' content into an
+// inbox spreads it further than the report asked us to.
+export function renderPostReportEmail(opts: {
+  category: string;
+  reason: string;
+  postTitle: string;
+  reportedAt: Date;
+  siteUrl: string;
+}): { subject: string; text: string; html: string } {
+  const when = opts.reportedAt.toLocaleString("en-GB", {
+    day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit",
+  });
+  const queue = `${opts.siteUrl.replace(/\/$/, "")}/admin/reports`;
+  // Category first, so severity is legible in a notification list without
+  // opening anything.
+  const subject = `[Foundry] Post reported — ${opts.category}`;
+
+  const text = [
+    `A member reported a community post on ${when}.`,
+    "",
+    `Category: ${opts.category}`,
+    `Post:     "${opts.postTitle}"`,
+    "",
+    "What they said:",
+    opts.reason,
+    "",
+    `Review it: ${queue}`,
+    "",
+    "The reporter is identified in the admin queue, not here.",
+  ].join("\n");
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; line-height: 1.6;">
+      <p>A member reported a community post on ${escapeHtml(when)}.</p>
+      <table style="border-collapse: collapse; margin: 16px 0;">
+        <tr><td style="padding: 2px 12px 2px 0; color: #5a5855;">Category</td><td style="padding: 2px 0;"><strong>${escapeHtml(opts.category)}</strong></td></tr>
+        <tr><td style="padding: 2px 12px 2px 0; color: #5a5855;">Post</td><td style="padding: 2px 0;">&ldquo;${escapeHtml(opts.postTitle)}&rdquo;</td></tr>
+      </table>
+      <p style="margin-bottom: 4px;">What they said:</p>
+      <blockquote style="margin: 4px 0 16px; padding: 12px 16px; background: #f6f5f1; border-left: 3px solid #c9a84c; white-space: pre-wrap;">${escapeHtml(opts.reason)}</blockquote>
+      <p><a href="${escapeHtml(queue)}" style="color: #1a1a1a;">Review it in the admin queue</a></p>
+      <p style="color: #5a5855; font-size: 13px; margin-top: 24px;">The reporter is identified in the admin queue, not here.</p>
+    </div>`;
+
+  return { subject, text, html };
+}
+
+export async function sendPostReportEmail(opts: {
+  category: string;
+  reason: string;
+  postTitle: string;
+  reportedAt: Date;
+  siteUrl: string;
+}): Promise<void> {
+  const { subject, text, html } = renderPostReportEmail(opts);
+  await enqueueEmail({ to: moderationInbox(), subject, text, html });
+}
+
+export const postReportRecipient = moderationInbox;
+
 export async function sendContactTicket(opts: {
   fromEmail: string;
   firstName: string | null;

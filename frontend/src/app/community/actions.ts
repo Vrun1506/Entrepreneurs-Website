@@ -6,7 +6,7 @@ import { getActionAuth, requireAdmin } from "@/lib/auth/actionAuth";
 import { check, type RateBucket } from "@/lib/ratelimit";
 import { ok, err, type Result } from "@/lib/result";
 import { describeSupabaseError } from "@/lib/supabaseErrors";
-import { sendPostTakedownEmail } from "@/lib/email";
+import { sendPostTakedownEmail, sendPostReportEmail } from "@/lib/email";
 import { postSchema, reportSchema, validatePost } from "@/lib/validation/posts";
 import { issueTicket, gatewayUrl, uploadsEnabled, MAX_UPLOAD_BYTES } from "@/lib/storage/uploadTicket";
 import { blobsExist } from "@/lib/storage/blobRead";
@@ -287,12 +287,40 @@ export async function reportPost(payload: unknown): Promise<Result> {
   );
   if (!rate.ok) return rate;
 
-  const { error } = await supabase.rpc("report_post", {
+  const { data, error } = await supabase.rpc("report_post", {
     p_post_id: parsed.data.postId,
     p_category: parsed.data.category,
     p_reason: parsed.data.reason,
   });
   if (error) return err(describeSupabaseError(error));
+
+  const row = Array.isArray(data) ? data[0] : data;
+
+  // Only on a genuinely new report. report_post is idempotent through the
+  // unique index, and re-notifying on every duplicate would train whoever
+  // reads that inbox to ignore it — which is the failure this notification
+  // exists to prevent.
+  //
+  // The report is already committed by this point, so a mail failure must
+  // not fail the action: the member did their part, and telling them
+  // otherwise would invite them to file it again. It is logged loudly
+  // instead, because an unrouted report is a compliance problem.
+  if (row?.filed) {
+    try {
+      await sendPostReportEmail({
+        category: parsed.data.category,
+        reason: parsed.data.reason,
+        postTitle: row.post_title ?? "(untitled)",
+        reportedAt: new Date(),
+        siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.imperialentrepreneurs.com",
+      });
+    } catch (e) {
+      Sentry.captureException(e, {
+        level: "error",
+        tags: { surface: "community", path: "report-notification" },
+      });
+    }
+  }
 
   revalidatePath("/admin/reports");
   return ok();
