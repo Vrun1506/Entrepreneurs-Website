@@ -1500,7 +1500,10 @@ export type Database = {
       }
       report_post: {
         Args: { p_category: string; p_post_id: string; p_reason: string }
-        Returns: undefined
+        Returns: {
+          filed: boolean
+          post_title: string
+        }[]
       }
       set_my_affiliation: {
         Args: { p_role: Database["public"]["Enums"]["user_role"] }

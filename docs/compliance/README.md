@@ -23,6 +23,20 @@ templates (e.g. DART 2.0).
 | 05 | [Data Breach Incident Response Plan](./05-data-breach-incident-response-plan.md) | Detection, containment, ICO/Imperial notification, recovery |
 | 06 | [Information Items Checklist](./06-info-items-checklist.md) | Outstanding factual inputs |
 | 07 | [DPIA Screening — Community posts](./07-dpia-screening.md) | Art. 35 screening for the member-to-member feed, and why a full DPIA is not required |
+| 08 | [Retention Decision — Moderation Log](./08-retention-decision-moderation-log.md) | Why a takedown record survives account deletion, and the sign-off that decision needs |
+| 09 | [OSA Illegal Content Risk Assessment](./09-osa-illegal-content-risk-assessment.md) | Online Safety Act duty — separate from, and additional to, the Art. 35 screening in 07 |
+| 10 | [Moderation Response Standard](./10-moderation-response-standard.md) | Who reads reports, how fast, and what happens automatically |
+
+## Blocking sign-offs before Community goes live
+
+Documents 08, 09 and 10 each end with a sign-off block. All three are decisions
+a human with authority has to make, not engineering work:
+
+1. **08 §7** — approve the moderation log surviving erasure (Art. 17(3)(e)).
+2. **09 §8** — adopt the OSA risk assessment; **09 §6** needs a named escalation
+   decision-maker for CSAM and credible threats.
+3. **10 §2** — name a primary moderator *and a deputy*, and agree the response
+   times in **10 §3**.
 
 ## Three inputs needed before these are presentation-ready
 
