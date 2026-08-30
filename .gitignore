@@ -33,6 +33,12 @@ graphify-out/
 supabase/.branches/
 supabase/.temp/
 supabase/.env
+
+# Manual pre-migration pg_dump backups (schema + DATA — this repo is public
+# and auth.* tables carry live refresh tokens, not just PII). Local safety
+# net only; never belongs in git history.
+pre-*-data.sql
+pre-*-schema.sql
 # Design reference library (VoltAgent/awesome-design-md), read-only, not ours to track
 /design-md/
 
