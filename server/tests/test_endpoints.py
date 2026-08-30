@@ -167,3 +167,22 @@ def test_delete_rejects_a_malformed_or_oversized_payload(client: TestClient) -> 
     assert (
         client.post("/v1/blobs/delete", headers=auth, json={"keys": [KEY] * 101}).status_code == 400
     )
+
+
+def test_delete_rejects_keys_that_are_not_post_image_keys(client: TestClient) -> None:
+    """Holding the service token authorises deleting post images, not naming
+    arbitrary objects. The key is a path component either way, so it is
+    checked on arrival rather than trusted because the caller authenticated."""
+    auth = {"Authorization": f"Bearer {SERVICE_TOKEN}"}
+    for bad in [
+        "../../etc/passwd",
+        "not-a-uuid.webp",
+        f"{KEY[:-5]}.png",
+        f"nested/path/{KEY}",
+        "",
+    ]:
+        res = client.post("/v1/blobs/delete", headers=auth, json={"keys": [bad]})
+        assert res.status_code == 400, f"accepted a bad key: {bad!r}"
+
+    # And nothing reached storage.
+    assert client.deleted == []  # type: ignore[attr-defined]
