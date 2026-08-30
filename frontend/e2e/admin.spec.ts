@@ -12,7 +12,11 @@ test("admin can open each review queue", async ({ page }) => {
   for (const path of ["/admin/opportunities", "/admin/events", "/admin/vcs", "/admin/users"]) {
     const res = await page.goto(path);
     expect(res?.status(), `status for ${path}`).toBeLessThan(400);
-    await expect(page, `stayed on ${path}`).toHaveURL(new RegExp(path.replace(/\//g, "\\/")));
+    // Substring, not a hand-built RegExp. Escaping only `/` left backslashes
+    // unescaped, which CodeQL flagged as js/incomplete-sanitization — and the
+    // regex bought nothing here, since every path is a literal in the array
+    // above and all we are asking is whether we stayed on it.
+    await expect(page, `stayed on ${path}`).toHaveURL(new RegExp(path.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&")));
   }
 });
 

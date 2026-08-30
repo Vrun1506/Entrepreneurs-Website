@@ -41,4 +41,11 @@ supabase/.env
 # binaries this size. Keep them locally; they are not the record of what shipped.
 *.mov
 .vercel
+
+# Every env file, at any depth. The negation matters: without it `.env*` also
+# swallows the template, and a NEW .env.example added later would silently
+# never be tracked — frontend/.env.example survives today only because it was
+# committed before this rule existed. Verified with `git check-ignore -v`.
 .env*
+!.env.example
+!*.env.example
