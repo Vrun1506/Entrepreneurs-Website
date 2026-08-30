@@ -34,9 +34,12 @@ whole membership. Do not relax these without reading the tests that pin them:
 ## Local development
 
 ```bash
-python3 -m venv .venv && source .venv/bin/activate
+# 3.12 deliberately: it is what CI runs and what Ubuntu 24.04 gives the VM.
+# Testing on a newer interpreter than production is how a Pillow or PyJWT
+# behaviour difference reaches the box unnoticed.
+python3.12 -m venv venv && source venv/bin/activate
 pip install -e '.[dev]'
-pytest                       # 50 tests; no Azure needed
+pytest                       # 51 tests; no Azure needed
 uvicorn app.main:app --reload
 ```
 
@@ -82,6 +85,15 @@ WantedBy=multi-user.target
 | `AZURE_BLOB_CONTAINER` | `post-images` |
 | `ALLOWED_ORIGINS` | Comma-separated. No wildcard default — CORS is what stops another origin driving a member's browser into uploading |
 | `MAX_UPLOAD_BYTES` | Optional, defaults to 8MB |
+| `GATEWAY_WORKERS` | Optional, defaults to 2 — raise with the VM's core count |
+| `GATEWAY_TIMEOUT` | Optional, defaults to 60s |
+| `GATEWAY_MAX_REQUESTS` | Optional, defaults to 1000 before a worker recycles |
+| `GATEWAY_LOG_LEVEL` | Optional, defaults to `info` |
+
+The first six are required and fail loudly if absent. The `GATEWAY_*` four are
+process tuning read by `gunicorn.conf.py`; a malformed value there falls back
+to the documented default rather than refusing to boot, because losing the
+service to a typo in a tuning parameter is the worse outcome.
 
 **No Azure credentials go in this file.** The VM's system-assigned managed identity carries
 `Storage Blob Data Contributor` on the container, and `DefaultAzureCredential` reads it from the
