@@ -120,7 +120,12 @@ jobs:
       # act on. Without this flag the job starts red on day one and gets
       # ignored; with it, it starts clean and only fires on something
       # actually fixable.
-      - uses: aquasecurity/trivy-action@v0.28.0
+      #
+      # v0.28.0 (the version verified locally) turned out to pin an internal
+      # aquasecurity/setup-trivy release that GitHub no longer resolves —
+      # confirmed by running this job; v0.36.0 is the latest tag as of this
+      # fix and resolves cleanly.
+      - uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: foundry-gateway:ci
           severity: HIGH,CRITICAL
