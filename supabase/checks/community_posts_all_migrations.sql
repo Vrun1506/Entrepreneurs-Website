@@ -10,6 +10,15 @@
 -- does. A half-applied schema is the worst outcome available here.
 --
 -- Paste into the Supabase SQL editor and run once.
+--
+-- VERIFIED end-to-end, 30 August 2026, against a real pre-community
+-- baseline — the local stack reset with these six migrations removed, so
+-- the database had genuine GoTrue auth.users and none of this feature.
+-- Applying this file to that produced: 6 tables, 4 cron jobs, 6 rows in
+-- schema_migrations, and 17/20 post-deploy checks passing (the 3 failures
+-- being the app_config rows, which are seeded per-environment afterwards).
+-- The begin/commit wrapper was probed separately around CREATE EXTENSION
+-- and cron.schedule() and rolls back cleanly.
 -- ════════════════════════════════════════════════════════════════════
 
 begin;
