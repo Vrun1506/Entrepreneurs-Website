@@ -93,6 +93,25 @@ a credible threat internally.
 Always write a real reason. It goes to the author verbatim, it is what an appeal
 is judged against, and it is what a regulator would read.
 
+## 5a. Committee handover
+
+⚠ A student society committee turns over roughly every year. A moderation
+standard naming two individuals is therefore **stale by default** within
+twelve months, and a named moderator who graduated is worse than no name at
+all — it reads as a control that exists on paper.
+
+Fold this into the annual handover, alongside the bank mandate and the
+society email accounts:
+
+- Re-fill §2 with the incoming committee's names, and brief them on §5.
+- Confirm `MODERATION_INBOX_EMAIL` still reaches somebody. A role address
+  that outlives individuals (`moderation@…`) is much better here than a
+  personal one, precisely because of this.
+- Re-read §3 and change the times if the new committee cannot meet them.
+- Re-confirm §6 escalation in [09](./09-osa-illegal-content-risk-assessment.md).
+
+The outgoing primary moderator owns this handover.
+
 ## 6. Reviewing the standard
 
 Once a term, look at: how many reports arrived, how long they actually took
