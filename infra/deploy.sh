@@ -2,13 +2,13 @@
 #
 # Foundry · deploy the upload gateway to the VM
 #
-#   ./deploy.sh <vm-ip>              deploy the current server/ and restart
-#   ./deploy.sh <vm-ip> --bootstrap  first run: install packages, user, nginx,
-#                                    systemd, secrets — then deploy
+#   ./deploy.sh <vm-ip>              build, push, deploy the current server/
+#   ./deploy.sh <vm-ip> --bootstrap  first run: install packages, docker,
+#                                    nginx, systemd, secrets — then deploy
 #
-# Deploys are atomic-ish: code lands in a staging directory, the venv is
-# updated, and only then does systemd restart. A failed pip install leaves
-# the running service untouched.
+# Builds server/ into a container image, pushes it to GHCR, then has the VM
+# pull and restart. A failed build or push never touches the running
+# service — only a successful `docker pull` on the VM triggers a restart.
 #
 # Run this from the repo root or from infra/. It never reads .env.local —
 # that file points at PRODUCTION Supabase and has no business here.
@@ -23,11 +23,14 @@ BOOTSTRAP=false
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SERVER_DIR="$REPO_ROOT/server"
 SSH="ssh -o StrictHostKeyChecking=accept-new azureuser@$VM_IP"
+IMAGE="ghcr.io/icf-community/foundry-gateway:latest"
 
 say() { printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
 ok()  { printf '    \033[0;32m✓\033[0m %s\n' "$*"; }
 
 [[ -d "$SERVER_DIR/app" ]] || { echo "no server/app at $SERVER_DIR" >&2; exit 1; }
+command -v docker >/dev/null || { echo "docker not found — install Docker Desktop" >&2; exit 1; }
+command -v gh >/dev/null || { echo "gh CLI not found — brew install gh && gh auth login" >&2; exit 1; }
 
 # ─── Test before shipping ───────────────────────────────────────────
 # The gateway's test suite IS its security review: SVG rejection, magic-byte
@@ -45,7 +48,7 @@ fi
 if [[ "$BOOTSTRAP" == true ]]; then
   say "Bootstrapping $VM_IP"
   $SSH 'sudo bash -s' < "$REPO_ROOT/infra/vm/bootstrap.sh"
-  ok "packages, service user, directories, SSH hardening"
+  ok "packages, docker, secrets, SSH hardening"
 
   say "Installing the systemd unit and nginx site"
   scp -q "$REPO_ROOT/infra/vm/foundry-gateway.service" "azureuser@$VM_IP:/tmp/"
@@ -58,28 +61,25 @@ if [[ "$BOOTSTRAP" == true ]]; then
   ok "installed"
 fi
 
-# ─── Ship the code ──────────────────────────────────────────────────
-say "Copying server/ to the VM"
-rsync -az --delete \
-  --exclude venv --exclude __pycache__ --exclude .pytest_cache --exclude '*.egg-info' \
-  -e "ssh -o StrictHostKeyChecking=accept-new" \
-  "$SERVER_DIR/" "azureuser@$VM_IP:/tmp/foundry-app/"
-ok "copied"
+# ─── Build and push ─────────────────────────────────────────────────
+# --platform linux/amd64: the VM is x86_64 (Azure B-series); building on an
+# Apple Silicon laptop without this flag would produce an arm64 image the VM
+# cannot run.
+say "Building image"
+docker build --platform linux/amd64 -t "$IMAGE" "$SERVER_DIR"
+ok "built $IMAGE"
 
-say "Installing and restarting"
-$SSH 'set -e
-  sudo rsync -a --delete /tmp/foundry-app/ /opt/foundry/app/
-  sudo chown -R foundry:foundry /opt/foundry/app
-  # Build the venv into a fresh directory when it does not exist yet;
-  # otherwise update in place. pip failing here leaves the running service
-  # alone, because the restart below never happens.
-  if [ ! -x /opt/foundry/venv/bin/python ]; then
-    sudo -u foundry python3.12 -m venv /opt/foundry/venv
-  fi
-  sudo -u foundry /opt/foundry/venv/bin/pip install -q --upgrade pip
-  sudo -u foundry /opt/foundry/venv/bin/pip install -q -e /opt/foundry/app
-  sudo systemctl restart foundry-gateway
-'
+say "Pushing to GHCR"
+gh auth token | docker login ghcr.io -u "$(gh api user --jq .login)" --password-stdin
+docker push "$IMAGE"
+ok "pushed"
+printf '    \033[0;33m! First push only: set the ghcr.io/icf-community/foundry-gateway package\n'
+printf '      visibility to Public in GitHub package settings, or the VM'"'"'s unauthenticated\n'
+printf '      pull below will fail.\033[0m\n'
+
+# ─── Pull and restart ────────────────────────────────────────────────
+say "Pulling on the VM and restarting"
+$SSH "sudo docker pull $IMAGE && sudo systemctl restart foundry-gateway"
 ok "restarted"
 
 # ─── Prove it came back ─────────────────────────────────────────────

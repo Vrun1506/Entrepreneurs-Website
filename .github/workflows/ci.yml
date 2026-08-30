@@ -83,10 +83,10 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          # 3.12 to match Ubuntu 24.04 on the VM (`python3.12-venv` in the
-          # runbook). Testing on a newer interpreter than the one that runs in
-          # production is how a Pillow or PyJWT behaviour difference reaches
-          # the box unnoticed.
+          # 3.12 to match server/Dockerfile's python:3.12-slim-bookworm base —
+          # what actually runs in production now. Testing on a newer
+          # interpreter than the one that runs in production is how a Pillow
+          # or PyJWT behaviour difference reaches the box unnoticed.
           python-version: "3.12"
           cache: pip
           cache-dependency-path: server/pyproject.toml
@@ -98,6 +98,34 @@ jobs:
       # polyglot neutralisation, and JWT algorithm confusion. Storage is stubbed,
       # so no Azure credentials and no network are involved.
       - run: pytest -q
+
+  gateway-docker:
+    name: Upload gateway (docker build + scan)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - run: docker build -t foundry-gateway:ci server
+
+      # Scans both the pinned Python dependencies (requirements.txt) and the
+      # base image's OS packages — broader than the gateway job's pytest
+      # run, which only sees the Python layer. Fails the job on new
+      # HIGH/CRITICAL CVEs so a vulnerable build never reaches deploy.sh.
+      #
+      # --ignore-unfixed: verified locally (`trivy image` against this exact
+      # image) that python:3.12-slim-bookworm currently carries several
+      # HIGH/CRITICAL findings in perl-base/util-linux/zlib1g with no
+      # upstream fix available yet (Debian hasn't backported one) — failing
+      # on those would be permanently red for a reason nobody here can
+      # act on. Without this flag the job starts red on day one and gets
+      # ignored; with it, it starts clean and only fires on something
+      # actually fixable.
+      - uses: aquasecurity/trivy-action@v0.28.0
+        with:
+          image-ref: foundry-gateway:ci
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
 
   rls-smoke:
     name: RLS smoke (Supabase)

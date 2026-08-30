@@ -10,3 +10,7 @@ __pycache__/
 *.py[co]
 .pytest_cache/
 *.egg-info/
+# setuptools drops this in the source tree itself when `pip install .` is
+# run from here (e.g. generating requirements.txt in a scratch venv) — not
+# just inside the venv doing the installing.
+build/

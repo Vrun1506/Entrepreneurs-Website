@@ -30,6 +30,11 @@ SP_NAME="${SP_NAME:-foundry-vercel-blob-reader}"
 # Derived from the resource group so a re-run finds the same one rather than
 # creating a second; override SA to adopt an account you already made.
 SA="${SA:-}"
+# Monthly spend alert. No default email — the budget/action-group step is
+# skipped entirely until you set one, so a bare run never silently emails
+# no one and never silently skips something you expected to happen.
+BUDGET_ALERT_EMAIL="${BUDGET_ALERT_EMAIL:-}"
+BUDGET_AMOUNT="${BUDGET_AMOUNT:-60}"
 
 PRINT_ONLY=false
 [[ "${1:-}" == "--print-only" ]] && PRINT_ONLY=true
@@ -114,6 +119,17 @@ say "Resource group"
 az group create -n "$RG" -l "$LOC" -o none
 ok "$RG in $LOC"
 
+# A fat-fingered or scripted `az group delete` would take out the VM,
+# storage account, and every member image at once with no confirmation
+# beyond the CLI's own. Free, and can't be bypassed by accident — removing
+# it takes a deliberate `az lock delete`.
+if az lock show -g "$RG" -n foundry-no-delete -o none 2>/dev/null; then
+  skip "delete lock already present"
+else
+  az lock create -g "$RG" -n foundry-no-delete --lock-type CanNotDelete -o none
+  ok "$RG protected from deletion"
+fi
+
 # ─── 2. Storage account ─────────────────────────────────────────────
 say "Storage account"
 if az storage account show -n "$SA" -g "$RG" -o none 2>/dev/null; then
@@ -188,10 +204,16 @@ else
   # --assign-identity gives it the system-assigned identity that carries
   # Blob permissions, so no storage credential ever lands on the disk.
   # --nsg-rule NONE opens nothing; rules are added explicitly below.
+  # --storage-sku os=StandardSSD_LRS: the gateway is stateless and writes
+  # nothing to disk (images go straight to Blob, no database — see
+  # infra/vm/foundry-gateway.service), so Premium SSD's IOPS advantage here
+  # is entirely wasted. Standard SSD saves a few dollars a month for zero
+  # functional loss.
   az vm create \
     -g "$RG" -n "$VM" -l "$LOC" \
     --image Ubuntu2404 \
     --size "$VM_SIZE" \
+    --storage-sku os=StandardSSD_LRS \
     --admin-username azureuser \
     --generate-ssh-keys \
     --public-ip-sku Standard \
@@ -254,6 +276,48 @@ else
   SP_APP_ID=$(jq -r .appId    <<<"$SP_JSON")
   SP_PASSWORD=$(jq -r .password <<<"$SP_JSON")
   ok "created $SP_NAME"
+fi
+
+# ─── 9. Spend alert ─────────────────────────────────────────────────
+# Catches a misconfiguration (e.g. an NSG rule opened wide, driving egress
+# costs) or a forgotten resource before it becomes a surprise bill, rather
+# than after. Free to configure — this only sets up alerting, not spend.
+say "Spend alert"
+if [[ -z "$BUDGET_ALERT_EMAIL" ]]; then
+  skip "BUDGET_ALERT_EMAIL not set — skipping (set it and re-run to enable)"
+else
+  AG_NAME="foundry-budget-alert"
+  if az monitor action-group show -g "$RG" -n "$AG_NAME" -o none 2>/dev/null; then
+    skip "action group $AG_NAME already exists"
+  else
+    az monitor action-group create -g "$RG" -n "$AG_NAME" --short-name foundrybud \
+      --action email president "$BUDGET_ALERT_EMAIL" -o none
+    ok "action group → $BUDGET_ALERT_EMAIL"
+  fi
+  AG_ID=$(az monitor action-group show -g "$RG" -n "$AG_NAME" --query id -o tsv)
+
+  BUDGET_NAME="foundry-monthly-budget"
+  if az consumption budget show-with-rg -g "$RG" -n "$BUDGET_NAME" -o none 2>/dev/null; then
+    skip "budget $BUDGET_NAME already exists"
+  else
+    TIME_PERIOD=$(mktemp)
+    cat > "$TIME_PERIOD" <<JSON
+{"startDate":"$(date -u +%Y-%m-01)","endDate":"2099-12-31"}
+JSON
+    NOTIFICATIONS=$(mktemp)
+    cat > "$NOTIFICATIONS" <<JSON
+{"Actual_GreaterThan_80":{"enabled":true,"operator":"GreaterThan","threshold":80,"contactGroups":["$AG_ID"],"thresholdType":"Actual"},
+"Actual_GreaterThan_100":{"enabled":true,"operator":"GreaterThan","threshold":100,"contactGroups":["$AG_ID"],"thresholdType":"Actual"}}
+JSON
+    az consumption budget create-with-rg \
+      -g "$RG" -n "$BUDGET_NAME" \
+      --amount "$BUDGET_AMOUNT" --category Cost --time-grain Monthly \
+      --time-period @"$TIME_PERIOD" \
+      --notifications @"$NOTIFICATIONS" \
+      -o none
+    rm -f "$TIME_PERIOD" "$NOTIFICATIONS"
+    ok "budget \$$BUDGET_AMOUNT/mo, alerts at 80% and 100% → $BUDGET_ALERT_EMAIL"
+  fi
 fi
 
 # ─── Done ───────────────────────────────────────────────────────────

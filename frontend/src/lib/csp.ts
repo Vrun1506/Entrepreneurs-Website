@@ -65,6 +65,13 @@ export function buildCsp(nonce: string): string {
   const directives = [
     `default-src 'self'`,
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' https: 'unsafe-inline'${devEval}`,
+    // style-src has no nonce plumbing (Tailwind's inline `style=` usage is
+    // app-wide and would all need it), so unlike script-src's unsafe-inline
+    // above, this one isn't neutralized by strict-dynamic — it's a real
+    // allowance. Accepted because nothing renders unsanitized HTML into
+    // style anywhere in the app: no dangerouslySetInnerHTML touches styles,
+    // no markdown renderer exists, and PostBody renders community post text
+    // as text, never interpreted HTML.
     `style-src 'self' 'unsafe-inline'`,
     `img-src ${imgSrc.join(" ")}`,
     `font-src 'self' data:`,

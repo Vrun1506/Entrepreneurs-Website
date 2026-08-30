@@ -44,36 +44,54 @@ uvicorn app.main:app --reload
 ```
 
 `tests/` covers the sanitisation boundary and the auth surface directly. Storage is stubbed, so the
-suite runs anywhere.
+suite runs anywhere. This venv + pytest loop is still the fastest way to iterate — it's not being
+replaced by Docker.
+
+**Running the built image locally**, to check the actual artifact `infra/deploy.sh` ships (not just
+the source): `docker compose up gateway` runs it as production does; `docker compose --profile dev
+up gateway-dev` bind-mounts `app/` and runs `uvicorn --reload` for fast iteration inside a
+container. Both read env vars from a git-ignored `.env.gateway.local` (see the table below for what
+to put in it — not `server/.env`, which holds an unrelated leftover key, not gateway config).
 
 ## Deploying to the VM
 
 The full provisioning runbook — storage account, NSG rules, managed identity, nginx, TLS — is in
-the implementation plan. The parts that live here:
+`infra/README.md`. The gateway itself ships as a container image
+(`ghcr.io/icf-community/foundry-gateway`), built and pushed by `infra/deploy.sh`; the VM pulls and
+restarts. The parts that live here:
 
 **Systemd unit** (`/etc/systemd/system/foundry-gateway.service`):
 
 ```ini
 [Unit]
 Description=Foundry upload gateway
-After=network.target
+After=network.target docker.service
+Requires=docker.service
 
 [Service]
-User=foundry
-Group=foundry
-WorkingDirectory=/opt/foundry/app
 EnvironmentFile=/etc/foundry/gateway.env
-ExecStart=/opt/foundry/venv/bin/gunicorn -c gunicorn.conf.py app.main:app
+Environment=GATEWAY_IMAGE=ghcr.io/icf-community/foundry-gateway:latest
+ExecStartPre=/usr/bin/docker pull ${GATEWAY_IMAGE}
+ExecStartPre=-/usr/bin/docker rm -f foundry-gateway
+ExecStart=/usr/bin/docker run --rm --name foundry-gateway \
+  --network host \
+  --env-file /etc/foundry/gateway.env \
+  --read-only --tmpfs /tmp:rw,noexec,nosuid,size=64m \
+  --cap-drop=ALL --security-opt=no-new-privileges \
+  --memory=512m --pids-limit=256 \
+  ${GATEWAY_IMAGE}
+ExecStop=/usr/bin/docker stop -t 35 foundry-gateway
 Restart=always
 RestartSec=3
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=true
 
 [Install]
 WantedBy=multi-user.target
 ```
+
+Runs as root (Docker is the privilege boundary now, not a systemd `User=`) — the container itself
+runs as the non-root `gateway` user (`Dockerfile`), read-only, with every capability dropped. See
+`infra/README.md` for the full reasoning, including why this uses `--network host` rather than a
+published port.
 
 **Environment** (`/etc/foundry/gateway.env`, mode 600):
 
@@ -90,7 +108,7 @@ WantedBy=multi-user.target
 | `GATEWAY_MAX_REQUESTS` | Optional, defaults to 1000 before a worker recycles |
 | `GATEWAY_LOG_LEVEL` | Optional, defaults to `info` |
 
-The first six are required and fail loudly if absent. The `GATEWAY_*` four are
+The first five are required and fail loudly if absent. The `GATEWAY_*` four are
 process tuning read by `gunicorn.conf.py`; a malformed value there falls back
 to the documented default rather than refusing to boot, because losing the
 service to a typo in a tuning parameter is the worse outcome.

@@ -291,7 +291,8 @@ export async function listPendingVcs(db: Db): Promise<VcReviewItem[]> {
         profiles:posted_by ( first_name, surname, linkedin_url )
       `)
       .eq("status", "pending")
-      .order("created_at", { ascending: true }),
+      .order("created_at", { ascending: true })
+      .limit(1000),
   )) as unknown as PendingVcRow[];
 
   const emails = await signupEmailsFor(db, data);

@@ -32,9 +32,13 @@ add the DNS record **proxied**, set the Vercel variables, and redeploy Vercel.
 Runs the gateway's test suite locally first and refuses to ship past a red
 one — that suite *is* the security review for this service, so a deploy that
 skipped it would be shipping past SVG rejection, EXIF stripping and JWT
-algorithm confusion. Then it rsyncs, updates the venv, restarts, and curls
-`/health`. A failed `pip install` leaves the running service untouched
-because the restart never happens.
+algorithm confusion. Then it builds `server/` into a container image, pushes
+it to `ghcr.io/icf-community/foundry-gateway`, has the VM pull and restart,
+and curls `/health`. A failed build or push never touches the running
+service — only a successful `docker pull` on the VM triggers the restart.
+Needs `docker` and `gh` (authenticated) locally. First push only: the GHCR
+package needs its visibility set to Public once, in GitHub's package
+settings, before the VM's unauthenticated pull will work.
 
 ## What holds this together
 
@@ -59,6 +63,28 @@ from one address and 443 from Cloudflare's published ranges only, so the DDoS
 protection cannot be bypassed by anyone who discovers the IP. Cloudflare adds
 ranges occasionally — re-run `provision.sh` when uploads start failing for
 everyone at once with no deploy behind it.
+
+**The resource group cannot be deleted by accident.** A `CanNotDelete` lock
+sits on it from the moment it's created; removing it takes a deliberate
+`az lock delete`, not a fat-fingered `az group delete`.
+
+**Spend is watched, not just capped.** Set `BUDGET_ALERT_EMAIL` before
+running `provision.sh` and it wires up a monthly budget that emails that
+address at 80% and 100% of `BUDGET_AMOUNT` (default $60) — so a
+misconfiguration shows up as an email, not a surprise on the bill.
+
+**The gateway runs containerized, hardened at the Docker level.** systemd
+runs `docker run` as root (Docker is the privilege boundary now, not a
+systemd `User=`), but the container itself runs as a non-root user
+(`server/Dockerfile`), read-only, with every capability dropped and a
+memory/PID ceiling — replacing the process-level systemd sandboxing the
+bare-metal gunicorn process used to carry directly. It uses `--network
+host` rather than a published port, specifically so gunicorn's existing
+`127.0.0.1`-only bind (and its trust of `X-Forwarded-For` from `127.0.0.1`)
+keeps meaning exactly what it always did, with nginx as the only path in.
+CI (`gateway-docker` in `ci.yml`) builds the image and runs a Trivy scan on
+every push, so a vulnerable dependency or base-image CVE with an available
+fix fails the build before it ever reaches `deploy.sh`.
 
 ## The compliance step you cannot skip
 

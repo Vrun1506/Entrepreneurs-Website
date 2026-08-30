@@ -1,0 +1,42 @@
+# Local dev/testing convenience only — not used by infra/deploy.sh, which
+# builds and ships the image directly. Two services, same image, different
+# jobs:
+#
+#   docker compose up gateway        exercises the exact artifact that gets
+#                                     shipped (gunicorn, prod entrypoint,
+#                                     resource limits matching the VM's
+#                                     systemd unit) — run this before deploy.
+#
+#   docker compose up gateway-dev    fast local iteration while adding
+#                                     features: bind-mounts app/ and runs
+#                                     uvicorn --reload, so edits show up
+#                                     without a rebuild. Single worker, no
+#                                     gunicorn — reload and gunicorn's
+#                                     multi-worker model don't mix.
+#
+# Both read the same untracked .env.gateway.local for the five required
+# gateway env vars (see server/README.md) — never server/.env, which holds
+# an unrelated leftover key.
+services:
+  gateway:
+    build: .
+    container_name: foundry-gateway-local
+    env_file: .env.gateway.local
+    ports:
+      - "127.0.0.1:8000:8000"
+    # Mirrors infra/vm/foundry-gateway.service's --memory/--pids-limit, so a
+    # regression that would get throttled in prod gets caught here first.
+    mem_limit: 512m
+    pids_limit: 256
+
+  gateway-dev:
+    build: .
+    container_name: foundry-gateway-dev
+    env_file: .env.gateway.local
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ./app:/app/app:ro
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    profiles:
+      - dev

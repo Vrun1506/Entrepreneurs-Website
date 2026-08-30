@@ -1722,6 +1722,94 @@ begin
 end;
 $$;
 
+-- ─── 32. No pre-community-posts member RPC is callable by `anon` ─────
+-- Section 28 asserts this for the admin RPCs (20260827000001). This is the
+-- same claim for the 22 member-facing RPCs 20260830000005 locked down —
+-- everything from before the community-posts feature that reads or writes
+-- on the caller's own behalf: update_profile, submit_opportunity,
+-- list_approved_events, and the rest.
+--
+-- Their in-body auth.uid() check (direct, or through is_approved()) already
+-- rejects an anonymous caller, so this is defence in depth, not a live
+-- hole — same reasoning as section 28. It is here because that in-body
+-- check is one edit away from being the only thing standing there, and
+-- because Supabase's default privileges re-grant EXECUTE to anon every
+-- time one of these functions is re-created, so 20260830000005's revoke
+-- needs something that notices when a later `create or replace` quietly
+-- undoes it.
+--
+-- Matched by NAME, exactly as 20260830000005 does, so a signature change
+-- cannot slip a function past either of them.
+set local role postgres;
+do $$
+declare
+  v_leaked  text;
+  v_targets text[] := array[
+    'delete_my_account', 'get_event_for_edit', 'get_my_activity',
+    'get_my_listing_actions', 'get_my_listing_stats', 'get_opportunity_for_edit',
+    'list_approved_events', 'list_approved_opportunities',
+    'list_directory_cards', 'list_directory_facets',
+    'list_my_bookmarked_opportunities', 'mark_listing_action',
+    'record_listing_event', 'submit_event', 'submit_onboarding',
+    'submit_opportunity', 'submit_vc_grant', 'unmark_listing_action',
+    'update_event', 'update_opportunity', 'update_profile', 'update_vc_grant'
+  ];
+begin
+  select string_agg(distinct p.proname, ', ' order by p.proname)
+    into v_leaked
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace and n.nspname = 'public'
+   where p.prokind = 'f'
+     and not exists (
+       select 1 from pg_depend d
+        where d.objid = p.oid and d.deptype = 'e')
+     and p.proname = any(v_targets)
+     and has_function_privilege('anon', p.oid, 'EXECUTE');
+  if v_leaked is not null then
+    raise exception
+      'FAIL: member RPC(s) EXECUTE-able by anon: %. A re-created function picks up '
+      'Supabase''s default grant again — re-apply the revoke from '
+      'migration 20260830000005.', v_leaked;
+  end if;
+end;
+$$;
+
+-- And the same functions must still be reachable by a signed-in member —
+-- a revoke that took `authenticated` with it would lock every submission
+-- and profile-edit form, while every in-body check kept passing.
+set local role postgres;
+do $$
+declare
+  v_locked  text;
+  v_targets text[] := array[
+    'delete_my_account', 'get_event_for_edit', 'get_my_activity',
+    'get_my_listing_actions', 'get_my_listing_stats', 'get_opportunity_for_edit',
+    'list_approved_events', 'list_approved_opportunities',
+    'list_directory_cards', 'list_directory_facets',
+    'list_my_bookmarked_opportunities', 'mark_listing_action',
+    'record_listing_event', 'submit_event', 'submit_onboarding',
+    'submit_opportunity', 'submit_vc_grant', 'unmark_listing_action',
+    'update_event', 'update_opportunity', 'update_profile', 'update_vc_grant'
+  ];
+begin
+  select string_agg(distinct p.proname, ', ' order by p.proname)
+    into v_locked
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace and n.nspname = 'public'
+   where p.prokind = 'f'
+     and not exists (
+       select 1 from pg_depend d
+        where d.objid = p.oid and d.deptype = 'e')
+     and p.proname = any(v_targets)
+     and not has_function_privilege('authenticated', p.oid, 'EXECUTE');
+  if v_locked is not null then
+    raise exception
+      'FAIL: member RPC(s) no longer EXECUTE-able by authenticated: % — the revoke '
+      'took every member-facing form with it', v_locked;
+  end if;
+end;
+$$;
+
 -- ─── Cleanup ────────────────────────────────────────────────────────
 -- The test blocks leak the transaction-local 'authenticated' role (see note
 -- above), so reset to the owner role before dropping the helper function.
