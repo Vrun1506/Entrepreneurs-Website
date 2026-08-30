@@ -1,10 +1,10 @@
 # 08 · Retention Decision Record — Moderation Log Surviving Erasure
 
-> **Status:** DRAFT — requires sign-off. See §7.
+> **Status:** DECIDED — approved 30 August 2026. See §7.
 > **Decision owner:** a director of IC Founders Ltd (the data controller).
 > **Reviewer:** Imperial College London Data Protection Office.
 > Nothing here is legal advice. This records a decision and its reasoning so
-> that somebody with authority can approve, amend, or reject it.
+> that the reasoning is auditable later, not only the outcome.
 
 ## 1. The decision being asked for
 
@@ -111,17 +111,36 @@ routine expiry.
 
 ## 7. Sign-off
 
-⚠ **CONFIRM — required before the Community feature is enabled in production.**
-
 | | |
 |---|---|
-| **Decision** | ☐ Approved as written ☐ Approved with amendments ☐ Rejected |
-| **Approved by** | ______________________ (director, IC Founders Ltd) |
-| **Date** | ______________________ |
-| **Imperial DPO reviewed** | ☐ Yes ☐ Not required — date: ____________ |
-| **Amendments** | |
+| **Decision** | ☑ **Approved as written** ☐ Approved with amendments ☐ Rejected |
+| **Approved by** | Varun Nayak, director, IC Founders Ltd ⚠ *confirm exact name and title as registered at Companies House* |
+| **Date** | 30 August 2026 |
+| **Imperial DPO reviewed** | ☐ Not yet — to be submitted with the portfolio |
+| **Amendments** | None |
 
-If rejected, the technical change is small and contained: add
+**Reasoning recorded at the time of the decision.** The record exists for the
+case where its subject has a motive to erase it; making it destroyable by that
+person means it is not a record. Proportionality rests on three facts: only
+admin takedowns write here, so the volume is a handful of rows a year rather
+than a retention scheme; the window is twelve months, enforced by cron, against
+a six-year limitation period for many civil claims; and the author is told at
+the moment of removal that a record is kept, so it is disclosed rather than
+discovered.
+
+The narrower option — keeping the metadata but dropping `body_snapshot` on
+account deletion — was considered and rejected. It reads as the proportionate
+compromise and fails the test it exists for: if a third party complains months
+later, "we removed a post for harassment" without the post cannot show the
+action was proportionate, and cannot answer an author who says we removed
+something innocuous. The snapshot protects the member from the platform as much
+as the platform from the member.
+
+**This decision should be revisited** if the volume of takedowns stops being
+small, if the membership opens beyond Imperial, or if the Imperial DPO takes a
+different view on review.
+
+If reversed later, the technical change is small and contained: add
 `references auth.users(id) on delete cascade` to `post_moderation_log.author_id`
 in a new migration. The table then disappears with the account. Everything else
 in the Community feature is unaffected.
