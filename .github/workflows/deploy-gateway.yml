@@ -118,25 +118,32 @@ jobs:
             exit 1
           fi
 
-      # The VM told us it's healthy on loopback. This proves the whole
+      # The VM told us it's healthy on loopback. This step proves the whole
       # public path too — Cloudflare, the NSG, nginx — is actually serving.
       #
-      # X-Deploy-Check carries a shared secret (repo secret DEPLOY_CHECK_TOKEN)
-      # that a Cloudflare WAF custom rule checks before skipping Bot Fight Mode
-      # for this one path — see production-runbook.md. Without it, Cloudflare's
-      # bot scoring flags the GitHub-hosted runner's IP and returns 403 even
-      # though the gateway itself is healthy.
+      # Runs FROM THE VM (same az vm run-command channel as the release step
+      # above), not from this GitHub-hosted runner. The runner's IP sits in a
+      # pool shared by thousands of unrelated workflows, and Cloudflare's free
+      # Bot Fight Mode flags it outright — 403, every time, no exception
+      # possible. Bot Fight Mode doesn't run on Cloudflare's Ruleset Engine at
+      # all, so no WAF custom rule (Skip or otherwise) can carve out an
+      # exception for it on the Free plan; only paid Super Bot Fight Mode
+      # supports that. See production-runbook.md for the full dead end this
+      # replaced. The VM's own outbound IP has no such shared-pool reputation
+      # problem, so this proves the identical public path without needing any
+      # Cloudflare-side change.
       - name: Verify through the public hostname
         if: vars.GATEWAY_HEALTH_URL != ''
         run: |
           set -euo pipefail
-          for attempt in 1 2 3 4 5; do
-            if curl -fsS --max-time 10 -H "X-Deploy-Check: ${{ secrets.DEPLOY_CHECK_TOKEN }}" "${{ vars.GATEWAY_HEALTH_URL }}" | grep -q '"ok"'; then
-              echo "Gateway healthy at ${{ vars.GATEWAY_HEALTH_URL }}"
-              exit 0
-            fi
-            echo "attempt $attempt failed, retrying"
-            sleep 5
-          done
-          echo "::error::Gateway is not answering publicly. It is healthy on the VM, so suspect Cloudflare, DNS or nginx."
-          exit 1
+          OUT=$(az vm run-command invoke \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --name "${{ vars.AZURE_VM_NAME }}" \
+            --command-id RunShellScript \
+            --scripts "for i in 1 2 3 4 5; do curl -fsS --max-time 10 '${{ vars.GATEWAY_HEALTH_URL }}' | grep -q '\"ok\"' && echo PUBLIC_HEALTH_OK && exit 0; sleep 5; done; exit 1" \
+            --query "value[0].message" -o tsv)
+          echo "$OUT"
+          if ! grep -q "PUBLIC_HEALTH_OK" <<<"$OUT"; then
+            echo "::error::Gateway is not answering publicly (checked from the VM itself, not the runner). Suspect Cloudflare, DNS or nginx."
+            exit 1
+          fi
