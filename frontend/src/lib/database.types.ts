@@ -1274,6 +1274,14 @@ export type Database = {
           status: Database["public"]["Enums"]["listing_status"]
         }[]
       }
+      get_post_like_counts: {
+        Args: { p_post_ids: string[] }
+        Returns: {
+          id: string
+          like_count: number
+          liked_by_me: boolean
+        }[]
+      }
       is_admin: { Args: never; Returns: boolean }
       is_approved: { Args: never; Returns: boolean }
       is_imperial_email: { Args: { p_email: string }; Returns: boolean }

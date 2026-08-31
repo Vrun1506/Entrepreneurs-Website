@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
-import { loadMoreFeed } from "./actions";
+import { loadMoreFeed, refreshLikeCounts } from "./actions";
 import PostCard from "./PostCard";
 import PostComposer from "./PostComposer";
 import type { FeedPostView } from "./feedView";
@@ -26,6 +26,11 @@ import type { FeedPostView } from "./feedView";
 // exactly the bug the E2E suite caught: posting worked, and the card only
 // appeared after a hard reload. revalidatePath still runs in the action so
 // the *next* navigation is correct.
+//
+// Like counts are the one thing this component pulls from the server on a
+// timer rather than only in response to an action here — see the polling
+// effect below for why and how it avoids fighting an in-flight optimistic
+// update on any one card.
 // ════════════════════════════════════════════════════════════════════
 
 export default function CommunityClient({
@@ -52,6 +57,59 @@ export default function CommunityClient({
     setPosts((prev) => prev.filter((p) => p.id !== id));
     router.refresh();
   };
+
+  // Live-ish likes. There's no push channel — see get_post_like_counts'
+  // own header comment for why — so this polls on an interval instead,
+  // only while the tab is actually visible, and merges just the two like
+  // fields into whatever's already rendered; title/body/images/pagination
+  // are untouched, so it can't stomp a card mid-edit or mid-delete.
+  const postsRef = useRef(posts);
+  useEffect(() => {
+    postsRef.current = posts;
+  }, [posts]);
+
+  const updateLike = (id: string, patch: { likeCount: number; likedByMe: boolean }) => {
+    setPosts((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+  };
+
+  useEffect(() => {
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    const poll = async () => {
+      const ids = postsRef.current.filter((p) => p.kind === "member").map((p) => p.id);
+      if (ids.length === 0) return;
+      const res = await refreshLikeCounts(ids);
+      if (!res.ok) return;
+      setPosts((prev) => prev.map((p) => (res.data[p.id] ? { ...p, ...res.data[p.id] } : p)));
+    };
+
+    const startPolling = () => {
+      if (intervalId) return;
+      intervalId = setInterval(poll, 45_000);
+    };
+    const stopPolling = () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+    };
+
+    if (document.visibilityState === "visible") startPolling();
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        poll();
+        startPolling();
+      } else {
+        stopPolling();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      stopPolling();
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -90,6 +148,7 @@ export default function CommunityClient({
               currentUserId={currentUserId}
               isAdmin={isAdmin}
               onRemoved={removePost}
+              onLikeChanged={updateLike}
             />
           ))}
         </div>

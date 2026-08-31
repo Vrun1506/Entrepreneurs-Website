@@ -747,6 +747,7 @@ declare
     -- community posts (member)
     'posting_enabled','issue_upload_ticket','create_post','delete_my_post',
     'report_post','list_community_feed','list_my_posts','toggle_post_like',
+    'get_post_like_counts',
     -- community posts (admin)
     'admin_delete_post','admin_resolve_post_report','admin_list_post_reports',
     -- this test's OWN role-impersonation helper (created near the top of this
@@ -1899,6 +1900,46 @@ begin
   end;
   if not v_ok then
     raise exception 'FAIL: post_likes accepted a direct insert from authenticated — RLS is not deny-all';
+  end if;
+end;
+$$;
+
+-- 33e. get_post_like_counts (20260831000002) — the batched read the feed
+--      polls on. Matches toggle_post_like's own counts and rejects an
+--      oversized request rather than silently truncating it.
+do $$
+declare
+  v_author uuid; v_liker uuid; v_post1 uuid; v_post2 uuid;
+  v_count int; v_liked boolean; v_ok boolean := false;
+begin
+  select id into v_author from public.profiles where status='approved' order by created_at limit 1;
+  select id into v_liker  from public.profiles where status='approved' and id <> v_author order by created_at limit 1;
+
+  perform _set_caller(v_author);
+  select id into v_post1 from public.create_post('Batch count A', 'Body text long enough.', '[]'::jsonb);
+  select id into v_post2 from public.create_post('Batch count B', 'Body text long enough.', '[]'::jsonb);
+
+  perform _set_caller(v_liker);
+  perform public.toggle_post_like(v_post1);
+
+  select like_count, liked_by_me into v_count, v_liked
+    from public.get_post_like_counts(array[v_post1, v_post2]) where id = v_post1;
+  if v_count <> 1 or not v_liked then
+    raise exception 'FAIL: get_post_like_counts wrong for a liked post (count=%, liked=%)', v_count, v_liked;
+  end if;
+
+  select like_count, liked_by_me into v_count, v_liked
+    from public.get_post_like_counts(array[v_post1, v_post2]) where id = v_post2;
+  if v_count <> 0 or v_liked then
+    raise exception 'FAIL: get_post_like_counts wrong for an unliked post (count=%, liked=%)', v_count, v_liked;
+  end if;
+
+  begin
+    perform public.get_post_like_counts(array(select gen_random_uuid() from generate_series(1, 51)));
+  exception when others then v_ok := true;
+  end;
+  if not v_ok then
+    raise exception 'FAIL: get_post_like_counts accepted a batch over the 50-id cap';
   end if;
 end;
 $$;

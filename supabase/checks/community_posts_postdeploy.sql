@@ -83,7 +83,7 @@ from pg_proc p
 join pg_namespace n on n.oid = p.pronamespace
 where n.nspname = 'public'
   and p.proname in ('create_post','delete_my_post','report_post','issue_upload_ticket',
-                    'posting_enabled','list_community_feed','list_my_posts','toggle_post_like',
+                    'posting_enabled','list_community_feed','list_my_posts','toggle_post_like','get_post_like_counts',
                     'admin_delete_post','admin_resolve_post_report','admin_list_post_reports',
                     'purge_expired_posts','purge_stale_upload_tickets','purge_moderation_records',
                     'claim_blob_deletion_batch','cron_drain_blob_deletions','create_system_post',
@@ -106,13 +106,13 @@ where n.nspname = 'public'
 union all
 select
   '08 member-facing RPCs ARE callable by authenticated',
-  count(*), '8',
-  count(*) = 8
+  count(*), '9',
+  count(*) = 9
 from pg_proc p
 join pg_namespace n on n.oid = p.pronamespace
 where n.nspname = 'public'
   and p.proname in ('create_post','delete_my_post','report_post','issue_upload_ticket',
-                    'posting_enabled','list_community_feed','list_my_posts','toggle_post_like')
+                    'posting_enabled','list_community_feed','list_my_posts','toggle_post_like','get_post_like_counts')
   and has_function_privilege('authenticated', p.oid, 'EXECUTE')
 
 -- ─── Triggers ───────────────────────────────────────────────────────

@@ -33,37 +33,42 @@ export default function PostCard({
   currentUserId,
   isAdmin,
   onRemoved,
+  onLikeChanged,
 }: {
   post: FeedPostView;
   currentUserId: string;
   isAdmin: boolean;
   onRemoved: (id: string) => void;
+  onLikeChanged: (id: string, patch: { likeCount: number; likedByMe: boolean }) => void;
 }) {
   const [dialog, setDialog] = useState<null | "delete" | "remove" | "report">(null);
   const isAuthor = post.authorId === currentUserId && post.kind === "member";
   const sourceHref = post.sourceTable ? SOURCE_HREF[post.sourceTable] : null;
 
-  // Optimistic: the RPC is the source of truth, but toggling round-trips a
-  // network call, and a like should feel instant. Reconciled with whatever
-  // the server actually returns; reverted if the call fails.
-  const [liked, setLiked] = useState(post.likedByMe);
-  const [likeCount, setLikeCount] = useState(post.likeCount);
+  // No mirrored/synced state — `post` is the single source of truth (it's
+  // kept current by CommunityClient, both right after a toggle and on its
+  // polling interval; see that file's header). The only local state is a
+  // transient override for the gap between clicking and the RPC replying,
+  // cleared the moment it does — so there is nothing here that a changing
+  // prop needs to be reconciled against.
+  const [optimisticLike, setOptimisticLike] = useState<{ liked: boolean; likeCount: number } | null>(null);
   const [likePending, startLike] = useTransition();
 
+  const liked = optimisticLike ? optimisticLike.liked : post.likedByMe;
+  const likeCount = optimisticLike ? optimisticLike.likeCount : post.likeCount;
+
   const onToggleLike = () => {
-    const wasLiked = liked;
-    const prevCount = likeCount;
-    setLiked(!wasLiked);
-    setLikeCount(wasLiked ? prevCount - 1 : prevCount + 1);
+    const wasLiked = post.likedByMe;
+    const prevCount = post.likeCount;
+    setOptimisticLike({ liked: !wasLiked, likeCount: wasLiked ? prevCount - 1 : prevCount + 1 });
     startLike(async () => {
       const res = await toggleLike(post.id);
       if (!res.ok) {
-        setLiked(wasLiked);
-        setLikeCount(prevCount);
+        setOptimisticLike(null);
         return;
       }
-      setLiked(res.data.liked);
-      setLikeCount(res.data.likeCount);
+      onLikeChanged(post.id, { likeCount: res.data.likeCount, likedByMe: res.data.liked });
+      setOptimisticLike(null);
     });
   };
 
