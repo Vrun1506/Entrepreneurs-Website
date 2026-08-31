@@ -50,13 +50,15 @@ if [[ "$BOOTSTRAP" == true ]]; then
   $SSH 'sudo bash -s' < "$REPO_ROOT/infra/vm/bootstrap.sh"
   ok "packages, docker, secrets, SSH hardening"
 
-  say "Installing the systemd unit and nginx site"
+  say "Installing the systemd unit, nginx site, and release script"
   scp -q "$REPO_ROOT/infra/vm/foundry-gateway.service" "azureuser@$VM_IP:/tmp/"
   scp -q "$REPO_ROOT/infra/vm/nginx-foundry-gateway.conf" "azureuser@$VM_IP:/tmp/"
+  scp -q "$REPO_ROOT/infra/vm/foundry-release.sh" "azureuser@$VM_IP:/tmp/"
   $SSH 'sudo install -m 644 /tmp/foundry-gateway.service /etc/systemd/system/ &&
         sudo install -m 644 /tmp/nginx-foundry-gateway.conf /etc/nginx/sites-available/foundry-gateway &&
         sudo ln -sf /etc/nginx/sites-available/foundry-gateway /etc/nginx/sites-enabled/foundry-gateway &&
         sudo rm -f /etc/nginx/sites-enabled/default &&
+        sudo install -m 755 /tmp/foundry-release.sh /usr/local/sbin/foundry-release &&
         sudo systemctl daemon-reload'
   ok "installed"
 fi
@@ -74,44 +76,20 @@ gh auth token | docker login ghcr.io -u "$(gh api user --jq .login)" --password-
 docker push "$IMAGE"
 ok "pushed"
 
-# ─── Pull and restart ────────────────────────────────────────────────
-# The image is private — org package-visibility policy blocks making it
-# public even for an Owner account (confirmed 2026-08-31) — so the VM
-# authenticates with its own read:packages token before pulling, same
-# credential systemd uses on every restart. See bootstrap.sh.
-say "Pulling on the VM and restarting"
-$SSH 'sudo sh -s' <<REMOTE
-set -e
-. /etc/foundry/ghcr-pull.env
-echo "\$GHCR_TOKEN" | docker login ghcr.io -u "\$GHCR_USERNAME" --password-stdin
-docker pull $IMAGE
-systemctl restart foundry-gateway
-REMOTE
-ok "restarted"
-
-# ─── Prove it came back ─────────────────────────────────────────────
-# A deploy that does not verify is a deploy that tells you it worked when
-# the service died on a missing environment variable.
-#
-# Poll rather than a fixed sleep: a fresh image pull plus a cold gunicorn
-# worker boot can take longer than a flat 2s on a loaded VM or a slow
-# registry pull, and a fixed sleep either races (false failure on a healthy
-# deploy) or wastes time padding for the worst case every single run.
-say "Health check"
-HEALTHY=false
-for _ in $(seq 1 10); do
-  if $SSH 'curl -fsS --max-time 5 localhost:8000/health' 2>/dev/null | grep -q '"ok"'; then
-    HEALTHY=true
-    break
-  fi
-  sleep 1
-done
-if [[ "$HEALTHY" == true ]]; then
+# ─── Pull, restart, verify ──────────────────────────────────────────
+# infra/vm/foundry-release.sh is the one place this logic lives — the
+# deploy-gateway.yml CI workflow calls the same script (via `az vm
+# run-command` instead of SSH), so the two paths can't drift apart. It
+# handles GHCR auth (the image is private — org policy blocks public
+# visibility even for an Owner account, confirmed 2026-08-31), the pull,
+# the restart, and polls health before exiting 0 — a fixed sleep here would
+# either race a slow cold boot or pad every single run for the worst case.
+say "Releasing on the VM"
+if $SSH 'sudo /usr/local/sbin/foundry-release'; then
   ok "gateway healthy on the VM"
 else
   echo
-  echo "  Gateway is NOT healthy after 10s. Recent logs:" >&2
-  $SSH 'sudo journalctl -u foundry-gateway -n 40 --no-pager' >&2
+  echo "  Deploy failed — see the logs above." >&2
   exit 1
 fi
 
