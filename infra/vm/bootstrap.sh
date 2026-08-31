@@ -82,6 +82,36 @@ else
   ok "/etc/foundry/gateway.env already exists — left alone"
 fi
 
+# ─── GHCR pull credential ───────────────────────────────────────────
+# The org's package visibility can't be set to public — that setting is
+# locked by policy above the org level, confirmed even an actual Owner
+# account can't override it (2026-08-31). So the image stays private and
+# this VM authenticates its own pulls instead, same idea as the Vercel
+# service principal being read-only: least privilege beats "public but
+# nothing sensitive in it" when private is free to keep.
+#
+# Not generated here — this has to be a GitHub personal access token
+# (read:packages only), and there is no API for scripting your own token
+# creation, by GitHub's own design. A human makes this at
+# github.com/settings/tokens and drops it here by hand.
+if [ ! -f /etc/foundry/ghcr-pull.env ]; then
+  echo
+  echo "    ACTION REQUIRED — GHCR pull credential not installed."
+  echo "    github.com/settings/tokens → Generate new token (classic) →"
+  echo "    scope: read:packages only. Then:"
+  echo "        sudo tee /etc/foundry/ghcr-pull.env <<EOF"
+  echo "        GHCR_USERNAME=<your github username>"
+  echo "        GHCR_TOKEN=<the token>"
+  echo "        EOF"
+  echo "        sudo chmod 600 /etc/foundry/ghcr-pull.env"
+  echo "    The gateway will not start until this exists — its image is"
+  echo "    private and docker pull needs to authenticate."
+  echo
+else
+  chmod 600 /etc/foundry/ghcr-pull.env
+  ok "/etc/foundry/ghcr-pull.env already exists — left alone"
+fi
+
 # ─── SSH hardening ──────────────────────────────────────────────────
 # A drop-in rather than editing sshd_config, so an Ubuntu upgrade replacing
 # the main file does not silently undo this.

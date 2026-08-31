@@ -36,9 +36,11 @@ algorithm confusion. Then it builds `server/` into a container image, pushes
 it to `ghcr.io/icf-community/foundry-gateway`, has the VM pull and restart,
 and curls `/health`. A failed build or push never touches the running
 service — only a successful `docker pull` on the VM triggers the restart.
-Needs `docker` and `gh` (authenticated) locally. First push only: the GHCR
-package needs its visibility set to Public once, in GitHub's package
-settings, before the VM's unauthenticated pull will work.
+Needs `docker` and `gh` (authenticated) locally. The GHCR package stays
+private — org policy blocks public package visibility even for an Owner
+account — so the VM authenticates its own pulls with a scoped
+`read:packages` token instead. See `infra/vm/bootstrap.sh`'s GHCR pull
+credential section for how `/etc/foundry/ghcr-pull.env` gets created.
 
 ## What holds this together
 

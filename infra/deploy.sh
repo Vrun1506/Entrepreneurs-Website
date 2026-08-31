@@ -73,13 +73,20 @@ say "Pushing to GHCR"
 gh auth token | docker login ghcr.io -u "$(gh api user --jq .login)" --password-stdin
 docker push "$IMAGE"
 ok "pushed"
-printf '    \033[0;33m! First push only: set the ghcr.io/icf-community/foundry-gateway package\n'
-printf '      visibility to Public in GitHub package settings, or the VM'"'"'s unauthenticated\n'
-printf '      pull below will fail.\033[0m\n'
 
 # ─── Pull and restart ────────────────────────────────────────────────
+# The image is private — org package-visibility policy blocks making it
+# public even for an Owner account (confirmed 2026-08-31) — so the VM
+# authenticates with its own read:packages token before pulling, same
+# credential systemd uses on every restart. See bootstrap.sh.
 say "Pulling on the VM and restarting"
-$SSH "sudo docker pull $IMAGE && sudo systemctl restart foundry-gateway"
+$SSH 'sudo sh -s' <<REMOTE
+set -e
+. /etc/foundry/ghcr-pull.env
+echo "\$GHCR_TOKEN" | docker login ghcr.io -u "\$GHCR_USERNAME" --password-stdin
+docker pull $IMAGE
+systemctl restart foundry-gateway
+REMOTE
 ok "restarted"
 
 # ─── Prove it came back ─────────────────────────────────────────────

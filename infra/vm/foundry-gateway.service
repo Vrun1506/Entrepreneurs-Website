@@ -26,6 +26,11 @@ Environment=GATEWAY_IMAGE=ghcr.io/icf-community/foundry-gateway:latest
 # container itself: non-root USER in server/Dockerfile, plus
 # --read-only/--cap-drop=ALL/--security-opt=no-new-privileges/--tmpfs
 # below.
+# The image is private — org policy blocks making it public even for an
+# Owner account, so this VM authenticates its own pulls with a scoped
+# read:packages token instead. See infra/vm/bootstrap.sh's GHCR pull
+# credential section for how /etc/foundry/ghcr-pull.env gets there.
+ExecStartPre=/bin/sh -c '. /etc/foundry/ghcr-pull.env && echo "$GHCR_TOKEN" | /usr/bin/docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin'
 ExecStartPre=/usr/bin/docker pull ${GATEWAY_IMAGE}
 ExecStartPre=-/usr/bin/docker rm -f foundry-gateway
 ExecStart=/usr/bin/docker run --rm --name foundry-gateway \
