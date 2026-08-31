@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { storageStatePath } from "./fixtures";
 
 // ════════════════════════════════════════════════════════════════════
 // Foundry · Community feed
@@ -58,6 +59,7 @@ test("a member can post, see it in the feed and in My posts, then delete it", as
   const title = unique("e2e post");
 
   await page.goto("/community");
+  await page.getByRole("button", { name: "Create a post" }).click();
   await page.getByLabel("Title").fill(title);
   await page.getByLabel("Post", { exact: true }).fill("Something worth reading, at length.");
   await page.getByRole("button", { name: "Post", exact: true }).click();
@@ -79,23 +81,11 @@ test("a member can post, see it in the feed and in My posts, then delete it", as
   await expect(page.getByRole("heading", { name: title })).toBeHidden();
 });
 
-test("a post shows how long it has left", async ({ page }) => {
-  const title = unique("e2e expiry");
-
-  await page.goto("/community");
-  await page.getByLabel("Title").fill(title);
-  await page.getByLabel("Post", { exact: true }).fill("This one is about the retention window.");
-  await page.getByRole("button", { name: "Post", exact: true }).click();
-
-  // Seven days is the single thing about this feature a member most needs
-  // to understand, so it is on the card rather than only in the policy.
-  await expect(page.getByText("7 days left").first()).toBeVisible();
-});
-
 test("links in a post body are rendered with their real hostname", async ({ page }) => {
   const title = unique("e2e link");
 
   await page.goto("/community");
+  await page.getByRole("button", { name: "Create a post" }).click();
   await page.getByLabel("Title").fill(title);
   await page
     .getByLabel("Post", { exact: true })
@@ -118,6 +108,7 @@ test("a member cannot report their own post, but can report someone else's", asy
   const title = unique("e2e own");
 
   await page.goto("/community");
+  await page.getByRole("button", { name: "Create a post" }).click();
   await page.getByLabel("Title").fill(title);
   await page.getByLabel("Post", { exact: true }).fill("A post by the signed-in member.");
   await page.getByRole("button", { name: "Post", exact: true }).click();
@@ -131,6 +122,7 @@ test("the kill switch disables posting without a deploy", async ({ page }) => {
   await setPosting(false);
   try {
     await page.goto("/community");
+    await page.getByRole("button", { name: "Create a post" }).click();
     await page.getByLabel("Title").fill(unique("e2e blocked"));
     await page.getByLabel("Post", { exact: true }).fill("This should not be accepted.");
     await page.getByRole("button", { name: "Post", exact: true }).click();
@@ -140,6 +132,36 @@ test("the kill switch disables posting without a deploy", async ({ page }) => {
   } finally {
     await setPosting(true);
   }
+});
+
+test("another member can like a post; the author sees a count, not a button", async ({ page, browser }) => {
+  const title = unique("e2e like");
+
+  await page.goto("/community");
+  await page.getByRole("button", { name: "Create a post" }).click();
+  await page.getByLabel("Title").fill(title);
+  await page.getByLabel("Post", { exact: true }).fill("A post someone else will like.");
+  await page.getByRole("button", { name: "Post", exact: true }).click();
+
+  const authorCard = page.locator("article").filter({ hasText: title });
+  await expect(authorCard.getByRole("button", { name: /Like/ })).toBeHidden();
+  await expect(authorCard.getByText("0 likes")).toBeVisible();
+
+  // A second member (admin session, per workflow.spec.ts's established
+  // pattern for a real cross-user interaction) likes it — this is the
+  // claim only a browser can prove: that the button is actually wired to
+  // toggle_post_like and the UI reflects the server's response. Whether a
+  // THIRD, unrelated session sees the updated count on its own next visit
+  // is a database-level guarantee, already proven directly against the
+  // real `authenticated` role in rls_smoke.sql §33 — deliberately not
+  // re-asserted here, see that file for why the two layers split this way.
+  const otherCtx = await browser.newContext({ storageState: storageStatePath("admin") });
+  const otherPage = await otherCtx.newPage();
+  await otherPage.goto("/community");
+  const otherCard = otherPage.locator("article").filter({ hasText: title });
+  await otherCard.getByRole("button", { name: "Like (0)" }).click();
+  await expect(otherCard.getByRole("button", { name: "Liked (1)" })).toBeVisible();
+  await otherCtx.close();
 });
 
 test("the feed is marked noindex", async ({ page }) => {

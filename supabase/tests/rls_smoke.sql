@@ -746,7 +746,8 @@ declare
     'mark_listing_action','unmark_listing_action','record_listing_event',
     -- community posts (member)
     'posting_enabled','issue_upload_ticket','create_post','delete_my_post',
-    'report_post','list_community_feed','list_my_posts',
+    'report_post','list_community_feed','list_my_posts','toggle_post_like',
+    'get_post_like_counts',
     -- community posts (admin)
     'admin_delete_post','admin_resolve_post_report','admin_list_post_reports',
     -- this test's OWN role-impersonation helper (created near the top of this
@@ -1806,6 +1807,139 @@ begin
     raise exception
       'FAIL: member RPC(s) no longer EXECUTE-able by authenticated: % — the revoke '
       'took every member-facing form with it', v_locked;
+  end if;
+end;
+$$;
+
+-- ─── 33. post_likes: deny-all RLS, the toggle's own guards, and the feed ──
+-- post_likes has no RLS policies at all — every write goes through
+-- toggle_post_like (20260831000001), same reasoning as post_reports and
+-- upload_tickets in §31. Each block asserts one guarantee.
+set local role postgres;
+
+-- 33a. A member can like another member's post, and the feed reflects it.
+do $$
+declare
+  v_author uuid; v_liker uuid; v_post uuid;
+  v_liked boolean; v_count int;
+begin
+  select id into v_author from public.profiles where status='approved' order by created_at limit 1;
+  select id into v_liker  from public.profiles where status='approved' and id <> v_author order by created_at limit 1;
+
+  perform _set_caller(v_author);
+  select id into v_post from public.create_post('Likeable post', 'Body text long enough.', '[]'::jsonb);
+
+  perform _set_caller(v_liker);
+  select liked, like_count into v_liked, v_count from public.toggle_post_like(v_post);
+  if not v_liked or v_count <> 1 then
+    raise exception 'FAIL: toggle_post_like did not register a like (liked=%, count=%)', v_liked, v_count;
+  end if;
+
+  select like_count, liked_by_me into v_count, v_liked
+    from public.list_community_feed() where id = v_post;
+  if not v_liked or v_count <> 1 then
+    raise exception 'FAIL: list_community_feed does not reflect the like (liked_by_me=%, like_count=%)', v_liked, v_count;
+  end if;
+
+  -- Toggling again removes it.
+  select liked, like_count into v_liked, v_count from public.toggle_post_like(v_post);
+  if v_liked or v_count <> 0 then
+    raise exception 'FAIL: toggling twice did not unlike (liked=%, count=%)', v_liked, v_count;
+  end if;
+end;
+$$;
+
+-- 33b. An author cannot like their own post.
+do $$
+declare v_author uuid; v_post uuid; v_ok boolean := false;
+begin
+  select id into v_author from public.profiles where status='approved' order by created_at limit 1;
+
+  perform _set_caller(v_author);
+  select id into v_post from public.create_post('Self-like bait', 'Body text long enough.', '[]'::jsonb);
+
+  begin
+    perform public.toggle_post_like(v_post);
+  exception when others then v_ok := true;
+  end;
+  if not v_ok then
+    raise exception 'FAIL: an author was able to like their own post';
+  end if;
+end;
+$$;
+
+-- 33c. A nonexistent (or expired) post is rejected, not silently ignored.
+do $$
+declare v_liker uuid; v_ok boolean := false;
+begin
+  select id into v_liker from public.profiles where status='approved' limit 1;
+  perform _set_caller(v_liker);
+  begin
+    perform public.toggle_post_like(gen_random_uuid());
+  exception when others then v_ok := true;
+  end;
+  if not v_ok then
+    raise exception 'FAIL: toggle_post_like accepted a nonexistent post id';
+  end if;
+end;
+$$;
+
+-- 33d. Direct writes to post_likes are blocked — deny-all RLS, exactly as
+--      claimed above, not just "nobody happens to call insert directly."
+do $$
+declare v_liker uuid; v_post uuid; v_ok boolean := false;
+begin
+  set local role postgres;
+  select id into v_liker from public.profiles where status='approved' order by created_at limit 1;
+  select id into v_post from public.posts where kind='member' order by created_at desc limit 1;
+
+  perform _set_caller(v_liker);
+  begin
+    insert into public.post_likes (post_id, user_id) values (v_post, v_liker);
+  exception when others then v_ok := true;
+  end;
+  if not v_ok then
+    raise exception 'FAIL: post_likes accepted a direct insert from authenticated — RLS is not deny-all';
+  end if;
+end;
+$$;
+
+-- 33e. get_post_like_counts (20260831000002) — the batched read the feed
+--      polls on. Matches toggle_post_like's own counts and rejects an
+--      oversized request rather than silently truncating it.
+do $$
+declare
+  v_author uuid; v_liker uuid; v_post1 uuid; v_post2 uuid;
+  v_count int; v_liked boolean; v_ok boolean := false;
+begin
+  select id into v_author from public.profiles where status='approved' order by created_at limit 1;
+  select id into v_liker  from public.profiles where status='approved' and id <> v_author order by created_at limit 1;
+
+  perform _set_caller(v_author);
+  select id into v_post1 from public.create_post('Batch count A', 'Body text long enough.', '[]'::jsonb);
+  select id into v_post2 from public.create_post('Batch count B', 'Body text long enough.', '[]'::jsonb);
+
+  perform _set_caller(v_liker);
+  perform public.toggle_post_like(v_post1);
+
+  select like_count, liked_by_me into v_count, v_liked
+    from public.get_post_like_counts(array[v_post1, v_post2]) where id = v_post1;
+  if v_count <> 1 or not v_liked then
+    raise exception 'FAIL: get_post_like_counts wrong for a liked post (count=%, liked=%)', v_count, v_liked;
+  end if;
+
+  select like_count, liked_by_me into v_count, v_liked
+    from public.get_post_like_counts(array[v_post1, v_post2]) where id = v_post2;
+  if v_count <> 0 or v_liked then
+    raise exception 'FAIL: get_post_like_counts wrong for an unliked post (count=%, liked=%)', v_count, v_liked;
+  end if;
+
+  begin
+    perform public.get_post_like_counts(array(select gen_random_uuid() from generate_series(1, 51)));
+  exception when others then v_ok := true;
+  end;
+  if not v_ok then
+    raise exception 'FAIL: get_post_like_counts accepted a batch over the 50-id cap';
   end if;
 end;
 $$;

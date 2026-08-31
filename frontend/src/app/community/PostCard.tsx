@@ -5,7 +5,7 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { Dialog, closeDialog } from "@/components/ui/Dialog";
 import { REPORT_CATEGORIES } from "@/lib/validation/posts";
-import { adminDeletePost, deleteMyPost, reportPost } from "./actions";
+import { adminDeletePost, deleteMyPost, reportPost, toggleLike } from "./actions";
 import PostBody from "./PostBody";
 import type { FeedPostView } from "./feedView";
 
@@ -28,27 +28,49 @@ const SOURCE_HREF: Record<string, string> = {
   vcs_grants: "/vcs",
 };
 
-function daysLeft(expiresAt: string): string {
-  const ms = new Date(expiresAt).getTime() - Date.now();
-  const days = Math.ceil(ms / 86_400_000);
-  if (days <= 0) return "Expires today";
-  return days === 1 ? "1 day left" : `${days} days left`;
-}
-
 export default function PostCard({
   post,
   currentUserId,
   isAdmin,
   onRemoved,
+  onLikeChanged,
 }: {
   post: FeedPostView;
   currentUserId: string;
   isAdmin: boolean;
   onRemoved: (id: string) => void;
+  onLikeChanged: (id: string, patch: { likeCount: number; likedByMe: boolean }) => void;
 }) {
   const [dialog, setDialog] = useState<null | "delete" | "remove" | "report">(null);
   const isAuthor = post.authorId === currentUserId && post.kind === "member";
   const sourceHref = post.sourceTable ? SOURCE_HREF[post.sourceTable] : null;
+
+  // No mirrored/synced state — `post` is the single source of truth (it's
+  // kept current by CommunityClient, both right after a toggle and on its
+  // polling interval; see that file's header). The only local state is a
+  // transient override for the gap between clicking and the RPC replying,
+  // cleared the moment it does — so there is nothing here that a changing
+  // prop needs to be reconciled against.
+  const [optimisticLike, setOptimisticLike] = useState<{ liked: boolean; likeCount: number } | null>(null);
+  const [likePending, startLike] = useTransition();
+
+  const liked = optimisticLike ? optimisticLike.liked : post.likedByMe;
+  const likeCount = optimisticLike ? optimisticLike.likeCount : post.likeCount;
+
+  const onToggleLike = () => {
+    const wasLiked = post.likedByMe;
+    const prevCount = post.likeCount;
+    setOptimisticLike({ liked: !wasLiked, likeCount: wasLiked ? prevCount - 1 : prevCount + 1 });
+    startLike(async () => {
+      const res = await toggleLike(post.id);
+      if (!res.ok) {
+        setOptimisticLike(null);
+        return;
+      }
+      onLikeChanged(post.id, { likeCount: res.data.likeCount, likedByMe: res.data.liked });
+      setOptimisticLike(null);
+    });
+  };
 
   return (
     <article className="rounded-xl border border-border-subtle bg-white/[0.02] p-5 sm:p-6">
@@ -59,8 +81,6 @@ export default function PostCard({
             {new Date(post.createdAt).toLocaleDateString("en-GB", {
               day: "numeric", month: "short", year: "numeric",
             })}
-            <span aria-hidden className="mx-1.5">·</span>
-            <span className="tnum">{daysLeft(post.expiresAt)}</span>
           </p>
         </div>
         {post.kind === "system" && (
@@ -94,7 +114,7 @@ export default function PostCard({
                 width={image.width}
                 height={image.height}
                 loading="lazy"
-                className="w-full rounded-lg border border-border-subtle object-cover"
+                className="w-full aspect-[4/3] rounded-lg border border-border-subtle object-cover"
               />
             ) : (
               <div
@@ -117,7 +137,17 @@ export default function PostCard({
         </Link>
       )}
 
-      <footer className="mt-5 flex flex-wrap gap-2 border-t border-border-subtle pt-4">
+      <footer className="mt-5 flex flex-wrap items-center gap-2 border-t border-border-subtle pt-4">
+        {post.kind === "member" && isAuthor && (
+          <span className="tnum px-1 text-[0.8rem] text-text-muted">
+            {likeCount === 1 ? "1 like" : `${likeCount} likes`}
+          </span>
+        )}
+        {post.kind === "member" && !isAuthor && (
+          <Button variant="ghost" size="sm" loading={likePending} onClick={onToggleLike}>
+            {liked ? "Liked" : "Like"} ({likeCount})
+          </Button>
+        )}
         {isAuthor && (
           <Button variant="dangerGhost" size="sm" onClick={() => setDialog("delete")}>
             Delete

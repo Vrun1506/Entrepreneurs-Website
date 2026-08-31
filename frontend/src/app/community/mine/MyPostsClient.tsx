@@ -12,17 +12,9 @@ import type { MyPostView } from "../feedView";
 // ════════════════════════════════════════════════════════════════════
 // Foundry · My posts
 //
-// Deliberately shows the countdown on every card. The seven-day window is
-// the single thing about this feature a member most needs to understand,
-// and telling them here — where they are already looking at their own
-// posts — is more use than any amount of copy on the feed.
+// Every post here still expires 7 days after posting (purge_expired_posts,
+// unchanged) — this view just no longer surfaces a countdown for it.
 // ════════════════════════════════════════════════════════════════════
-
-function daysLeft(expiresAt: string): string {
-  const days = Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86_400_000);
-  if (days <= 0) return "Expires today";
-  return days === 1 ? "Expires tomorrow" : `Expires in ${days} days`;
-}
 
 export default function MyPostsClient({
   initialPosts,
@@ -72,7 +64,7 @@ export default function MyPostsClient({
                   day: "numeric", month: "short", year: "numeric",
                 })}
                 <span aria-hidden className="mx-1.5">·</span>
-                <span className="tnum">{daysLeft(post.expiresAt)}</span>
+                <span className="tnum">{post.likeCount === 1 ? "1 like" : `${post.likeCount} likes`}</span>
               </p>
 
               <h2 className="mt-3 text-[1.05rem] font-medium tracking-tight text-text-primary break-words">
@@ -94,7 +86,7 @@ export default function MyPostsClient({
                         width={image.width}
                         height={image.height}
                         loading="lazy"
-                        className="w-full rounded-lg border border-border-subtle object-cover"
+                        className="w-full aspect-[4/3] rounded-lg border border-border-subtle object-cover"
                       />
                     ) : (
                       <div

@@ -168,6 +168,8 @@ export async function createPost(payload: unknown): Promise<Result<FeedPostView>
         width: i.width,
         height: i.height,
       })),
+      likeCount: 0,
+      likedByMe: false,
     },
   ]);
 
@@ -187,6 +189,45 @@ export async function deleteMyPost(postId: string): Promise<Result> {
   revalidatePath("/community");
   revalidatePath("/community/mine");
   return ok();
+}
+
+// ─── Like (toggle) ──────────────────────────────────────────────────
+// No dedicated rate bucket, same as deleteMyPost above — the RPC's own
+// inline count check is the floor against a direct PostgREST call, and a
+// like toggle is high-frequency/low-risk compared to posting or
+// reporting, so it doesn't warrant one of its own.
+export async function toggleLike(postId: string): Promise<Result<{ liked: boolean; likeCount: number }>> {
+  const { user, supabase } = await getActionAuth();
+  if (!user) return err("You must be signed in.");
+
+  const { data, error } = await supabase.rpc("toggle_post_like", { p_post_id: postId });
+  if (error) return err(describeSupabaseError(error));
+
+  const row = Array.isArray(data) ? data[0] : data;
+  revalidatePath("/community");
+  return ok({ liked: row.liked, likeCount: row.like_count });
+}
+
+// ─── Like counts (batched, for polling) ─────────────────────────────
+// No push channel for likes (see the RPC's own header for why), so
+// CommunityClient polls this on an interval while the tab is visible and
+// merges the result into whatever's already rendered. One call per poll
+// covers every post on screen — not one call per card.
+export async function refreshLikeCounts(
+  postIds: string[],
+): Promise<Result<Record<string, { likeCount: number; likedByMe: boolean }>>> {
+  const { user, supabase } = await getActionAuth();
+  if (!user) return err("You must be signed in.");
+  if (postIds.length === 0) return ok({});
+
+  const { data, error } = await supabase.rpc("get_post_like_counts", { p_post_ids: postIds });
+  if (error) return err(describeSupabaseError(error));
+
+  const counts: Record<string, { likeCount: number; likedByMe: boolean }> = {};
+  for (const row of data ?? []) {
+    counts[row.id] = { likeCount: row.like_count, likedByMe: row.liked_by_me };
+  }
+  return ok(counts);
 }
 
 // ─── Delete (admin, with reason + notice) ───────────────────────────
