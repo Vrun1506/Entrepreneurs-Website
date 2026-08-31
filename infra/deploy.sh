@@ -92,13 +92,25 @@ ok "restarted"
 # ─── Prove it came back ─────────────────────────────────────────────
 # A deploy that does not verify is a deploy that tells you it worked when
 # the service died on a missing environment variable.
+#
+# Poll rather than a fixed sleep: a fresh image pull plus a cold gunicorn
+# worker boot can take longer than a flat 2s on a loaded VM or a slow
+# registry pull, and a fixed sleep either races (false failure on a healthy
+# deploy) or wastes time padding for the worst case every single run.
 say "Health check"
-sleep 2
-if $SSH 'curl -fsS --max-time 5 localhost:8000/health' | grep -q '"ok"'; then
+HEALTHY=false
+for _ in $(seq 1 10); do
+  if $SSH 'curl -fsS --max-time 5 localhost:8000/health' 2>/dev/null | grep -q '"ok"'; then
+    HEALTHY=true
+    break
+  fi
+  sleep 1
+done
+if [[ "$HEALTHY" == true ]]; then
   ok "gateway healthy on the VM"
 else
   echo
-  echo "  Gateway is NOT healthy. Recent logs:" >&2
+  echo "  Gateway is NOT healthy after 10s. Recent logs:" >&2
   $SSH 'sudo journalctl -u foundry-gateway -n 40 --no-pager' >&2
   exit 1
 fi
