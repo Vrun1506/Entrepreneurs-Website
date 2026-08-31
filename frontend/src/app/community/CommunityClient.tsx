@@ -46,6 +46,7 @@ export default function CommunityClient({
   const [cursor, setCursor] = useState(initialCursor);
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
+  const [composerOpen, setComposerOpen] = useState(false);
 
   const removePost = (id: string) => {
     setPosts((prev) => prev.filter((p) => p.id !== id));
@@ -54,22 +55,27 @@ export default function CommunityClient({
 
   return (
     <div className="space-y-6">
-      <PostComposer
-        uploadsAvailable={uploadsAvailable}
-        onPosted={(post) => setPosts((prev) => [post, ...prev])}
-      />
-
-      <nav aria-label="Community views" className="flex gap-2">
-        <span className="rounded-lg border border-accent bg-white/[0.05] px-4 py-2 text-[0.8rem] text-text-primary">
-          All posts
-        </span>
+      <nav aria-label="Community actions" className="flex justify-end gap-2">
         <Link
           href="/community/mine"
           className="rounded-lg border border-border-strong bg-white/[0.03] px-4 py-2 text-[0.8rem] text-text-secondary transition-colors hover:border-accent hover:text-text-primary"
         >
           My posts
         </Link>
+        <Button variant={composerOpen ? "ghost" : "primary"} size="sm" onClick={() => setComposerOpen((v) => !v)}>
+          {composerOpen ? "Cancel" : "Create a post"}
+        </Button>
       </nav>
+
+      {composerOpen && (
+        <PostComposer
+          uploadsAvailable={uploadsAvailable}
+          onPosted={(post) => {
+            setPosts((prev) => [post, ...prev]);
+            setComposerOpen(false);
+          }}
+        />
+      )}
 
       {posts.length === 0 ? (
         <p className="rounded-xl border border-border-subtle bg-white/[0.02] px-6 py-12 text-center text-[0.875rem] text-text-secondary">

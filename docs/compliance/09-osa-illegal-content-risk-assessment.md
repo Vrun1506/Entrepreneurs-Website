@@ -42,8 +42,15 @@ images. Posts are destroyed automatically after seven days.
 
 Out of scope: opportunity, event and VC/grant listings all pass through admin
 approval before anyone else sees them, so they are not user-to-user content in
-the relevant sense. There is no private messaging, no comments, no likes, no
-group creation and no live streaming.
+the relevant sense. There is no private messaging, no comments, no group
+creation and no live streaming.
+
+**Likes, added 2026-08-31, are a passive count only.** A member can like
+another member's post; the count is shown on the card and nothing else reads
+it — it has no effect on ordering, visibility, or which posts anyone is shown.
+An author cannot like their own post. §7's "no algorithmic amplification"
+still holds exactly as stated: the feed is unchanged, plain
+reverse-chronological, and likes are not a ranking input.
 
 ## 3. Risk assessment by illegal content category
 
@@ -139,7 +146,8 @@ Most reports are handled by takedown alone. Two categories are different:
 On the evidence in §3 the service presents **low risk of illegal content**, and
 the controls in §4 are proportionate to it. The reasoning is that the population
 is closed and identity-linked, the content is short-lived and unindexed, there
-is no private messaging, and there is no algorithmic amplification.
+is no private messaging, and there is no algorithmic amplification — likes
+(§2) are a passive count with no effect on feed order, so this still holds.
 
 Two honest caveats:
 

@@ -40,11 +40,12 @@
 -- supabase/migrations/20260529000007_admin_delete_user_rpcs.sql.
 --
 -- UPDATED 2026-08-31 for the community feature (posts, post_images,
--- post_reports — added 20260829). None of their FKs are RESTRICT
--- (posts.author_id and post_images.post_id both CASCADE), so they were
--- never a blocker — but they're cleared explicitly below anyway, same as
--- listing_events and opportunity_bookmarks, purely for a clean per-table
--- count in the notices. Deleting posts fires post_images' AFTER DELETE
+-- post_reports — added 20260829; post_likes — added 20260831). None of
+-- their FKs are RESTRICT (posts.author_id, post_images.post_id and
+-- post_likes.post_id/user_id all CASCADE), so they were never a blocker
+-- — but they're cleared explicitly below anyway, same as listing_events
+-- and opportunity_bookmarks, purely for a clean per-table count in the
+-- notices. Deleting posts fires post_images' AFTER DELETE
 -- trigger, which queues every image's blob_key in blob_deletion_queue —
 -- the same drain cron (frontend/src/app/api/cron/drain-blob-deletions)
 -- that handles a normal member's account deletion picks these up and
@@ -100,6 +101,8 @@ select 'DELETING · post_images',   count(*)::text, '' from public.post_images
 union all
 select 'DELETING · post_reports',  count(*)::text, '' from public.post_reports
 union all
+select 'DELETING · post_likes',    count(*)::text, '' from public.post_likes
+union all
 select 'KEEPING · skills',         count(*)::text, '' from public.skills
 union all
 select 'KEEPING · sectors',        count(*)::text, '' from public.sectors
@@ -153,15 +156,20 @@ begin
   delete from public.email_change_log;      get diagnostics v_n = row_count;
     raise notice 'deleted % email_change_log', v_n;
 
-  -- Community feature (added 20260829). post_reports has no RESTRICT
-  -- either but is cleared explicitly, same reasoning as the rest of this
-  -- block. Deleting posts cascades to post_images and fires its AFTER
-  -- DELETE trigger, which queues each blob_key in blob_deletion_queue for
-  -- the drain cron to actually remove from Azure Blob Storage — nothing
-  -- here talks to Azure directly. post_moderation_log is deliberately
-  -- NOT cleared; see the header comment.
+  -- Community feature (added 20260829, likes added 20260831). post_reports
+  -- and post_likes have no RESTRICT either but are cleared explicitly,
+  -- same reasoning as the rest of this block — post_likes would cascade
+  -- away with posts regardless (references both posts and auth.users),
+  -- this just keeps the notice accounting complete. Deleting posts
+  -- cascades to post_images and fires its AFTER DELETE trigger, which
+  -- queues each blob_key in blob_deletion_queue for the drain cron to
+  -- actually remove from Azure Blob Storage — nothing here talks to
+  -- Azure directly. post_moderation_log is deliberately NOT cleared; see
+  -- the header comment.
   delete from public.post_reports;          get diagnostics v_n = row_count;
     raise notice 'deleted % post_reports', v_n;
+  delete from public.post_likes;            get diagnostics v_n = row_count;
+    raise notice 'deleted % post_likes', v_n;
   delete from public.posts;                 get diagnostics v_n = row_count;
     raise notice 'deleted % posts (and their post_images, cascaded)', v_n;
 
@@ -218,6 +226,7 @@ union all select 'events',        count(*)::text from public.events
 union all select 'opportunities', count(*)::text from public.opportunities
 union all select 'vcs_grants',    count(*)::text from public.vcs_grants
 union all select 'posts',                count(*)::text from public.posts
+union all select 'post_likes',           count(*)::text from public.post_likes
 union all select 'post_images',          count(*)::text from public.post_images
 union all select 'post_reports',         count(*)::text from public.post_reports
 union all select 'blob_deletion_queue (pending)',

@@ -36,6 +36,8 @@ export type FeedPost = {
   sourceTable: string | null;
   sourceId: string | null;
   images: PostImage[];
+  likeCount: number;
+  likedByMe: boolean;
 };
 
 export type MyPost = {
@@ -45,6 +47,7 @@ export type MyPost = {
   createdAt: string;
   expiresAt: string;
   images: PostImage[];
+  likeCount: number;
 };
 
 export type Cursor = { createdAt: string; id: string };
@@ -149,6 +152,8 @@ export async function communityFeedPage(
     sourceTable: r.source_table,
     sourceId: r.source_id,
     images: toImages(r.images),
+    likeCount: r.like_count,
+    likedByMe: r.liked_by_me,
   }));
 
   return paginate(posts, limit);
@@ -174,6 +179,7 @@ export async function myPostsPage(
     createdAt: r.created_at,
     expiresAt: r.expires_at,
     images: toImages(r.images),
+    likeCount: r.like_count,
   }));
 
   return paginate(posts, limit);

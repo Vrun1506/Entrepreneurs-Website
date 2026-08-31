@@ -161,6 +161,7 @@ Privacy §8 and Terms §6. **This design decision should be confirmed with the D
 | Expired opportunities / events / VC-grants | Removed once expired | Three daily expire crons (02:00 / 02:05 / 02:10) |
 | Outbound email queue | Transient | Drained every 5 min |
 | Community posts + attached images | 7 days after publication | `purge_expired_posts()` hourly (:15) |
+| Post likes | Cascade-deletes with the post; no independent retention | `on delete cascade` from `posts` |
 | Abandoned image uploads | 24 hours | `purge_stale_upload_tickets()` hourly (:25) |
 | Image bytes in Azure Blob | Follows the post; queued on delete | `blob_deletion_queue` → drained every 5 min; 30-day account lifecycle rule as backstop |
 | Post reports | 12 months | `purge_moderation_records()` daily (02:35) |

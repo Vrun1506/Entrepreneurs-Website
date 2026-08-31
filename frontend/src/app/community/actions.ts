@@ -168,6 +168,8 @@ export async function createPost(payload: unknown): Promise<Result<FeedPostView>
         width: i.width,
         height: i.height,
       })),
+      likeCount: 0,
+      likedByMe: false,
     },
   ]);
 
@@ -187,6 +189,23 @@ export async function deleteMyPost(postId: string): Promise<Result> {
   revalidatePath("/community");
   revalidatePath("/community/mine");
   return ok();
+}
+
+// ─── Like (toggle) ──────────────────────────────────────────────────
+// No dedicated rate bucket, same as deleteMyPost above — the RPC's own
+// inline count check is the floor against a direct PostgREST call, and a
+// like toggle is high-frequency/low-risk compared to posting or
+// reporting, so it doesn't warrant one of its own.
+export async function toggleLike(postId: string): Promise<Result<{ liked: boolean; likeCount: number }>> {
+  const { user, supabase } = await getActionAuth();
+  if (!user) return err("You must be signed in.");
+
+  const { data, error } = await supabase.rpc("toggle_post_like", { p_post_id: postId });
+  if (error) return err(describeSupabaseError(error));
+
+  const row = Array.isArray(data) ? data[0] : data;
+  revalidatePath("/community");
+  return ok({ liked: row.liked, likeCount: row.like_count });
 }
 
 // ─── Delete (admin, with reason + notice) ───────────────────────────

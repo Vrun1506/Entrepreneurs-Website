@@ -5,7 +5,7 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { Dialog, closeDialog } from "@/components/ui/Dialog";
 import { REPORT_CATEGORIES } from "@/lib/validation/posts";
-import { adminDeletePost, deleteMyPost, reportPost } from "./actions";
+import { adminDeletePost, deleteMyPost, reportPost, toggleLike } from "./actions";
 import PostBody from "./PostBody";
 import type { FeedPostView } from "./feedView";
 
@@ -28,13 +28,6 @@ const SOURCE_HREF: Record<string, string> = {
   vcs_grants: "/vcs",
 };
 
-function daysLeft(expiresAt: string): string {
-  const ms = new Date(expiresAt).getTime() - Date.now();
-  const days = Math.ceil(ms / 86_400_000);
-  if (days <= 0) return "Expires today";
-  return days === 1 ? "1 day left" : `${days} days left`;
-}
-
 export default function PostCard({
   post,
   currentUserId,
@@ -50,6 +43,30 @@ export default function PostCard({
   const isAuthor = post.authorId === currentUserId && post.kind === "member";
   const sourceHref = post.sourceTable ? SOURCE_HREF[post.sourceTable] : null;
 
+  // Optimistic: the RPC is the source of truth, but toggling round-trips a
+  // network call, and a like should feel instant. Reconciled with whatever
+  // the server actually returns; reverted if the call fails.
+  const [liked, setLiked] = useState(post.likedByMe);
+  const [likeCount, setLikeCount] = useState(post.likeCount);
+  const [likePending, startLike] = useTransition();
+
+  const onToggleLike = () => {
+    const wasLiked = liked;
+    const prevCount = likeCount;
+    setLiked(!wasLiked);
+    setLikeCount(wasLiked ? prevCount - 1 : prevCount + 1);
+    startLike(async () => {
+      const res = await toggleLike(post.id);
+      if (!res.ok) {
+        setLiked(wasLiked);
+        setLikeCount(prevCount);
+        return;
+      }
+      setLiked(res.data.liked);
+      setLikeCount(res.data.likeCount);
+    });
+  };
+
   return (
     <article className="rounded-xl border border-border-subtle bg-white/[0.02] p-5 sm:p-6">
       <header className="flex items-start justify-between gap-4">
@@ -59,8 +76,6 @@ export default function PostCard({
             {new Date(post.createdAt).toLocaleDateString("en-GB", {
               day: "numeric", month: "short", year: "numeric",
             })}
-            <span aria-hidden className="mx-1.5">·</span>
-            <span className="tnum">{daysLeft(post.expiresAt)}</span>
           </p>
         </div>
         {post.kind === "system" && (
@@ -94,7 +109,7 @@ export default function PostCard({
                 width={image.width}
                 height={image.height}
                 loading="lazy"
-                className="w-full rounded-lg border border-border-subtle object-cover"
+                className="w-full aspect-[4/3] rounded-lg border border-border-subtle object-cover"
               />
             ) : (
               <div
@@ -117,7 +132,17 @@ export default function PostCard({
         </Link>
       )}
 
-      <footer className="mt-5 flex flex-wrap gap-2 border-t border-border-subtle pt-4">
+      <footer className="mt-5 flex flex-wrap items-center gap-2 border-t border-border-subtle pt-4">
+        {post.kind === "member" && isAuthor && (
+          <span className="tnum px-1 text-[0.8rem] text-text-muted">
+            {likeCount === 1 ? "1 like" : `${likeCount} likes`}
+          </span>
+        )}
+        {post.kind === "member" && !isAuthor && (
+          <Button variant="ghost" size="sm" loading={likePending} onClick={onToggleLike}>
+            {liked ? "Liked" : "Like"} ({likeCount})
+          </Button>
+        )}
         {isAuthor && (
           <Button variant="dangerGhost" size="sm" onClick={() => setDialog("delete")}>
             Delete

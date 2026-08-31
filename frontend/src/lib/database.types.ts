@@ -510,6 +510,32 @@ export type Database = {
           },
         ]
       }
+      post_likes: {
+        Row: {
+          created_at: string
+          post_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          post_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          post_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_likes_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       post_moderation_log: {
         Row: {
           admin_id: string | null
@@ -1315,6 +1341,8 @@ export type Database = {
           id: string
           images: Json
           kind: string
+          like_count: number
+          liked_by_me: boolean
           source_id: string
           source_table: string
           title: string
@@ -1398,6 +1426,7 @@ export type Database = {
           expires_at: string
           id: string
           images: Json
+          like_count: number
           title: string
         }[]
       }
@@ -1569,6 +1598,13 @@ export type Database = {
           p_stage: string
         }
         Returns: string
+      }
+      toggle_post_like: {
+        Args: { p_post_id: string }
+        Returns: {
+          like_count: number
+          liked: boolean
+        }[]
       }
       unmark_listing_action: {
         Args: {

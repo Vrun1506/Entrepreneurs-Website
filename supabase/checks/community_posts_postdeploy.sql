@@ -83,7 +83,7 @@ from pg_proc p
 join pg_namespace n on n.oid = p.pronamespace
 where n.nspname = 'public'
   and p.proname in ('create_post','delete_my_post','report_post','issue_upload_ticket',
-                    'posting_enabled','list_community_feed','list_my_posts',
+                    'posting_enabled','list_community_feed','list_my_posts','toggle_post_like',
                     'admin_delete_post','admin_resolve_post_report','admin_list_post_reports',
                     'purge_expired_posts','purge_stale_upload_tickets','purge_moderation_records',
                     'claim_blob_deletion_batch','cron_drain_blob_deletions','create_system_post',
@@ -106,13 +106,13 @@ where n.nspname = 'public'
 union all
 select
   '08 member-facing RPCs ARE callable by authenticated',
-  count(*), '7',
-  count(*) = 7
+  count(*), '8',
+  count(*) = 8
 from pg_proc p
 join pg_namespace n on n.oid = p.pronamespace
 where n.nspname = 'public'
   and p.proname in ('create_post','delete_my_post','report_post','issue_upload_ticket',
-                    'posting_enabled','list_community_feed','list_my_posts')
+                    'posting_enabled','list_community_feed','list_my_posts','toggle_post_like')
   and has_function_privilege('authenticated', p.oid, 'EXECUTE')
 
 -- ─── Triggers ───────────────────────────────────────────────────────
@@ -235,6 +235,34 @@ select
   count(*) = 0
 from pg_constraint
 where conrelid = 'public.post_moderation_log'::regclass and contype = 'f'
+
+-- ─── Likes (20260831000001) ──────────────────────────────────────────
+-- Added after the checks above; same shape, same reasoning — deny-all
+-- RLS reached only through toggle_post_like, never directly.
+union all
+select
+  '21 post_likes table exists and carries RLS',
+  count(*), '1',
+  count(*) = 1
+from pg_class c
+join pg_namespace n on n.oid = c.relnamespace
+where n.nspname = 'public' and c.relname = 'post_likes' and c.relrowsecurity
+
+union all
+select
+  '22 post_likes carries zero policies (deny-all)',
+  count(*), '0',
+  count(*) = 0
+from pg_policies
+where schemaname = 'public' and tablename = 'post_likes'
+
+union all
+select
+  '23 post_likes.post_id CASCADEs from posts, user_id CASCADEs from auth.users',
+  count(*), '2',
+  count(*) = 2
+from pg_constraint
+where conrelid = 'public.post_likes'::regclass and contype = 'f' and confdeltype = 'c'
 
 )
 select
