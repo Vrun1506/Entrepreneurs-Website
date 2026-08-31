@@ -124,6 +124,12 @@ fi
 
 SCOPE="/subscriptions/$SUB_ID/resourceGroups/$RG/providers/Microsoft.Storage/storageAccounts/$SA/blobServices/default/containers/$CONTAINER"
 
+# Account-level, not container-level: generateUserDelegationKey is a
+# blobServices-level operation, not a per-container one, so a role that
+# grants it has to be scoped here — see the Vercel service principal
+# section below for why this matters.
+ACCOUNT_SCOPE="/subscriptions/$SUB_ID/resourceGroups/$RG/providers/Microsoft.Storage/storageAccounts/$SA"
+
 if [[ "$PRINT_ONLY" == true ]]; then
   say "Values (nothing created)"
   printf '    AZURE_STORAGE_ACCOUNT = %s\n    AZURE_BLOB_CONTAINER  = %s\n    AZURE_TENANT_ID       = %s\n' \
@@ -299,6 +305,36 @@ else
   SP_APP_ID=$(jq -r .appId    <<<"$SP_JSON")
   SP_PASSWORD=$(jq -r .password <<<"$SP_JSON")
   ok "created $SP_NAME"
+fi
+
+# Storage Blob Data Reader alone cannot mint the user-delegation SAS
+# blobRead.ts signs image reads with — that needs the separate
+# Storage Blob Delegator role (generateUserDelegationKey is not in Data
+# Reader's DataActions, confirmed 2026-08-31 the hard way: the app ran
+# for days with a Reader-only grant, and every community post image
+# silently failed to load with no error visible anywhere but Vercel's
+# runtime logs). It only grants permission to mint the key; every SAS it
+# signs is still explicitly read-only and scoped to one blob key in code,
+# so this doesn't widen what the app can actually do — Azure just
+# requires the grant at the account level because the operation itself
+# is account-level, not container-level.
+SP_OBJECT_ID=$(az ad sp show --id "$SP_APP_ID" --query id -o tsv)
+# `--assignee` for the check (rather than --scope + client-side filter) is
+# deliberately avoided here: confirmed 2026-08-31 that `az role assignment
+# list --assignee <object-id>` returns empty for this exact kind of
+# app-registration-backed service principal even when the assignment is
+# real — a Graph-resolution quirk in the CLI, not the actual RBAC state.
+# Trusting it here would make this check always report "missing" and
+# re-attempt the create on every re-run, which fails loudly against an
+# assignment that already exists — the opposite of idempotent.
+if az role assignment list --scope "$ACCOUNT_SCOPE" \
+     --query "[?principalId=='$SP_OBJECT_ID' && roleDefinitionName=='Storage Blob Delegator']" \
+     -o tsv | grep -q .; then
+  skip "$SP_NAME already has Storage Blob Delegator"
+else
+  az role assignment create --assignee "$SP_OBJECT_ID" \
+    --role "Storage Blob Delegator" --scope "$ACCOUNT_SCOPE" -o none
+  ok "$SP_NAME can now mint user-delegation keys to sign image reads"
 fi
 
 # ─── 9. Spend alert ─────────────────────────────────────────────────
