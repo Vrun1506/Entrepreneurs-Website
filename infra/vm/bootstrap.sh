@@ -34,6 +34,42 @@ else
   ok "docker already installed"
 fi
 
+# ─── Tailscale ──────────────────────────────────────────────────────
+# Lets SSH stop depending on a single allowlisted public IP. Once this VM
+# is joined and a manual `ssh azureuser@<tailscale-ip>` is confirmed
+# working, the NSG's allow-ssh rule (provision.sh) gets DELETED, not
+# rescoped to Tailscale's CGNAT range — WireGuard traffic is decrypted and
+# delivered to the tailscale0 interface locally, so it never crosses the
+# NSG's port-22 filter the way a direct connection would; a rule
+# "allowing" 100.64.0.0/10 on 22 would be close to a no-op and would look
+# like it's doing something it isn't. No new inbound rule is needed at
+# all — that's the actual point of Tailscale's NAT traversal. Only
+# installs the client here; joining the tailnet needs an auth key from a
+# human (github.com/settings/tokens's equivalent for this: the Tailscale
+# admin console → Keys), same reasoning as the GHCR pull credential
+# above — no API lets a script mint its own.
+if ! command -v tailscale >/dev/null 2>&1; then
+  curl -fsSL https://tailscale.com/install.sh | sh
+  ok "tailscale installed"
+else
+  ok "tailscale already installed"
+fi
+if ! tailscale status >/dev/null 2>&1; then
+  echo
+  echo "    ACTION REQUIRED — this VM is not on the tailnet yet."
+  echo "    Generate a reusable auth key: Tailscale admin console → Settings"
+  echo "    → Keys → Generate auth key. Then, from your own machine (not"
+  echo "    over SSH to this VM, since that's the access this restores):"
+  echo "        az vm run-command invoke -g foundry-rg -n foundry-gateway \\"
+  echo "          --command-id RunShellScript \\"
+  echo "          --scripts \"tailscale up --authkey=<the key> --hostname=foundry-gateway\""
+  echo "    Port 22 stays reachable from your original IP until that NSG"
+  echo "    rule is deleted by hand, once ssh-over-tailscale is confirmed."
+  echo
+else
+  ok "already joined to the tailnet"
+fi
+
 # Security patches apply themselves. Kernel updates still need a reboot —
 # that stays a monthly manual job, and it is the standing cost of running a
 # VM rather than a managed host.

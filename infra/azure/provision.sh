@@ -251,11 +251,15 @@ NSG=$(az network nsg list -g "$RG" --query "[0].name" -o tsv)
 [[ -n "$NSG" && "$NSG" != "None" ]] || die "No NSG found in $RG. Create and attach one before adding rules."
 ok "NSG $NSG"
 
-MYIP=$(curl -fsS https://api.ipify.org)
-az network nsg rule create -g "$RG" --nsg-name "$NSG" -n allow-ssh \
-  --priority 100 --access Allow --protocol Tcp --direction Inbound \
-  --source-address-prefixes "$MYIP/32" --destination-port-ranges 22 -o none
-ok "SSH from $MYIP only"
+# No port-22 rule, deliberately — not even scoped to one IP. That was the
+# original design (SSH allowlisted to whoever ran this script) and it broke
+# the moment access was needed from a second location. SSH now goes over
+# Tailscale (installed by infra/vm/bootstrap.sh): WireGuard traffic is
+# decrypted and delivered to a local tailscale0 interface, so it never
+# crosses this NSG's port-based filtering — there's nothing to allow. A
+# temporary rule for a specific IP can still be created by hand if Tailscale
+# itself is ever the thing that's broken; see production-runbook.md.
+skip "no port-22 rule — SSH goes over Tailscale, see infra/vm/bootstrap.sh"
 
 # Only Cloudflare reaches 443, so the origin cannot be hit directly and
 # Cloudflare's DDoS protection cannot be bypassed by anyone who finds the IP.
