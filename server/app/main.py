@@ -27,7 +27,13 @@ from .storage import BlobAlreadyExists, delete_image, put_image
 
 log = logging.getLogger("foundry.gateway")
 
-app = FastAPI(title="Foundry upload gateway", docs_url=None, redoc_url=None)
+# docs_url/redoc_url only hide the Swagger/ReDoc UI — openapi_url is a
+# separate FastAPI setting and defaults to serving the raw schema
+# regardless, which would hand an unauthenticated caller every route,
+# parameter, and response shape this gateway has. Three endpoints are
+# already documented in the module docstring above; nothing needs a
+# machine-readable version of the same thing exposed at runtime.
+app = FastAPI(title="Foundry upload gateway", docs_url=None, redoc_url=None, openapi_url=None)
 
 # Locked to the app's own origins. This is what stops another site driving a
 # signed-in member's browser into uploading on their behalf.

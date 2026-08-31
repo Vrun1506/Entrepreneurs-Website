@@ -50,13 +50,15 @@ if [[ "$BOOTSTRAP" == true ]]; then
   $SSH 'sudo bash -s' < "$REPO_ROOT/infra/vm/bootstrap.sh"
   ok "packages, docker, secrets, SSH hardening"
 
-  say "Installing the systemd unit and nginx site"
+  say "Installing the systemd unit, nginx site, and release script"
   scp -q "$REPO_ROOT/infra/vm/foundry-gateway.service" "azureuser@$VM_IP:/tmp/"
   scp -q "$REPO_ROOT/infra/vm/nginx-foundry-gateway.conf" "azureuser@$VM_IP:/tmp/"
+  scp -q "$REPO_ROOT/infra/vm/foundry-release.sh" "azureuser@$VM_IP:/tmp/"
   $SSH 'sudo install -m 644 /tmp/foundry-gateway.service /etc/systemd/system/ &&
         sudo install -m 644 /tmp/nginx-foundry-gateway.conf /etc/nginx/sites-available/foundry-gateway &&
         sudo ln -sf /etc/nginx/sites-available/foundry-gateway /etc/nginx/sites-enabled/foundry-gateway &&
         sudo rm -f /etc/nginx/sites-enabled/default &&
+        sudo install -m 755 /tmp/foundry-release.sh /usr/local/sbin/foundry-release &&
         sudo systemctl daemon-reload'
   ok "installed"
 fi
@@ -73,26 +75,21 @@ say "Pushing to GHCR"
 gh auth token | docker login ghcr.io -u "$(gh api user --jq .login)" --password-stdin
 docker push "$IMAGE"
 ok "pushed"
-printf '    \033[0;33m! First push only: set the ghcr.io/icf-community/foundry-gateway package\n'
-printf '      visibility to Public in GitHub package settings, or the VM'"'"'s unauthenticated\n'
-printf '      pull below will fail.\033[0m\n'
 
-# ─── Pull and restart ────────────────────────────────────────────────
-say "Pulling on the VM and restarting"
-$SSH "sudo docker pull $IMAGE && sudo systemctl restart foundry-gateway"
-ok "restarted"
-
-# ─── Prove it came back ─────────────────────────────────────────────
-# A deploy that does not verify is a deploy that tells you it worked when
-# the service died on a missing environment variable.
-say "Health check"
-sleep 2
-if $SSH 'curl -fsS --max-time 5 localhost:8000/health' | grep -q '"ok"'; then
+# ─── Pull, restart, verify ──────────────────────────────────────────
+# infra/vm/foundry-release.sh is the one place this logic lives — the
+# deploy-gateway.yml CI workflow calls the same script (via `az vm
+# run-command` instead of SSH), so the two paths can't drift apart. It
+# handles GHCR auth (the image is private — org policy blocks public
+# visibility even for an Owner account, confirmed 2026-08-31), the pull,
+# the restart, and polls health before exiting 0 — a fixed sleep here would
+# either race a slow cold boot or pad every single run for the worst case.
+say "Releasing on the VM"
+if $SSH 'sudo /usr/local/sbin/foundry-release'; then
   ok "gateway healthy on the VM"
 else
   echo
-  echo "  Gateway is NOT healthy. Recent logs:" >&2
-  $SSH 'sudo journalctl -u foundry-gateway -n 40 --no-pager' >&2
+  echo "  Deploy failed — see the logs above." >&2
   exit 1
 fi
 

@@ -24,7 +24,20 @@ RG="${RG:-foundry-rg}"
 LOC="${LOC:-uksouth}"
 CONTAINER="${CONTAINER:-post-images}"
 VM="${VM:-foundry-gateway}"
-VM_SIZE="${VM_SIZE:-Standard_B2s}"
+# Every B-series option is blocked on this subscription in uksouth: the
+# original generation (B1s, B2s, ...) is capacity-restricted
+# (NotAvailableForSubscription, confirmed via `az vm list-skus`), and the v2
+# generation has an approved vCPU quota of 0 (confirmed via `az vm
+# list-usage` and a failed self-service increase — QuotaNotAvailableForResource,
+# meaning this family needs a support ticket, not just a form). D2s_v3 (2
+# vCPU / 8GB, amd64) has 10 vCPUs already approved and zero restrictions —
+# confirmed the same two ways. It costs more than the burstable B-series
+# would have ($0.116/hr vs B2als_v2's would-be $0.0425/hr) for RAM this
+# stateless service won't use, but it provisions today instead of filing an
+# Azure support ticket and waiting on a human, of unknown duration. Revisit
+# once Basv2 quota is approved — retry `az quota update` periodically, or
+# file a ticket if it's still QuotaNotAvailableForResource.
+VM_SIZE="${VM_SIZE:-Standard_D2s_v3}"
 SP_NAME="${SP_NAME:-foundry-vercel-blob-reader}"
 # The storage account name must be globally unique, lowercase, 3-24 chars.
 # Derived from the resource group so a re-run finds the same one rather than
@@ -100,7 +113,13 @@ if [[ -z "$SA" ]]; then
   SA=$(az storage account list -g "$RG" --query "[0].name" -o tsv 2>/dev/null || true)
 fi
 if [[ -z "$SA" || "$SA" == "None" ]]; then
-  SA="foundry$(LC_ALL=C tr -dc 'a-z0-9' </dev/urandom | head -c 12)"
+  # `|| true` on the pipeline itself, not after the substitution: `head -c 12`
+  # closing the pipe early sends `tr` a SIGPIPE, and under pipefail that's a
+  # 141 exit that `set -e` treats as this line failing — the script died
+  # right here with no message, since -e doesn't print anything on its way
+  # out. The 12 bytes `head` already wrote are unaffected by tr's exit code,
+  # so this is safe to swallow.
+  SA="foundry$(LC_ALL=C tr -dc 'a-z0-9' </dev/urandom | head -c 12 || true)"
 fi
 
 SCOPE="/subscriptions/$SUB_ID/resourceGroups/$RG/providers/Microsoft.Storage/storageAccounts/$SA/blobServices/default/containers/$CONTAINER"
@@ -232,11 +251,15 @@ NSG=$(az network nsg list -g "$RG" --query "[0].name" -o tsv)
 [[ -n "$NSG" && "$NSG" != "None" ]] || die "No NSG found in $RG. Create and attach one before adding rules."
 ok "NSG $NSG"
 
-MYIP=$(curl -fsS https://api.ipify.org)
-az network nsg rule create -g "$RG" --nsg-name "$NSG" -n allow-ssh \
-  --priority 100 --access Allow --protocol Tcp --direction Inbound \
-  --source-address-prefixes "$MYIP/32" --destination-port-ranges 22 -o none
-ok "SSH from $MYIP only"
+# No port-22 rule, deliberately — not even scoped to one IP. That was the
+# original design (SSH allowlisted to whoever ran this script) and it broke
+# the moment access was needed from a second location. SSH now goes over
+# Tailscale (installed by infra/vm/bootstrap.sh): WireGuard traffic is
+# decrypted and delivered to a local tailscale0 interface, so it never
+# crosses this NSG's port-based filtering — there's nothing to allow. A
+# temporary rule for a specific IP can still be created by hand if Tailscale
+# itself is ever the thing that's broken; see production-runbook.md.
+skip "no port-22 rule — SSH goes over Tailscale, see infra/vm/bootstrap.sh"
 
 # Only Cloudflare reaches 443, so the origin cannot be hit directly and
 # Cloudflare's DDoS protection cannot be bypassed by anyone who finds the IP.
@@ -300,14 +323,24 @@ else
   if az consumption budget show-with-rg -g "$RG" -n "$BUDGET_NAME" -o none 2>/dev/null; then
     skip "budget $BUDGET_NAME already exists"
   else
+    # Both quirks below are this az CLI version's (2.87.0) budget schema, not
+    # documentation guesswork — found by hitting the real 400s and reading
+    # `az consumption budget create-with-rg --notifications '??'` /
+    # `--time-period '??'` for the actual accepted fields.
     TIME_PERIOD=$(mktemp)
     cat > "$TIME_PERIOD" <<JSON
-{"startDate":"$(date -u +%Y-%m-01)","endDate":"2099-12-31"}
+{"startDate":"$(date -u +%Y-%m-01)T00:00:00Z","endDate":"2099-12-31T00:00:00Z"}
 JSON
+    # A bare date ("2026-08-01") fails with "Start date should be the first
+    # day of the month" even though it is — the API wants a full datetime.
+    #
+    # contactEmails is a required field on each notification even though we
+    # only want the action-group email; thresholdType doesn't exist in this
+    # CLI's model at all (fails to parse, not just rejected server-side).
     NOTIFICATIONS=$(mktemp)
     cat > "$NOTIFICATIONS" <<JSON
-{"Actual_GreaterThan_80":{"enabled":true,"operator":"GreaterThan","threshold":80,"contactGroups":["$AG_ID"],"thresholdType":"Actual"},
-"Actual_GreaterThan_100":{"enabled":true,"operator":"GreaterThan","threshold":100,"contactGroups":["$AG_ID"],"thresholdType":"Actual"}}
+{"Actual_GreaterThan_80":{"enabled":true,"operator":"GreaterThan","threshold":80,"contactEmails":["$BUDGET_ALERT_EMAIL"],"contactGroups":["$AG_ID"]},
+"Actual_GreaterThan_100":{"enabled":true,"operator":"GreaterThan","threshold":100,"contactEmails":["$BUDGET_ALERT_EMAIL"],"contactGroups":["$AG_ID"]}}
 JSON
     az consumption budget create-with-rg \
       -g "$RG" -n "$BUDGET_NAME" \

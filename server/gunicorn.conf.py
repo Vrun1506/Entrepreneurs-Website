@@ -40,7 +40,7 @@ def _int(name: str, default: int) -> int:
 # by anything inside the VNet, bypassing all three.
 bind = "127.0.0.1:8000"
 
-# Two workers on a B2s (2 vCPU). Image re-encoding is CPU-bound and briefly
+# Two workers on a B2als_v2 (2 vCPU). Image re-encoding is CPU-bound and briefly
 # blocking, so the count tracks cores rather than the usual "2 x cores + 1"
 # rule of thumb for I/O-bound apps — an extra worker here just contends for
 # the same CPU while holding another decoded bitmap in memory. Override

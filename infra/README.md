@@ -36,9 +36,11 @@ algorithm confusion. Then it builds `server/` into a container image, pushes
 it to `ghcr.io/icf-community/foundry-gateway`, has the VM pull and restart,
 and curls `/health`. A failed build or push never touches the running
 service — only a successful `docker pull` on the VM triggers the restart.
-Needs `docker` and `gh` (authenticated) locally. First push only: the GHCR
-package needs its visibility set to Public once, in GitHub's package
-settings, before the VM's unauthenticated pull will work.
+Needs `docker` and `gh` (authenticated) locally. The GHCR package stays
+private — org policy blocks public package visibility even for an Owner
+account — so the VM authenticates its own pulls with a scoped
+`read:packages` token instead. See `infra/vm/bootstrap.sh`'s GHCR pull
+credential section for how `/etc/foundry/ghcr-pull.env` gets created.
 
 ## What holds this together
 
@@ -58,11 +60,16 @@ image.
 level. It cannot be scoped to one container, so the only safe thing to do with
 it is turn it off.
 
-**The origin is unreachable except through Cloudflare.** The NSG admits SSH
-from one address and 443 from Cloudflare's published ranges only, so the DDoS
-protection cannot be bypassed by anyone who discovers the IP. Cloudflare adds
-ranges occasionally — re-run `provision.sh` when uploads start failing for
-everyone at once with no deploy behind it.
+**The origin is unreachable except through Cloudflare, and SSH isn't reachable
+from the public internet at all.** The NSG admits 443 from Cloudflare's
+published ranges only, so the DDoS protection cannot be bypassed by anyone who
+discovers the IP. Cloudflare adds ranges occasionally — re-run `provision.sh`
+when uploads start failing for everyone at once with no deploy behind it.
+There is no port-22 rule, not even scoped to one IP — SSH goes over Tailscale
+(`infra/vm/bootstrap.sh` installs it), which authenticates the connecting
+*device* rather than a source IP, so access isn't tied to being on one
+network. See `production-runbook.md` for the reasoning and the fallback if
+Tailscale itself is ever unreachable.
 
 **The resource group cannot be deleted by accident.** A `CanNotDelete` lock
 sits on it from the moment it's created; removing it takes a deliberate
@@ -106,10 +113,20 @@ after an Ubuntu upgrade. It never regenerates the secrets in
 `/etc/foundry/gateway.env` — doing so would invalidate every in-flight upload
 ticket and desynchronise the gateway from Vercel until somebody noticed.
 
-## Not here yet
+## Auto-deploy
 
-Auto-deploy from `main`. Today a deploy is a person running `deploy.sh`. The
-shape it would take is a GitHub Actions job on `push` to `main`, gated on the
-`gateway` job passing, authenticating to Azure with the OIDC federation the
-project already emits `VERCEL_OIDC_TOKEN` for — so no long-lived SSH key or
-service-principal secret would need to live in Actions.
+`.github/workflows/deploy-gateway.yml` ships `server/**` and `infra/vm/**`
+changes to the VM automatically on push to `main` (or via manual
+`workflow_dispatch`) — runs the gateway tests, builds and pushes a SHA-tagged
+image to GHCR, then signs in to Azure via OIDC federation (no stored secret —
+see the `foundry-gateway-deploy` app registration in `production-runbook.md`)
+and asks the Azure control plane (`az vm run-command`) to run
+`infra/vm/foundry-release.sh` on the VM. Deliberately not SSH-based: the NSG
+never opens port 22 to the internet at all (see above), and GitHub-hosted
+runners come from a pool of thousands with no fixed IP range to allow even if
+it did.
+
+`infra/vm/foundry-release.sh` is the one place "pull, restart, verify health"
+is implemented — both this workflow and a manual `deploy.sh` call it, so the
+two paths can't drift apart. `infra/azure/provision.sh` is never run
+automatically; new Azure resources stay a deliberate, human-run action.

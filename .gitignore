@@ -55,3 +55,9 @@ pre-*-schema.sql
 .env*
 !.env.example
 !*.env.example
+
+# Personal ops reference: real resource IDs, IPs, account names. None of it
+# is a secret by itself, but none of it needs to sit in a public repo's
+# history either. The scripts that do the actual work are tracked under
+# infra/ and server/ — this is just the narrative of where things ended up.
+production-runbook.md

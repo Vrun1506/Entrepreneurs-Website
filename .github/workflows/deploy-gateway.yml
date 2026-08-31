@@ -1,0 +1,136 @@
+name: Deploy gateway
+
+# Ships server/ to the Azure VM when it changes on main.
+#
+# WHY THIS DOES NOT USE SSH.
+# The obvious pipeline is appleboy/ssh-action with a private key in a repo
+# secret. It cannot work here and should not: the NSG admits port 22 from a
+# single address, and GitHub-hosted runners come from a pool of thousands
+# with no fixed range. Making it work would mean opening 22 to every GitHub
+# Actions runner on earth, guarded only by a long-lived key sitting in
+# repository secrets.
+#
+# Instead: GitHub federates to Entra (no stored credential — see the Azure
+# OIDC app registration described in infra/README.md), pushes the built
+# image to GHCR (the VM already authenticates its own pulls — see
+# infra/vm/bootstrap.sh's GHCR pull credential section), and asks the Azure
+# control plane to run infra/vm/foundry-release.sh on the VM. The VM's
+# guest agent polls OUTBOUND for that command, so nothing new is exposed
+# and the NSG is untouched.
+
+on:
+  push:
+    branches: [main]
+    # The gateway is one small service that changes rarely. Without this
+    # filter every frontend commit would rebuild and restart it for nothing.
+    paths:
+      - 'server/**'
+      - 'infra/vm/**'
+      - '.github/workflows/deploy-gateway.yml'
+  workflow_dispatch:
+
+# Never let two deploys race each other on the VM; never cancel one that's
+# already touching the running service mid-flight.
+concurrency:
+  group: deploy-gateway
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write    # push the image to GHCR
+  id-token: write    # federated (passwordless) Azure login
+
+jobs:
+  # Same suite as the `gateway` job in ci.yml, run again here rather than
+  # trusted from another workflow's result. It is a few seconds, and it is
+  # the security review for this service: SVG rejection, magic-byte typing,
+  # decompression bombs, EXIF stripping, polyglots, JWT algorithm confusion.
+  test:
+    name: Gateway tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: server/pyproject.toml
+      - run: pip install -e '.[dev]'
+      - run: pytest -q
+
+  build-and-push:
+    name: Build and push image
+    needs: test
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.tag.outputs.image }}
+    steps:
+      - uses: actions/checkout@v5
+
+      # SHA-tagged, not :latest. A push here doesn't touch :latest at all —
+      # foundry-release.sh retags :latest to this exact ref only after it
+      # has pulled and is about to restart, so a second push landing while
+      # this deploy is still in flight can never make it deploy the wrong
+      # commit.
+      - id: tag
+        run: echo "image=ghcr.io/icf-community/foundry-gateway:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+      - run: docker build --platform linux/amd64 -t "${{ steps.tag.outputs.image }}" server
+
+      - run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - run: docker push "${{ steps.tag.outputs.image }}"
+
+  deploy:
+    name: Release to the VM
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    # Scopes the federated credential and gives you somewhere to add a
+    # required reviewer later without touching this file.
+    environment: production
+    steps:
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      # TRAP: `az vm run-command invoke` reports success as long as the
+      # command was DELIVERED — a script that exits 1 still produces a zero
+      # exit code here. foundry-release.sh prints a sentinel only on a
+      # verified-healthy deploy, and we grep for it rather than trusting
+      # the invocation's own status.
+      - name: Run foundry-release on the VM
+        run: |
+          set -euo pipefail
+          OUT=$(az vm run-command invoke \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --name "${{ vars.AZURE_VM_NAME }}" \
+            --command-id RunShellScript \
+            --scripts "/usr/local/sbin/foundry-release '${{ needs.build-and-push.outputs.image }}'" \
+            --query "value[0].message" -o tsv)
+          echo "$OUT"
+          if ! grep -q "FOUNDRY_DEPLOY_OK ${{ needs.build-and-push.outputs.image }}" <<<"$OUT"; then
+            echo "::error::foundry-release did not report success — see the log above."
+            exit 1
+          fi
+
+      # The VM told us it's healthy on loopback. This proves the whole
+      # public path too — Cloudflare, the NSG, nginx — is actually serving.
+      - name: Verify through the public hostname
+        if: vars.GATEWAY_HEALTH_URL != ''
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5; do
+            if curl -fsS --max-time 10 "${{ vars.GATEWAY_HEALTH_URL }}" | grep -q '"ok"'; then
+              echo "Gateway healthy at ${{ vars.GATEWAY_HEALTH_URL }}"
+              exit 0
+            fi
+            echo "attempt $attempt failed, retrying"
+            sleep 5
+          done
+          echo "::error::Gateway is not answering publicly. It is healthy on the VM, so suspect Cloudflare, DNS or nginx."
+          exit 1
