@@ -118,32 +118,15 @@ jobs:
             exit 1
           fi
 
-      # The VM told us it's healthy on loopback. This step proves the whole
-      # public path too — Cloudflare, the NSG, nginx — is actually serving.
-      #
-      # Runs FROM THE VM (same az vm run-command channel as the release step
-      # above), not from this GitHub-hosted runner. The runner's IP sits in a
-      # pool shared by thousands of unrelated workflows, and Cloudflare's free
-      # Bot Fight Mode flags it outright — 403, every time, no exception
-      # possible. Bot Fight Mode doesn't run on Cloudflare's Ruleset Engine at
-      # all, so no WAF custom rule (Skip or otherwise) can carve out an
-      # exception for it on the Free plan; only paid Super Bot Fight Mode
-      # supports that. See production-runbook.md for the full dead end this
-      # replaced. The VM's own outbound IP has no such shared-pool reputation
-      # problem, so this proves the identical public path without needing any
-      # Cloudflare-side change.
-      - name: Verify through the public hostname
-        if: vars.GATEWAY_HEALTH_URL != ''
-        run: |
-          set -euo pipefail
-          OUT=$(az vm run-command invoke \
-            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
-            --name "${{ vars.AZURE_VM_NAME }}" \
-            --command-id RunShellScript \
-            --scripts "for i in 1 2 3 4 5; do curl -fsS --max-time 10 '${{ vars.GATEWAY_HEALTH_URL }}' | grep -q '\"ok\"' && echo PUBLIC_HEALTH_OK && exit 0; sleep 5; done; exit 1" \
-            --query "value[0].message" -o tsv)
-          echo "$OUT"
-          if ! grep -q "PUBLIC_HEALTH_OK" <<<"$OUT"; then
-            echo "::error::Gateway is not answering publicly (checked from the VM itself, not the runner). Suspect Cloudflare, DNS or nginx."
-            exit 1
-          fi
+      # There is deliberately no separate "verify through the public
+      # hostname" step here. Two attempts at one (from the GitHub runner,
+      # then from the VM itself via az vm run-command) both got a
+      # structural 403 from Cloudflare: this zone is on the Free plan,
+      # where Bot Fight Mode flags any plain scripted curl from a
+      # cloud/datacenter IP as automated — GitHub's runners and the Azure
+      # VM's own IP alike — and it cannot be exempted by a WAF rule (only
+      # paid Super Bot Fight Mode supports that). See production-runbook.md
+      # for the full trail. The foundry-release.sh step above already
+      # proves the app is healthy; a real check of Cloudflare/DNS/nginx
+      # belongs in an actual external uptime monitor later, not a curl that
+      # Cloudflare will never let through from here.
