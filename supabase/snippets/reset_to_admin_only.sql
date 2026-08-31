@@ -1,24 +1,26 @@
 -- ════════════════════════════════════════════════════════════════════
--- Foundry · Clear the pilot down to a single admin account
+-- Foundry · Clear everything down to a single admin account
 --
 -- RUN IN THE SUPABASE SQL EDITOR, AGAINST PRODUCTION.
 -- Section 1 is READ-ONLY. Section 2 DELETES. Section 3 verifies.
 --
--- Context: the 28 accounts in production are a committee pilot, not
--- public members. This clears them so launch starts from a known state,
--- keeping exactly one account:
+-- A reusable reset tool, not a one-off script — REDACTED-ADMIN-EMAIL
+-- below is a placeholder. Before running, replace every occurrence of it
+-- in this file (there are five: three in Section 1, one in Section 2's
+-- v_keep_email, and none in Section 3) with the real email of the account
+-- you want to survive, in your local copy only — never commit a real
+-- email back into this file.
 --
---     REDACTED-ADMIN-EMAIL
+-- First used 2026-08-28 to clear 28 committee-pilot accounts before
+-- launch. Reusable any time you want to wipe every account except one
+-- known admin — e.g. clearing test/pilot data again after further manual
+-- testing in production.
 --
 -- ──────────────────────────────────────────────────────────────────────
 -- ⚠ TAKE A BACKUP FIRST — Dashboard → Database → Backups
 -- ──────────────────────────────────────────────────────────────────────
 -- Nothing below is recoverable. The transaction is all-or-nothing, which
 -- protects you from a HALF-cleared database, not from a cleared one.
---
--- RUN THIS BEFORE THE 20260828 MIGRATIONS, not after. The migrations then
--- apply to an essentially empty table, and complete_admin_profiles.sql is
--- left with exactly one row to fill in.
 --
 -- ──────────────────────────────────────────────────────────────────────
 -- WHY THE ORDER BELOW IS NOT NEGOTIABLE
@@ -33,10 +35,30 @@
 -- So `delete from auth.users` does NOT simply cascade. It tries to remove
 -- the profile, hits RESTRICT from any listing that person posted, and the
 -- whole statement fails. The listings and the audit rows have to go first.
+-- This is the exact same ordering already proven in admin_delete_user /
+-- admin_delete_graduates / delete_my_account / reject_user — see
+-- supabase/migrations/20260529000007_admin_delete_user_rpcs.sql.
 --
--- KEPT DELIBERATELY: skills, sectors, app_config. That is reference data
--- and taxonomy — the app is broken without it, and it holds no personal
--- data.
+-- UPDATED 2026-08-31 for the community feature (posts, post_images,
+-- post_reports — added 20260829). None of their FKs are RESTRICT
+-- (posts.author_id and post_images.post_id both CASCADE), so they were
+-- never a blocker — but they're cleared explicitly below anyway, same as
+-- listing_events and opportunity_bookmarks, purely for a clean per-table
+-- count in the notices. Deleting posts fires post_images' AFTER DELETE
+-- trigger, which queues every image's blob_key in blob_deletion_queue —
+-- the same drain cron (frontend/src/app/api/cron/drain-blob-deletions)
+-- that handles a normal member's account deletion picks these up and
+-- actually removes them from Azure Blob Storage. Nothing here talks to
+-- Azure directly.
+--
+-- KEPT DELIBERATELY:
+--   • skills, sectors, app_config — reference data and taxonomy/config,
+--     not personal data. The app is broken without them.
+--   • post_moderation_log — NOT touched, on purpose. It deliberately
+--     carries no foreign key on author_id/post_id (see its own migration,
+--     20260829000001, section 6) specifically so that deleting an
+--     account cannot also destroy the record of why one of their posts
+--     was taken down. Lawful basis: UK GDPR Article 17(3)(e).
 -- ════════════════════════════════════════════════════════════════════
 
 
@@ -72,9 +94,20 @@ select 'DELETING · admin_actions', count(*)::text, '' from public.admin_actions
 union all
 select 'DELETING · outbound_email',count(*)::text, '' from public.outbound_email
 union all
+select 'DELETING · posts',         count(*)::text, '' from public.posts
+union all
+select 'DELETING · post_images',   count(*)::text, '' from public.post_images
+union all
+select 'DELETING · post_reports',  count(*)::text, '' from public.post_reports
+union all
 select 'KEEPING · skills',         count(*)::text, '' from public.skills
 union all
-select 'KEEPING · sectors',        count(*)::text, '' from public.sectors;
+select 'KEEPING · sectors',        count(*)::text, '' from public.sectors
+union all
+select 'KEEPING · app_config',     count(*)::text, '' from public.app_config
+union all
+select 'KEEPING · post_moderation_log (compliance retention, untouched)',
+       count(*)::text, '' from public.post_moderation_log;
 
 
 -- ════════════════════════════════════════════════════════════════════
@@ -120,6 +153,18 @@ begin
   delete from public.email_change_log;      get diagnostics v_n = row_count;
     raise notice 'deleted % email_change_log', v_n;
 
+  -- Community feature (added 20260829). post_reports has no RESTRICT
+  -- either but is cleared explicitly, same reasoning as the rest of this
+  -- block. Deleting posts cascades to post_images and fires its AFTER
+  -- DELETE trigger, which queues each blob_key in blob_deletion_queue for
+  -- the drain cron to actually remove from Azure Blob Storage — nothing
+  -- here talks to Azure directly. post_moderation_log is deliberately
+  -- NOT cleared; see the header comment.
+  delete from public.post_reports;          get diagnostics v_n = row_count;
+    raise notice 'deleted % post_reports', v_n;
+  delete from public.posts;                 get diagnostics v_n = row_count;
+    raise notice 'deleted % posts (and their post_images, cascaded)', v_n;
+
   -- admin_actions.admin_id is RESTRICT against auth.users. Clearing it
   -- here is what lets any non-surviving admin be removed below.
   delete from public.admin_actions;         get diagnostics v_n = row_count;
@@ -137,8 +182,9 @@ begin
     raise notice 'deleted % vcs_grants', v_n;
 
   -- ── The accounts ───────────────────────────────────────────────────
-  -- profiles, profile_skills, profile_sectors, admins and the auth-schema
-  -- rows (identities, sessions, one_time_tokens) all cascade from here.
+  -- profiles, profile_skills, profile_sectors, admins, upload_tickets,
+  -- and the auth-schema rows (identities, sessions, one_time_tokens) all
+  -- cascade from here. posts/post_images were already cleared above.
   delete from auth.users where id <> v_keep_id;
   get diagnostics v_n = row_count;
   raise notice 'deleted % auth users', v_n;
@@ -171,7 +217,15 @@ union all select 'admins',        count(*)::text from public.admins
 union all select 'events',        count(*)::text from public.events
 union all select 'opportunities', count(*)::text from public.opportunities
 union all select 'vcs_grants',    count(*)::text from public.vcs_grants
-union all select 'skills (kept)',  count(*)::text from public.skills
-union all select 'sectors (kept)', count(*)::text from public.sectors
+union all select 'posts',                count(*)::text from public.posts
+union all select 'post_images',          count(*)::text from public.post_images
+union all select 'post_reports',         count(*)::text from public.post_reports
+union all select 'blob_deletion_queue (pending)',
+  count(*)::text from public.blob_deletion_queue where deleted_at is null
+union all select 'skills (kept)',       count(*)::text from public.skills
+union all select 'sectors (kept)',      count(*)::text from public.sectors
+union all select 'app_config (kept)',   count(*)::text from public.app_config
+union all select 'post_moderation_log (kept, compliance retention)',
+  count(*)::text from public.post_moderation_log
 union all select 'surviving email',
   coalesce((select email from auth.users limit 1), '— NONE —');
