@@ -1,5 +1,6 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
+import { isCloudflareIp } from "@/lib/cloudflareIps";
 
 // ════════════════════════════════════════════════════════════════════
 // Upstash rate limiting — app layer (precision). Cloudflare's edge is
@@ -172,15 +173,32 @@ export async function allow(bucket: RateBucket, identifier: string): Promise<boo
 }
 
 // Best-effort client IP from proxy headers (Vercel/Cloudflare set these).
-// Prefer cf-connecting-ip: behind Cloudflare it's the true client IP, set
-// (and overwritten) by Cloudflare on every request, so — unlike the leftmost
-// x-forwarded-for hop, which the client controls — it can't be spoofed to
-// evade the per-IP bucket. XFF/x-real-ip remain as fallbacks for paths that
-// don't pass through Cloudflare (CI, direct origin hits).
-export function clientIp(headers: Headers): string {
-  const cf = headers.get("cf-connecting-ip");
-  if (cf) return cf.trim();
+//
+// cf-connecting-ip is only trusted when the request's VERIFIED connecting
+// peer is actually one of Cloudflare's own published IP ranges (see
+// lib/cloudflareIps.ts for why: this app's custom domain sits behind
+// Cloudflare, but Vercel's own <project>.vercel.app domain is always live
+// alongside it and is NOT — anyone hitting that directly could set
+// cf-connecting-ip to anything, on every request, and defeat every
+// IP-keyed bucket below).
+//
+// "Verified" means the LAST hop of x-forwarded-for, not the first. Vercel's
+// edge appends the real connecting IP as the final entry on every request —
+// see https://vercel.com/docs/edge-network/headers — so it can't be spoofed
+// the way a client-supplied leftmost hop can. x-real-ip is the fallback for
+// runtimes that don't set x-forwarded-for at all (e.g. local dev).
+function verifiedPeerIp(headers: Headers): string | null {
   const xff = headers.get("x-forwarded-for");
-  if (xff) return xff.split(",")[0]!.trim();
-  return headers.get("x-real-ip") ?? "unknown";
+  if (xff) {
+    const hops = xff.split(",").map((h) => h.trim()).filter(Boolean);
+    if (hops.length > 0) return hops[hops.length - 1]!;
+  }
+  return headers.get("x-real-ip");
+}
+
+export function clientIp(headers: Headers): string {
+  const peer = verifiedPeerIp(headers);
+  const cf = headers.get("cf-connecting-ip");
+  if (cf && peer && isCloudflareIp(peer)) return cf.trim();
+  return peer ?? "unknown";
 }
