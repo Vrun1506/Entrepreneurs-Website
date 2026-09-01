@@ -43,16 +43,31 @@ export function AvatarCropper({
   const [zoom, setZoom] = useState(MIN_ZOOM);
   const [offset, setOffset] = useState<Offset>({ x: 0, y: 0 });
   const dragRef = useRef<{ startX: number; startY: number; origin: Offset } | null>(null);
+  const [prevFile, setPrevFile] = useState(file);
+
+  // Reset for a new file during render, not in an effect — this is the
+  // "adjusting state when a prop changes" case React's own docs steer away
+  // from an effect for: it runs once per actual file change, synchronously,
+  // rather than as a render-then-effect-then-render round trip. Refs can't
+  // be read or written during render, which is why this is state.
+  if (file !== prevFile) {
+    setPrevFile(file);
+    setError("");
+    setBitmap(null);
+  }
 
   useEffect(() => {
     let cancelled = false;
-    setError("");
-    setBitmap(null);
     createImageBitmap(file, { imageOrientation: "from-image" })
       .then((bmp) => {
         if (cancelled) return;
         setBitmap(bmp);
         setZoom(MIN_ZOOM);
+        // Centre immediately, computed from this bitmap and zoom=1 — not a
+        // separate effect reacting to `bitmap`, which would show one frame
+        // clamped to a corner before re-centring.
+        const s = BOX / Math.min(bmp.width, bmp.height);
+        setOffset({ x: (BOX - bmp.width * s) / 2, y: (BOX - bmp.height * s) / 2 });
       })
       .catch(() => {
         if (!cancelled) setError("That image couldn't be read. Try a different file.");
@@ -75,22 +90,17 @@ export function AvatarCropper({
     return { x: Math.min(0, Math.max(minX, o.x)), y: Math.min(0, Math.max(minY, o.y)) };
   };
 
-  // Re-centre whenever the image or zoom level changes the display size,
-  // rather than letting a stale offset clamp to a corner.
-  useEffect(() => {
-    if (!bitmap) return;
-    setOffset((prev) => clamp(prev, dw, dh));
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- clamp is pure and re-created each render
-  }, [bitmap, zoom]);
-
-  useEffect(() => {
-    if (bitmap) {
-      setOffset({ x: (BOX - dw) / 2, y: (BOX - dh) / 2 });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only on new bitmap
-  }, [bitmap]);
-
   const nudge = (dx: number, dy: number) => setOffset((prev) => clamp({ x: prev.x + dx, y: prev.y + dy }, dw, dh));
+
+  // Re-clamp right where zoom actually changes, rather than in an effect
+  // watching it — the box's display size is a function of the new zoom
+  // value, computed here rather than read back from state next render.
+  const applyZoom = (z: number) => {
+    setZoom(z);
+    if (!bitmap) return;
+    const s = (BOX / Math.min(bitmap.width, bitmap.height)) * z;
+    setOffset((prev) => clamp(prev, bitmap.width * s, bitmap.height * s));
+  };
 
   const onPointerDown = (e: React.PointerEvent) => {
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
@@ -164,7 +174,7 @@ export function AvatarCropper({
               max={MAX_ZOOM}
               step={0.01}
               value={zoom}
-              onChange={(e) => setZoom(parseFloat(e.target.value))}
+              onChange={(e) => applyZoom(parseFloat(e.target.value))}
               className="w-full accent-[var(--color-accent)]"
             />
           </div>

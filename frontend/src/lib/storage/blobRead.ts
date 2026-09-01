@@ -173,7 +173,7 @@ export async function signedImageUrls(
 
       return `https://${cfg.account}.blob.core.windows.net/${container}/${blobKey}?${sas}`;
     } catch (e) {
-      console.error(`Failed to sign a read URL for ${blobKey}:`, e);
+      console.error("Failed to sign a read URL for:", blobKey, e);
       return null;
     }
   });
@@ -223,7 +223,7 @@ export async function signedCvUrl(blobKey: string): Promise<string | null> {
 
     return `https://${cfg.account}.blob.core.windows.net/${container}/${blobKey}?${sas}`;
   } catch (e) {
-    console.error(`Failed to sign a read URL for ${blobKey}:`, e);
+    console.error("Failed to sign a read URL for:", blobKey, e);
     return null;
   }
 }
@@ -243,7 +243,7 @@ export async function downloadCvBytes(blobKey: string): Promise<Buffer | null> {
     const container = serviceClient(cfg).getContainerClient(cfg.containers.cv);
     return await container.getBlockBlobClient(blobKey).downloadToBuffer();
   } catch (e) {
-    console.error(`Failed to download CV blob ${blobKey}:`, e);
+    console.error("Failed to download CV blob:", blobKey, e);
     return null;
   }
 }
