@@ -55,17 +55,24 @@ export const MIN_SKILLS = 3;
 export const MAX_INTENTS = 3;
 export const MAX_INTERESTS_PER_KIND = 12;
 
-export function initialState(seed: { preferredName: string }): IntakeState {
+export function initialState(seed: {
+  preferredName: string;
+  /** A previously-confirmed avatar, signed for display. */
+  photoPreview?: string | null;
+  /** A previously-confirmed CV — its blob key and display filename. */
+  cvUploadedKey?: string | null;
+  cvOriginalFilename?: string | null;
+}): IntakeState {
   return {
     preferredName: seed.preferredName,
     photoBlob: null,
-    photoPreview: null,
+    photoPreview: seed.photoPreview ?? null,
     bioFocus: "",
     bioHobbies: "",
 
     cvFile: null,
-    cvUploadedKey: null,
-    cvOriginalFilename: null,
+    cvUploadedKey: seed.cvUploadedKey ?? null,
+    cvOriginalFilename: seed.cvOriginalFilename ?? null,
     cvConsent: false,
     linkedin: "",
 
@@ -141,6 +148,9 @@ export const INTENTS: { value: string; label: string }[] = [
   { value: "technical_help", label: "Technical help" },
   { value: "customers", label: "Customers to talk to" },
   { value: "somewhere_to_start", label: "Somewhere to start" },
+  { value: "just_curious", label: "Just curious" },
+  { value: "taste_of_community", label: "A taste of the community" },
+  { value: "meet_people", label: "Meet like-minded people" },
 ];
 
 export const INTENT_URGENCIES: { value: string; label: string }[] = [

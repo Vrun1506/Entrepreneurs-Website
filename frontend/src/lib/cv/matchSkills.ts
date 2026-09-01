@@ -33,6 +33,10 @@ function hasWordBoundaryMatch(normalizedText: string, term: string): boolean {
  * Match extracted CV text against the closed skills taxonomy. Returns
  * matched skill ids in taxonomy order — never text, never a score, never
  * anything derived from the input beyond "which fixed ids are present".
+ *
+ * O(taxonomy size × aliases per skill), run once per CV upload rather than
+ * in any hot path — comfortably fine well past a taxonomy of a few
+ * thousand rows, so a growing taxonomy is not a reason to revisit this.
  */
 export function matchSkillsInText(text: string, taxonomy: SkillTerm[]): number[] {
   const normalized = text.toLowerCase();

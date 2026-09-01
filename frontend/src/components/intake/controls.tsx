@@ -171,6 +171,9 @@ export function TagInput({
     setDraft("");
   };
 
+  const trimmed = draft.trim();
+  const canAddTyped = trimmed !== "" && !atMax && !lower.includes(trimmed.toLowerCase());
+
   return (
     <div>
       {values.length > 0 && (
@@ -224,6 +227,16 @@ export function TagInput({
           <option key={m} value={m} />
         ))}
       </datalist>
+
+      {canAddTyped && (
+        <button
+          type="button"
+          onClick={() => commit(draft)}
+          className="mt-2 cursor-pointer rounded-lg border border-border-strong bg-white/[0.06] px-3 py-1.5 text-[0.775rem] font-medium text-text-primary transition-colors duration-150 hover:border-accent"
+        >
+          + Add &quot;{trimmed}&quot;
+        </button>
+      )}
 
       {matches.length > 0 && (
         <ul className="mt-2 flex flex-wrap gap-2">

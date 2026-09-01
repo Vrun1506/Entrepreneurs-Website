@@ -212,7 +212,7 @@ async function Events({ data }: { data: ReturnType<typeof listApprovedEvents> })
         <Card key={e.id} href={`/events/${e.id}`}>
           {e.isSocietyEvent && (
             <span className="mb-3 inline-block rounded border border-signal/40 bg-signal-muted px-2 py-0.5 text-[0.65rem] font-medium uppercase tracking-[0.1em] text-signal">
-              Foundry event
+              Society event
             </span>
           )}
           <p className="mb-1.5 font-mono text-[0.7rem] uppercase tracking-[0.08em] text-text-muted">
