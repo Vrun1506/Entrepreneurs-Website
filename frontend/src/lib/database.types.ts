@@ -811,6 +811,7 @@ export type Database = {
           cv_parse_consent: boolean
           cv_parse_consent_at: string | null
           cv_path: string | null
+          cv_suggested_skill_ids: number[] | null
           cv_uploaded_at: string | null
           first_name: string
           github_url: string | null
@@ -847,6 +848,7 @@ export type Database = {
           cv_parse_consent?: boolean
           cv_parse_consent_at?: string | null
           cv_path?: string | null
+          cv_suggested_skill_ids?: number[] | null
           cv_uploaded_at?: string | null
           first_name?: string
           github_url?: string | null
@@ -883,6 +885,7 @@ export type Database = {
           cv_parse_consent?: boolean
           cv_parse_consent_at?: string | null
           cv_path?: string | null
+          cv_suggested_skill_ids?: number[] | null
           cv_uploaded_at?: string | null
           first_name?: string
           github_url?: string | null
@@ -1402,6 +1405,7 @@ export type Database = {
           cv_original_filename: string
           cv_parse_consent: boolean
           cv_path: string
+          cv_suggested_skill_ids: number[]
           cv_uploaded_at: string
         }[]
       }
@@ -1714,6 +1718,10 @@ export type Database = {
           filed: boolean
           post_title: string
         }[]
+      }
+      set_cv_suggested_skills: {
+        Args: { p_skill_ids: number[] }
+        Returns: undefined
       }
       set_my_affiliation: {
         Args: { p_role: Database["public"]["Enums"]["user_role"] }

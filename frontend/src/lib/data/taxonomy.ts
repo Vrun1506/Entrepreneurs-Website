@@ -1,5 +1,6 @@
 import "server-only";
 import { rows, type Db } from "./query";
+import { cached } from "@/lib/cache";
 
 // ════════════════════════════════════════════════════════════════════
 // Foundry · Skills and sectors
@@ -35,7 +36,11 @@ import { rows, type Db } from "./query";
 export type Taxon = { id: number; name: string };
 
 export async function listSkills(db: Db): Promise<Taxon[]> {
-  return rows("skills", () => db.from("skills").select("id, name").order("name"));
+  return cached(
+    "skills",
+    () => rows("skills", () => db.from("skills").select("id, name").order("name")),
+    { isCacheable: (v) => v.length > 0 },
+  );
 }
 
 /** A skill row plus the fields the closed-taxonomy picker and the
@@ -44,13 +49,22 @@ export async function listSkills(db: Db): Promise<Taxon[]> {
 export type SkillDetail = { id: number; name: string; category: string | null; aliases: string[] };
 
 export async function listSkillsDetailed(db: Db): Promise<SkillDetail[]> {
-  return rows("skills", () =>
-    db.from("skills").select("id, name, category, aliases").order("category").order("name"),
-  ) as unknown as Promise<SkillDetail[]>;
+  return cached(
+    "skillsDetailed",
+    () =>
+      rows("skills", () =>
+        db.from("skills").select("id, name, category, aliases").order("category").order("name"),
+      ) as unknown as Promise<SkillDetail[]>,
+    { isCacheable: (v) => v.length > 0 },
+  );
 }
 
 export async function listSectors(db: Db): Promise<Taxon[]> {
-  return rows("sectors", () => db.from("sectors").select("id, name").order("name"));
+  return cached(
+    "sectors",
+    () => rows("sectors", () => db.from("sectors").select("id, name").order("name")),
+    { isCacheable: (v) => v.length > 0 },
+  );
 }
 
 /**

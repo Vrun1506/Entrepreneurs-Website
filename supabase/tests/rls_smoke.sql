@@ -708,6 +708,10 @@ declare
     -- upload_tickets row before writing.
     'confirm_avatar_upload','remove_my_avatar','confirm_cv_upload','remove_my_cv',
     'get_my_cv_info',
+    -- CV-skill suggestion prefill (user), added by 20260901000012 — writes
+    -- only the caller's own cv_suggested_skill_ids, same auth.uid() trust
+    -- boundary as the other profile-media RPCs above.
+    'set_cv_suggested_skills',
     -- profile intake (user), added by 20260901000006 (submit_intake.sql)
     'submit_intake','defer_intake',
     -- profile media (admin) — moderation + access logging, added by

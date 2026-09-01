@@ -7,6 +7,7 @@ import { BrandLogo } from "@/components/BrandLogo";
 import { Button } from "@/components/ui/Button";
 import { ErrorBanner } from "@/components/forms/Banners";
 import type { ChipItem } from "@/components/forms/ChipGroup";
+import type { DirectoryMember } from "@/lib/data/directory";
 import type { SkillOption } from "./controls";
 import { createClient } from "@/lib/supabase/client";
 import { describeSupabaseError } from "@/lib/supabaseErrors";
@@ -26,6 +27,7 @@ import {
   type StepId,
 } from "@/lib/intake/steps";
 import { MIN_SKILLS, initialState, type IntakeState } from "@/lib/intake/state";
+import { useIntakeDraft } from "@/lib/intake/useIntakeDraft";
 import StepRail from "./StepRail";
 import {
   CvScreen,
@@ -35,7 +37,7 @@ import {
   WantScreen,
   WhereScreen,
   YoureInScreen,
-  type Match,
+  type ExistingCv,
   type ScreenProps,
 } from "./screens";
 
@@ -57,20 +59,32 @@ import {
 // ════════════════════════════════════════════════════════════════════
 
 export default function IntakeFlow({
+  memberId,
   firstName,
   skillTaxonomy,
   sectors,
   matches,
+  existingAvatarUrl,
+  existingCv,
 }: {
+  memberId: string;
   firstName: string;
   skillTaxonomy: SkillOption[];
   sectors: ChipItem[];
-  matches: Match[];
+  matches: DirectoryMember[];
+  existingAvatarUrl: string | null;
+  existingCv: ExistingCv | null;
 }) {
   const router = useRouter();
   const supabase = createClient();
 
-  const [s, setS] = useState<IntakeState>(() => initialState({ preferredName: firstName }));
+  const [s, setS] = useState<IntakeState>(() => initialState({
+    preferredName: firstName,
+    photoPreview: existingAvatarUrl,
+    cvUploadedKey: existingCv?.blobKey ?? null,
+    cvOriginalFilename: existingCv?.filename ?? null,
+  }));
+  const clearDraft = useIntakeDraft(memberId, s, setS);
   const [step, setStep] = useState<StepId>("face");
   const [furthest, setFurthest] = useState<StepId>("face");
   const [dir, setDir] = useState<"fwd" | "back">("fwd");
@@ -93,6 +107,29 @@ export default function IntakeFlow({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- unmount only
   }, []);
+
+  /**
+   * confirmCvUpload's background extraction (see mediaActions.ts) usually
+   * finishes well before the member reaches this screen — there are two
+   * more screens in between — so a single fetch on arrival is enough;
+   * no polling UI. Skipped once suggestions are already loaded so
+   * revisiting the screen via Back/Continue doesn't re-fetch.
+   */
+  useEffect(() => {
+    if (step !== "skills" || !s.cvConsent || !s.cvUploadedKey || s.suggestedSkillIds.length > 0) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.rpc("get_my_cv_info").maybeSingle();
+      const ids = data?.cv_suggested_skill_ids;
+      if (!cancelled && ids && ids.length > 0) {
+        patch({ suggestedSkillIds: ids });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetch once per arrival at "skills", guarded by suggestedSkillIds.length above
+  }, [step]);
 
   const onCropAvatar = async (blob: Blob) => {
     setAvatarError("");
@@ -155,16 +192,23 @@ export default function IntakeFlow({
     const confirmed = await confirmCvUpload(stored.key, s.cvFile.name, s.cvConsent);
     if (!confirmed.ok) return confirmed.error;
 
+    // Suggestion chips are no longer returned inline — confirmCvUpload
+    // parses the CV in the background and persists the result, so a
+    // fresh upload clears whatever the previous CV suggested until the
+    // effect below picks up the new value once the Skills screen mounts.
     patch({
       cvUploadedKey: stored.key,
       cvOriginalFilename: s.cvFile.name,
-      suggestedSkillIds: confirmed.data.suggestedSkillIds,
+      suggestedSkillIds: [],
     });
     return null;
   };
 
   const validate = (id: StepId): string | null => {
     if (id === "cv") {
+      if (!s.cvFile && !s.cvUploadedKey) {
+        return "Add your CV to continue — it's what powers your matches with recruiters.";
+      }
       const lk = s.linkedin.trim();
       if (lk && !/^https?:\/\/([a-z0-9-]+\.)*linkedin\.com\//i.test(lk)) {
         return "That doesn't look like a LinkedIn URL.";
@@ -210,6 +254,7 @@ export default function IntakeFlow({
     });
     setBusy(false);
     if (rpcError) { setError(describeSupabaseError(rpcError)); return; }
+    clearDraft();
     setDone(true);
   };
 
@@ -238,6 +283,7 @@ export default function IntakeFlow({
   const skip = async () => {
     setBusy(true);
     await supabase.rpc("defer_intake");
+    clearDraft();
     router.push("/home");
   };
 
@@ -245,7 +291,7 @@ export default function IntakeFlow({
 
   const screenProps: ScreenProps = {
     s, patch, firstName, skillTaxonomy, sectors,
-    avatarUploading, avatarError, onCropAvatar,
+    avatarUploading, avatarError, onCropAvatar, existingCv,
   };
 
   const body = (() => {
@@ -357,9 +403,7 @@ export default function IntakeFlow({
                   ← Back
                 </Button>
 
-                <span className="flex-1 text-center font-mono text-[0.7rem] text-text-muted">
-                  Screen {idx + 1} / {TOTAL_SCREENS}
-                </span>
+                <span className="flex-1" />
 
                 <Button type="button" variant="primary" size="md" onClick={next} loading={busy}>
                   {isLast ? "Finish →" : "Continue →"}

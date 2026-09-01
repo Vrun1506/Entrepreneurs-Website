@@ -4,6 +4,8 @@ import { useId, useRef, useState } from "react";
 import { inputCls } from "@/components/forms/styles";
 import { ChipGroup, type ChipItem } from "@/components/forms/ChipGroup";
 import { AvatarCropper } from "@/components/media/AvatarCropper";
+import { MemberDialog, memberSubtitle } from "@/components/members/MemberDialog";
+import type { DirectoryMember } from "@/lib/data/directory";
 import {
   MAX_CORE_SKILLS,
   MAX_INTENTS,
@@ -31,23 +33,16 @@ export type ScreenProps = {
   avatarUploading: boolean;
   avatarError: string;
   onCropAvatar: (blob: Blob) => Promise<void>;
+  existingCv: ExistingCv | null;
 };
+
+/** A previously-confirmed CV: its blob key (so a Back→Continue doesn't
+ *  re-upload) and a signed URL for display. */
+export type ExistingCv = { blobKey: string; filename: string; downloadUrl: string | null };
 
 /** Shared lead paragraph under a screen heading. */
 function Lead({ children }: { children: React.ReactNode }) {
   return <p className="mb-7 text-[0.95rem] leading-[1.65] text-text-secondary">{children}</p>;
-}
-
-/** A short aside that explains why a field is being asked for. */
-function Aside({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="border-l-2 border-signal/40 pl-4">
-      <p className="mb-1 text-[0.75rem] font-medium uppercase tracking-[0.14em] text-signal">
-        {title}
-      </p>
-      <p className="text-[0.825rem] leading-[1.65] text-text-secondary">{children}</p>
-    </div>
-  );
 }
 
 // ─── 01 · Face & bio ─────────────────────────────────────────────────
@@ -158,27 +153,60 @@ export function FaceScreen({ s, patch, firstName, avatarUploading, avatarError, 
           className={`${inputCls} resize-y`}
         />
       </Field>
-
-      <Aside title="Two boxes, two jobs">
-        The first drives professional matching. The second decides whether anyone
-        actually meets. Keeping them apart means we can weight them differently
-        instead of parsing one blob of prose.
-      </Aside>
     </div>
   );
 }
 
 // ─── · You're in ─────────────────────────────────────────────────────
 
-export type Match = {
-  id: string;
-  name: string;
-  line: string;
-  because: string;
-};
+function initialsOf(m: DirectoryMember): string {
+  return `${m.firstName[0] ?? ""}${m.surname[0] ?? ""}`.toUpperCase();
+}
 
-export function YoureInScreen({ s, firstName, matches }: ScreenProps & { matches: Match[] }) {
+/** Sectors first (a real filtering signal), falling back to the bio, then
+ *  to a plain fallback for a member who hasn't filled in either yet. */
+function becauseLine(m: DirectoryMember): string {
+  if (m.sectors.length > 0) return m.sectors.slice(0, 2).join(" · ");
+  if (m.bioPreview) return m.bioPreview.length > 70 ? `${m.bioPreview.slice(0, 70)}…` : m.bioPreview;
+  return "Recently joined";
+}
+
+function MatchCard({ member: m, onOpen }: { member: DirectoryMember; onOpen: () => void }) {
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onOpen}
+        className="block w-full cursor-pointer overflow-hidden rounded-lg border border-border bg-white/[0.03] text-left transition-colors duration-150 hover:border-accent"
+      >
+        {m.avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element -- signed blob URL, not a static asset
+          <img src={m.avatarUrl} alt="" className="h-28 w-full object-cover" />
+        ) : (
+          <div className="flex h-28 w-full items-center justify-center bg-white/[0.06] font-display text-[1.5rem] text-text-secondary">
+            {initialsOf(m)}
+          </div>
+        )}
+        <div className="p-4">
+          <span className="block text-[0.875rem] font-medium text-text-primary">
+            {m.firstName} {m.surname}
+          </span>
+          <span className="mt-0.5 block text-[0.775rem] leading-[1.5] text-text-muted">
+            {memberSubtitle(m)}
+          </span>
+          <span className="mt-3 block border-t border-border-subtle pt-3 text-[0.775rem] leading-[1.5] text-text-secondary">
+            {becauseLine(m)}
+          </span>
+        </div>
+      </button>
+    </li>
+  );
+}
+
+export function YoureInScreen({ s, firstName, matches }: ScreenProps & { matches: DirectoryMember[] }) {
   const name = addressAs(s.preferredName, firstName);
+  const [openMember, setOpenMember] = useState<DirectoryMember | null>(null);
+
   return (
     <div className="text-center">
       <span
@@ -199,19 +227,7 @@ export function YoureInScreen({ s, firstName, matches }: ScreenProps & { matches
       {matches.length > 0 ? (
         <ul className="grid gap-3 text-left sm:grid-cols-3">
           {matches.map((m) => (
-            <li
-              key={m.id}
-              className="rounded-lg border border-border bg-white/[0.03] p-4"
-            >
-              <span className="mb-3 block h-9 w-9 rounded-full border border-border-strong bg-white/[0.06]" />
-              <span className="block text-[0.875rem] font-medium text-text-primary">{m.name}</span>
-              <span className="mt-0.5 block text-[0.775rem] leading-[1.5] text-text-muted">
-                {m.line}
-              </span>
-              <span className="mt-3 block border-t border-border-subtle pt-3 text-[0.775rem] leading-[1.5] text-text-secondary">
-                {m.because}
-              </span>
-            </li>
+            <MatchCard key={m.id} member={m} onOpen={() => setOpenMember(m)} />
           ))}
         </ul>
       ) : (
@@ -223,28 +239,65 @@ export function YoureInScreen({ s, firstName, matches }: ScreenProps & { matches
           </p>
         </div>
       )}
+
+      {openMember && <MemberDialog member={openMember} onClose={() => setOpenMember(null)} />}
     </div>
   );
 }
 
 // ─── 02 · CV ─────────────────────────────────────────────────────────
 
-export function CvScreen({ s, patch }: ScreenProps) {
+export function CvScreen({ s, patch, existingCv }: ScreenProps) {
   const linkedinId = useId();
   const consentId = useId();
+  const alreadyUploaded = !s.cvFile && s.cvUploadedKey && s.cvOriginalFilename;
+
   return (
     <div className="space-y-7">
-      <Lead>Entirely optional, and it costs you nothing you haven&apos;t already got.</Lead>
+      <Lead>
+        We use your CV to suggest you to recruiters for relevant
+        opportunities, based on your skills and experience — the more
+        members with a CV on file, the better those matches get for everyone.
+      </Lead>
 
       <Field label="Your CV" hint="PDF or DOCX · 8 MB maximum.">
-        <FilePicker
-          accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-          label="Drop a PDF or DOCX"
-          hint="or click to browse · 8 MB maximum"
-          file={s.cvFile}
-          onPick={(f) => patch({ cvFile: f, cvUploadedKey: null })}
-          onClear={() => patch({ cvFile: null, cvUploadedKey: null })}
-        />
+        {alreadyUploaded ? (
+          <div className="flex items-center gap-4 rounded-lg border border-border-strong bg-white/[0.04] p-4">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-border bg-white/[0.03] font-mono text-[0.65rem] text-text-secondary">
+              {(s.cvOriginalFilename?.split(".").pop() ?? "file").slice(0, 4).toUpperCase()}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[0.85rem] text-text-primary">{s.cvOriginalFilename}</span>
+              <span className="block text-[0.75rem] text-text-muted">Already uploaded</span>
+            </span>
+            {existingCv?.downloadUrl && (
+              <a
+                href={existingCv.downloadUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="shrink-0 rounded-lg border border-border-strong bg-white/[0.04] px-3 py-2 text-[0.775rem] text-text-secondary no-underline transition-colors duration-150 hover:border-accent hover:text-text-primary"
+              >
+                View
+              </a>
+            )}
+            <button
+              type="button"
+              onClick={() => patch({ cvUploadedKey: null, cvOriginalFilename: null, suggestedSkillIds: [] })}
+              className="shrink-0 cursor-pointer rounded-lg border border-border-strong bg-white/[0.04] px-3 py-2 text-[0.775rem] text-text-secondary transition-colors duration-150 hover:border-accent hover:text-text-primary"
+            >
+              Replace
+            </button>
+          </div>
+        ) : (
+          <FilePicker
+            accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            label="Drop a PDF or DOCX"
+            hint="or click to browse · 8 MB maximum"
+            file={s.cvFile}
+            onPick={(f) => patch({ cvFile: f, cvUploadedKey: null })}
+            onClear={() => patch({ cvFile: null, cvUploadedKey: null })}
+          />
+        )}
       </Field>
 
       {s.cvFile && (
@@ -301,12 +354,6 @@ export function SkillsScreen({ s, patch, skillTaxonomy }: ScreenProps) {
 
   return (
     <div className="space-y-7">
-      <Lead>
-        Picked from a curated list, not typed freehand — that&apos;s what
-        keeps &quot;ML&quot;, &quot;machine learning&quot; and &quot;AI&quot;
-        from being three different things in search.
-      </Lead>
-
       <Field
         label="Your skills"
         hint={`At least ${MIN_SKILLS} to continue from this screen — or skip the whole thing for now and come back later. Star up to ${MAX_CORE_SKILLS} as core.`}
@@ -338,8 +385,6 @@ export function InterestsScreen({ s, patch, sectors }: ScreenProps) {
 
   return (
     <div className="space-y-7">
-      <Lead>Three fields, and the third one is the one that gets you invited to things.</Lead>
-
       <ChipGroup
         label="Sectors you'd build in"
         items={sectors}
@@ -387,7 +432,7 @@ export function WhereScreen({ s, patch }: ScreenProps) {
 
   return (
     <div className="space-y-7">
-      <Lead>This changes most often — update it whenever it stops being true.</Lead>
+      <Lead>You can always change this later from My Profile.</Lead>
 
       <Field label="What's your situation right now?">
         <ChoiceCards
