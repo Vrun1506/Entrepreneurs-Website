@@ -2,22 +2,41 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { allow, check, clientIp, failOpen } from "./ratelimit";
 
 describe("clientIp", () => {
-  it("prefers cf-connecting-ip over x-forwarded-for (spoof-resistant behind Cloudflare)", () => {
-    const h = new Headers({ "cf-connecting-ip": "4.4.4.4", "x-forwarded-for": "1.2.3.4, 5.6.7.8" });
+  // 173.245.48.1 is inside Cloudflare's published 173.245.48.0/20 — see
+  // lib/cloudflareIps.ts. Vercel appends the real connecting peer as the
+  // LAST x-forwarded-for hop, so this is what "genuinely came through
+  // Cloudflare" looks like on the wire.
+  it("trusts cf-connecting-ip when the verified peer is a real Cloudflare IP", () => {
+    const h = new Headers({
+      "cf-connecting-ip": "4.4.4.4",
+      "x-forwarded-for": "1.2.3.4, 173.245.48.1",
+    });
     expect(clientIp(h)).toBe("4.4.4.4");
   });
 
-  it("takes the first hop from x-forwarded-for", () => {
+  // The exact bypass this closes: Vercel's own <project>.vercel.app domain
+  // is never behind Cloudflare, so a request hitting it directly can set
+  // cf-connecting-ip to anything. The verified peer there is Vercel's own
+  // edge, not a Cloudflare IP — so the header must be ignored.
+  it("ignores cf-connecting-ip when the verified peer is not a Cloudflare IP", () => {
+    const h = new Headers({
+      "cf-connecting-ip": "4.4.4.4",
+      "x-forwarded-for": "1.2.3.4, 76.76.21.21",
+    });
+    expect(clientIp(h)).toBe("76.76.21.21");
+  });
+
+  it("uses the LAST hop of x-forwarded-for as the verified peer, not the first", () => {
     const h = new Headers({ "x-forwarded-for": "1.2.3.4, 5.6.7.8" });
-    expect(clientIp(h)).toBe("1.2.3.4");
+    expect(clientIp(h)).toBe("5.6.7.8");
   });
 
-  it("trims whitespace around the first hop", () => {
-    const h = new Headers({ "x-forwarded-for": "  9.9.9.9 , 1.1.1.1" });
-    expect(clientIp(h)).toBe("9.9.9.9");
+  it("trims whitespace around hops", () => {
+    const h = new Headers({ "x-forwarded-for": "  9.9.9.9 , 1.1.1.1  " });
+    expect(clientIp(h)).toBe("1.1.1.1");
   });
 
-  it("falls back to x-real-ip", () => {
+  it("falls back to x-real-ip when there's no x-forwarded-for", () => {
     const h = new Headers({ "x-real-ip": "8.8.8.8" });
     expect(clientIp(h)).toBe("8.8.8.8");
   });
