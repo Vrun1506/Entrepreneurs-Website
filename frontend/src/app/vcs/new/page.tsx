@@ -3,10 +3,10 @@ import { requireApprovedUser } from "@/lib/auth/guard";
 import VcForm from "./VcForm";
 
 export default async function NewVcPage() {
-  const { isAdmin } = await requireApprovedUser();
+  const { isAdmin, displayName } = await requireApprovedUser();
 
   return (
-    <AppShell active="vcs" isAdmin={isAdmin}>
+    <AppShell active="vcs" name={displayName} isAdmin={isAdmin}>
       <div className="px-4 sm:px-8 py-10 sm:py-12">
         <div className="max-w-[720px] mx-auto">
           <div className="mb-8 rule-draw pt-6">

@@ -5,7 +5,7 @@ import { mySubmissions } from "@/lib/data/ownListings";
 import MySubmissionsClient from "./MySubmissionsClient";
 
 export default async function MySubmissionsPage() {
-  const { supabase, user, isAdmin } = await requireApprovedUser();
+  const { supabase, user, isAdmin, displayName } = await requireApprovedUser();
 
   const [own, stats] = await Promise.all([
     mySubmissions(supabase, user.id),
@@ -37,7 +37,7 @@ export default async function MySubmissionsPage() {
   }));
 
   return (
-    <AppShell active="submissions" isAdmin={isAdmin}>
+    <AppShell active="submissions" name={displayName} isAdmin={isAdmin}>
       <div className="px-4 sm:px-8 py-10 sm:py-12">
         <div className="max-w-[820px] mx-auto">
           <div className="mb-8 rule-draw pt-4">

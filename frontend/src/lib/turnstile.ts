@@ -19,6 +19,9 @@ export async function verifyTurnstile(token: string | null | undefined): Promise
       method: "POST",
       headers: { "content-type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ secret: SECRET, response: token }),
+      // A hung Cloudflare call must not hang the login/OTP request behind
+      // it — same fail-mode as any other failure here (catch → false).
+      signal: AbortSignal.timeout(5000),
     });
     const data = (await res.json()) as { success?: boolean };
     return data.success === true;

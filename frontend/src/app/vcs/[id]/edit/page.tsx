@@ -9,7 +9,7 @@ type Params = { id: string };
 
 export default async function EditVcGrantPage({ params }: { params: Promise<Params> }) {
   const { id } = await params;
-  const { supabase, user, isAdmin } = await requireApprovedUser();
+  const { supabase, user, isAdmin, displayName } = await requireApprovedUser();
 
   const row = await vcForEdit(supabase, id);
   if (!row) notFound();
@@ -27,7 +27,7 @@ export default async function EditVcGrantPage({ params }: { params: Promise<Para
   };
 
   return (
-    <AppShell active="vcs" isAdmin={isAdmin}>
+    <AppShell active="vcs" name={displayName} isAdmin={isAdmin}>
       <div className="px-4 sm:px-8 py-10 sm:py-12">
         <div className="max-w-[820px] mx-auto">
           <Link href="/my-submissions" className="inline-flex items-center text-[0.8rem] text-text-muted no-underline transition-colors duration-150 hover:text-text-secondary mb-6">

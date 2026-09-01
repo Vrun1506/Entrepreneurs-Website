@@ -144,7 +144,7 @@ async function withDeadline<T>(work: Promise<T>, ms: number): Promise<T> {
  */
 const VERSION = 1;
 
-export type CacheKey = "directoryFacets" | "vcs" | "lookups";
+export type CacheKey = "directoryFacets" | "vcs" | "lookups" | "skills" | "skillsDetailed" | "sectors";
 
 const key = (k: CacheKey) => `cache:v${VERSION}:${k}`;
 
@@ -164,6 +164,13 @@ const TTL_SECONDS: Record<CacheKey, number> = {
   directoryFacets: 300,
   vcs: 300,
   lookups: 3600,
+  // Skills/sectors are a seeded taxonomy a human edits by migration — see
+  // lib/data/taxonomy.ts's own header — so an hour-long TTL costs nothing
+  // and this is exactly the "byte-identical for every member" case this
+  // file's own header describes as the intended use.
+  skills: 3600,
+  skillsDetailed: 3600,
+  sectors: 3600,
 };
 
 /**

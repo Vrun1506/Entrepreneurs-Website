@@ -18,6 +18,7 @@ import { invalidateDirectoryCache } from "@/app/profile/actions";
 import {
   requestAvatarTicket, confirmAvatarUpload, removeAvatar,
   requestCvTicket, confirmCvUpload, removeCv, getMyCvDownloadUrl,
+  getMySuggestedCvSkillIds,
 } from "@/app/profile/mediaActions";
 import type { Affiliation } from "@/lib/intake/steps";
 import {
@@ -508,6 +509,24 @@ function PhotoSection({ avatarUrl }: { avatarUrl: string | null }) {
 
 // ─── CV ────────────────────────────────────────────────────────────
 
+/**
+ * A few short retries for confirmCvUpload's background extraction to
+ * finish, rather than the multi-screen gap the intake flow gets for
+ * free — this page has no equivalent "a few steps later" moment.
+ * Gives up silently after ~3.6s; the suggestions just won't show for
+ * this visit, same as any other best-effort background result.
+ */
+async function pollForSuggestions(onSuggested: (ids: number[]) => void): Promise<void> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    const result = await getMySuggestedCvSkillIds();
+    if (result.ok && result.data.length > 0) {
+      onSuggested(result.data);
+      return;
+    }
+  }
+}
+
 function CvSection({
   originalFilename, uploadedAt, hasCv, onSuggested,
 }: {
@@ -548,11 +567,16 @@ function CvSection({
       const confirmed = await confirmCvUpload(stored.key, file.name, consent);
       if (!confirmed.ok) { setError(confirmed.error); return; }
 
-      onSuggested(confirmed.data.suggestedSkillIds);
       setPresent(true);
       setFilename(file.name);
       setFile(null);
       router.refresh();
+
+      // Extraction runs in the background (mediaActions.confirmCvUpload's
+      // after() callback) rather than blocking this upload — poll a few
+      // times for it to land instead of making the member wait on it.
+      // Not awaited: the upload itself is already done.
+      if (consent) void pollForSuggestions(onSuggested);
     } catch {
       setError("Couldn't reach the file service. Try again in a moment.");
     } finally {

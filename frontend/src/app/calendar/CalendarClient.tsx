@@ -60,7 +60,7 @@ const ROLE_LABEL: Record<Role, string> = {
 };
 
 export default function CalendarClient({ items }: { items: CalItem[] }) {
-  const [view, setView] = useState<View>("list");
+  const [view, setView] = useState<View>("month");
   const [selected, setSelected] = useState<CalItem | null>(null);
   // Capture "now" once at mount so re-renders don't change the cutoff
   // and React's purity rule isn't violated by calling Date.now() in

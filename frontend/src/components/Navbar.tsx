@@ -143,6 +143,23 @@ export default function Navbar() {
           </a>
         </div>
       )}
+
+      {/* Mobile-only sticky CTA — JoinButton above is desktop-only
+          (hidden md:inline-flex), and its only other mobile path was
+          inside the hamburger dropdown, which most visitors never open.
+          Hidden while the dropdown itself is open to avoid stacking two
+          "Join Foundry" buttons. Footer.tsx carries matching bottom
+          padding on mobile so this never covers its content. */}
+      {!menuOpen && (
+        <div className="md:hidden fixed inset-x-0 bottom-0 z-50 border-t border-border bg-bg-primary/95 px-4 py-3 backdrop-blur-md [padding-bottom:max(0.75rem,env(safe-area-inset-bottom))]">
+          <a
+            href="/login"
+            className="flex items-center justify-center rounded-lg px-5 py-3 text-sm font-semibold no-underline bg-accent text-bg-primary transition-colors duration-150 hover:bg-accent-dim"
+          >
+            Join Foundry
+          </a>
+        </div>
+      )}
     </header>
   );
 }

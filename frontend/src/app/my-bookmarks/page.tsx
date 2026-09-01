@@ -6,7 +6,7 @@ import { markedIds } from "@/lib/data/activity";
 import OpportunitiesClient from "../opportunities/OpportunitiesClient";
 
 export default async function MyBookmarksPage() {
-  const { supabase, isAdmin } = await requireApprovedUser();
+  const { supabase, isAdmin, displayName } = await requireApprovedUser();
 
   const [items, appliedIds] = await Promise.all([
     listBookmarkedOpportunities(supabase),
@@ -18,7 +18,7 @@ export default async function MyBookmarksPage() {
   const bookmarkedIds = items.map((i) => i.id);
 
   return (
-    <AppShell active="opportunities" isAdmin={isAdmin}>
+    <AppShell active="opportunities" name={displayName} isAdmin={isAdmin}>
       <div className="px-4 sm:px-8 py-10 sm:py-12">
         <div className="max-w-[1200px] mx-auto">
           <div className="mb-8 flex items-start justify-between gap-4 flex-wrap">

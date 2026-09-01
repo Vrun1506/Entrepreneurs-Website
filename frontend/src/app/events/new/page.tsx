@@ -5,13 +5,13 @@ import { posterName } from "@/lib/data/profiles";
 import EventForm from "./EventForm";
 
 export default async function NewEventPage() {
-  const { supabase, user, isAdmin } = await requireApprovedUser();
+  const { supabase, user, isAdmin, displayName } = await requireApprovedUser();
 
   const poster = await posterName(supabase, user.id);
   if (!poster) redirect("/login");
 
   return (
-    <AppShell active="events" isAdmin={isAdmin}>
+    <AppShell active="events" name={displayName} isAdmin={isAdmin}>
       <div className="px-4 sm:px-8 py-10 sm:py-12">
         <div className="max-w-[720px] mx-auto">
           <div className="mb-8 rule-draw pt-6">

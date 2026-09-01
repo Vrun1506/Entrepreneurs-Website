@@ -38,8 +38,25 @@ export type GateResult = {
   user: User;
   isAdmin: boolean;
   status: UserStatus | null;
+  displayName: string;
   supabase: SupabaseClient<Database>;
 };
+
+/**
+ * Same "full name, else preferred/first name, else a generic greeting"
+ * rule home/page.tsx already used before this was centralised — kept
+ * identical so every page's sidebar/greeting agrees. first_name is
+ * NOT NULL on every real profile row, so the "there" fallback is only
+ * ever reached when there is no profile row at all (requireSignedInUser,
+ * pre-onboarding).
+ */
+export function computeDisplayName(
+  profile: { first_name?: string | null; surname?: string | null; preferred_name?: string | null } | null,
+): string {
+  const name = profile?.preferred_name?.trim() || profile?.first_name?.trim() || "there";
+  const fullName = [profile?.first_name, profile?.surname].filter(Boolean).join(" ");
+  return fullName || name;
+}
 
 /**
  * Server-side gate for authenticated pages. Redirects:
@@ -60,7 +77,7 @@ export async function requireApprovedUser(opts: GateOptions = {}): Promise<GateR
     supabase.rpc("is_admin"),
     supabase
       .from("profiles")
-      .select("status, profile_version, intake_deferred_at")
+      .select("status, profile_version, intake_deferred_at, first_name, surname, preferred_name")
       .eq("id", user.id)
       .single(),
   ]);
@@ -86,6 +103,7 @@ export async function requireApprovedUser(opts: GateOptions = {}): Promise<GateR
     user,
     isAdmin,
     status: profile.status as GateResult["status"],
+    displayName: computeDisplayName(profile),
     supabase,
   };
 }
@@ -102,13 +120,18 @@ export async function requireSignedInUser(): Promise<GateResult> {
 
   const [{ data: isAdminData }, { data: profile }] = await Promise.all([
     supabase.rpc("is_admin"),
-    supabase.from("profiles").select("status").eq("id", user.id).maybeSingle(),
+    supabase
+      .from("profiles")
+      .select("status, first_name, surname, preferred_name")
+      .eq("id", user.id)
+      .maybeSingle(),
   ]);
 
   return {
     user,
     isAdmin: !!isAdminData,
     status: (profile?.status ?? null) as GateResult["status"],
+    displayName: computeDisplayName(profile),
     supabase,
   };
 }

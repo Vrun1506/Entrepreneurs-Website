@@ -1,5 +1,6 @@
 "use server";
 
+import { after } from "next/server";
 import { getActionAuth } from "@/lib/auth/actionAuth";
 import { check } from "@/lib/ratelimit";
 import { ok, err, type Result } from "@/lib/result";
@@ -13,6 +14,9 @@ import {
 import { blobsExist, downloadCvBytes, signedCvUrl } from "@/lib/storage/blobRead";
 import { extractCvText } from "@/lib/cv/extractText";
 import { matchSkillsInText } from "@/lib/cv/matchSkills";
+import { listSkillsDetailed } from "@/lib/data/taxonomy";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/database.overrides";
 import * as Sentry from "@sentry/nextjs";
 
 // ════════════════════════════════════════════════════════════════════
@@ -148,23 +152,66 @@ export async function requestCvTicket(): Promise<
 }
 
 /**
- * Confirms the upload, then — only if the member ticked the parsing
- * consent box — extracts the CV's text, matches it against the closed
- * skills taxonomy, and hands back skill ids for the "found in your CV"
- * suggestion chips on the Skills screen. The text itself never leaves
- * this function: it is read once, matched, and discarded. See
+ * Runs after confirmCvUpload's response has already been sent — see
+ * next/server's after(). Downloads the CV, extracts its text, matches it
+ * against the closed skills taxonomy, and persists the ids to
+ * cv_suggested_skill_ids for the Skills screen (a few steps later in the
+ * same intake flow) to pick up. The text itself never leaves this
+ * function: it is read once, matched, and discarded — see
  * lib/cv/extractText.ts and lib/cv/matchSkills.ts for why this is
  * deterministic rather than LLM-based.
  *
+ * Uses the same request-scoped, cookie-bound `supabase` client
+ * confirmCvUpload authenticated with — after() runs in the same
+ * invocation before it is torn down, so auth.uid() inside
+ * set_cv_suggested_skills is still this member, not a service role.
+ *
  * A failed or empty extraction (scanned PDF, unsupported layout, parse
- * error) degrades to no suggestions — it is never surfaced as an error,
- * since the CV upload itself already succeeded.
+ * error) degrades to no suggestions — this is best-effort background
+ * work with nothing left to report a failure to.
+ */
+async function prefillCvSkillsInBackground(
+  supabase: SupabaseClient<Database>,
+  key: string,
+): Promise<void> {
+  try {
+    const bytes = await downloadCvBytes(key);
+    if (!bytes) return;
+
+    const text = await extractCvText(bytes);
+    if (!text) return;
+
+    const taxonomy = await listSkillsDetailed(supabase);
+    if (taxonomy.length === 0) return;
+
+    const suggestedSkillIds = matchSkillsInText(
+      text,
+      taxonomy.map((s) => ({ id: s.id, name: s.name, aliases: s.aliases ?? [] })),
+    );
+    if (suggestedSkillIds.length === 0) return;
+
+    const { error } = await supabase.rpc("set_cv_suggested_skills", { p_skill_ids: suggestedSkillIds });
+    if (error) throw error;
+  } catch (e) {
+    // The CV is already saved — a parsing hiccup here must not look like
+    // the upload itself failed, and there is no request left to tell.
+    Sentry.captureException(e, { tags: { surface: "cv-skill-prefill" } });
+  }
+}
+
+/**
+ * Confirms the upload and returns immediately. If the member ticked the
+ * parsing consent box, the text extraction and skill matching happen in
+ * after() — see prefillCvSkillsInBackground — instead of blocking this
+ * request, since downloading and parsing a CV is the slowest step in the
+ * whole intake flow and has nothing to do with whether the upload itself
+ * succeeded.
  */
 export async function confirmCvUpload(
   key: string,
   filename: string,
   consent: boolean,
-): Promise<Result<{ suggestedSkillIds: number[] }>> {
+): Promise<Result> {
   const guard = await guardApprovedMember("update your CV");
   if (!guard.ok) return guard;
   const { supabase } = guard.data;
@@ -180,29 +227,11 @@ export async function confirmCvUpload(
   });
   if (error) return err(describeSupabaseError(error));
 
-  if (!consent) return ok({ suggestedSkillIds: [] });
-
-  try {
-    const bytes = await downloadCvBytes(key);
-    if (!bytes) return ok({ suggestedSkillIds: [] });
-
-    const text = await extractCvText(bytes);
-    if (!text) return ok({ suggestedSkillIds: [] });
-
-    const { data: taxonomy } = await supabase.from("skills").select("id, name, aliases");
-    if (!taxonomy) return ok({ suggestedSkillIds: [] });
-
-    const suggestedSkillIds = matchSkillsInText(
-      text,
-      taxonomy.map((s) => ({ id: s.id, name: s.name, aliases: (s.aliases as string[] | null) ?? [] })),
-    );
-    return ok({ suggestedSkillIds });
-  } catch (e) {
-    // The CV is already saved at this point — a parsing hiccup must not
-    // look like the upload itself failed.
-    Sentry.captureException(e, { tags: { surface: "cv-skill-prefill" } });
-    return ok({ suggestedSkillIds: [] });
+  if (consent) {
+    after(() => prefillCvSkillsInBackground(supabase, key));
   }
+
+  return ok();
 }
 
 export async function removeCv(): Promise<Result> {
@@ -232,6 +261,22 @@ export async function getMyCvDownloadUrl(): Promise<Result<string | null>> {
 
   const url = await signedCvUrl(data.cv_path);
   return ok(url);
+}
+
+/**
+ * The suggestions confirmCvUpload's background extraction persisted for
+ * the caller's own CV, or [] if there are none yet (extraction still
+ * running, no consent given, or nothing matched). Same auth.uid()-scoped
+ * RPC as getMyCvDownloadUrl above.
+ */
+export async function getMySuggestedCvSkillIds(): Promise<Result<number[]>> {
+  const guard = await guardApprovedMember("view your CV");
+  if (!guard.ok) return guard;
+  const { supabase } = guard.data;
+
+  const { data, error } = await supabase.rpc("get_my_cv_info").maybeSingle();
+  if (error) return err(describeSupabaseError(error));
+  return ok(data?.cv_suggested_skill_ids ?? []);
 }
 
 /**

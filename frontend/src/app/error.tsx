@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect } from "react";
+import * as Sentry from "@sentry/nextjs";
 import Starfield from "@/components/Starfield";
 
 export default function Error({
@@ -12,9 +13,12 @@ export default function Error({
   reset: () => void;
 }) {
   useEffect(() => {
-    // In production this is where you'd ship the error to monitoring
-    // (Sentry / Datadog / etc.). For now, just log so it shows in dev.
+    // instrumentation.ts's onRequestError only covers server-render
+    // errors — an error caught here (after hydration, in a client
+    // component) would otherwise never reach Sentry despite the rest of
+    // the app being fully wired to it.
     console.error(error);
+    Sentry.captureException(error);
   }, [error]);
 
   return (
