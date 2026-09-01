@@ -86,7 +86,9 @@ export default function MyPostsClient({
                         width={image.width}
                         height={image.height}
                         loading="lazy"
-                        className="w-full aspect-[4/3] rounded-lg border border-border-subtle object-cover"
+                        // object-contain: see PostCard.tsx's own image for why —
+                        // object-cover crops anything that isn't already 4:3.
+                        className="w-full aspect-[4/3] rounded-lg border border-border-subtle bg-white/[0.02] object-contain"
                       />
                     ) : (
                       <div

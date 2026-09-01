@@ -11,7 +11,7 @@ import type { Database as Generated } from "./database.types";
 // For the optional profile fields that is not a cosmetic difference.
 // The column CHECKs are of the form
 //
-//     check (bio is null or length(bio) between 1 and 1000)
+//     check (bio_focus is null or length(bio_focus) between 1 and 500)
 //
 // so an empty string is *rejected* where NULL is accepted. The forms
 // therefore pass `cleanText(x) || null`, which is correct, and it is the
@@ -29,13 +29,26 @@ import type { Database as Generated } from "./database.types";
 /** Widen the named keys of `T` to also accept null. */
 type Nullable<T, K extends keyof T> = Omit<T, K> & { [P in K]: T[P] | null };
 
-/** Optional free-text profile fields, nullable in the schema. */
-type OptionalProfileText =
-  | "p_bio"
-  | "p_working_on"
-  | "p_linkedin_url"
-  | "p_github_url"
-  | "p_portfolio_url";
+/**
+ * Optional links, shared by every RPC that collects them. `submit_onboarding`
+ * shrank to just these five args (20260901000006) — it no longer has p_bio
+ * or p_working_on at all, so patching it with a set that still names them
+ * would add two properties to its Args type that don't exist on the real
+ * function, not widen two that do.
+ */
+type OptionalContactText = "p_linkedin_url" | "p_github_url" | "p_portfolio_url";
+
+/**
+ * The rich profile fields intake writes. `update_profile` and
+ * `submit_intake` both funnel into `_apply_intake_fields` under the hood
+ * (20260901000006) and take an identical set of these — verified against
+ * `pg_get_function_arguments` for each, not assumed from one.
+ */
+type OptionalIntakeText =
+  | "p_preferred_name" | "p_bio_focus" | "p_bio_hobbies"
+  | "p_current_focus" | "p_venture_stage" | "p_venture_name" | "p_venture_url"
+  | "p_venture_one_liner" | "p_recruiting_status" | "p_intent_urgency"
+  | "p_availability_hours";
 
 /**
  * Optional listing fields. Verified against the live schema: every one of
@@ -60,14 +73,15 @@ type PatchArgs<N extends keyof Fns, K extends keyof Fns[N]["Args"]> = Omit<Fns[N
 };
 
 type Patched =
-  | "update_profile" | "submit_onboarding"
+  | "update_profile" | "submit_onboarding" | "submit_intake"
   | "submit_opportunity" | "admin_create_opportunity" | "update_opportunity"
   | "submit_vc_grant" | "admin_create_vc_grant" | "update_vc_grant"
   | "approve_opportunity" | "approve_event" | "approve_vc_grant" | "approve_user";
 
 type PatchedFns = Omit<Fns, Patched> & {
-  update_profile: PatchArgs<"update_profile", OptionalProfileText>;
-  submit_onboarding: PatchArgs<"submit_onboarding", OptionalProfileText>;
+  update_profile: PatchArgs<"update_profile", OptionalContactText | OptionalIntakeText>;
+  submit_onboarding: PatchArgs<"submit_onboarding", OptionalContactText>;
+  submit_intake: PatchArgs<"submit_intake", OptionalIntakeText>;
 
   submit_opportunity: PatchArgs<"submit_opportunity", OptionalOpportunityText>;
   admin_create_opportunity: PatchArgs<"admin_create_opportunity", OptionalOpportunityText>;

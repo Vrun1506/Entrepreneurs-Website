@@ -7,6 +7,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.5"
+  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -101,6 +106,7 @@ export type Database = {
         Row: {
           attempts: number
           blob_key: string
+          container: string
           deleted_at: string | null
           enqueued_at: string
           id: string
@@ -111,6 +117,7 @@ export type Database = {
         Insert: {
           attempts?: number
           blob_key: string
+          container?: string
           deleted_at?: string | null
           enqueued_at?: string
           id?: string
@@ -121,6 +128,7 @@ export type Database = {
         Update: {
           attempts?: number
           blob_key?: string
+          container?: string
           deleted_at?: string | null
           enqueued_at?: string
           id?: string
@@ -673,6 +681,64 @@ export type Database = {
         }
         Relationships: []
       }
+      profile_intents: {
+        Row: {
+          intent: string
+          profile_id: string
+          rank: number
+        }
+        Insert: {
+          intent: string
+          profile_id: string
+          rank: number
+        }
+        Update: {
+          intent?: string
+          profile_id?: string
+          rank?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_intents_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profile_interests: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          label: string
+          profile_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind: string
+          label: string
+          profile_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          label?: string
+          profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_interests_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profile_sectors: {
         Row: {
           profile_id: string
@@ -705,14 +771,17 @@ export type Database = {
       }
       profile_skills: {
         Row: {
+          is_core: boolean
           profile_id: string
           skill_id: number
         }
         Insert: {
+          is_core?: boolean
           profile_id: string
           skill_id: number
         }
         Update: {
+          is_core?: boolean
           profile_id?: string
           skill_id?: number
         }
@@ -735,66 +804,111 @@ export type Database = {
       }
       profiles: {
         Row: {
+          availability_hours: string | null
           avatar_path: string | null
           bio: string | null
           bio_focus: string | null
           bio_hobbies: string | null
           course: string | null
           created_at: string
+          current_focus: string | null
+          cv_original_filename: string | null
+          cv_parse_consent: boolean
+          cv_parse_consent_at: string | null
+          cv_path: string | null
+          cv_uploaded_at: string | null
           first_name: string
           github_url: string | null
           grad_year: number | null
           id: string
+          intake_completed_at: string | null
+          intake_deferred_at: string | null
+          intent_urgency: string | null
           linkedin_url: string | null
           portfolio_url: string | null
           preferred_name: string | null
           profile_version: number
+          recruiting_status: string | null
           role: Database["public"]["Enums"]["user_role"]
           status: Database["public"]["Enums"]["user_status"]
           surname: string
           updated_at: string
+          venture_name: string | null
+          venture_one_liner: string | null
+          venture_stage: string | null
+          venture_url: string | null
           working_on: string | null
         }
         Insert: {
+          availability_hours?: string | null
           avatar_path?: string | null
           bio?: string | null
           bio_focus?: string | null
           bio_hobbies?: string | null
           course?: string | null
           created_at?: string
+          current_focus?: string | null
+          cv_original_filename?: string | null
+          cv_parse_consent?: boolean
+          cv_parse_consent_at?: string | null
+          cv_path?: string | null
+          cv_uploaded_at?: string | null
           first_name?: string
           github_url?: string | null
           grad_year?: number | null
           id: string
+          intake_completed_at?: string | null
+          intake_deferred_at?: string | null
+          intent_urgency?: string | null
           linkedin_url?: string | null
           portfolio_url?: string | null
           preferred_name?: string | null
           profile_version?: number
+          recruiting_status?: string | null
           role: Database["public"]["Enums"]["user_role"]
           status?: Database["public"]["Enums"]["user_status"]
           surname?: string
           updated_at?: string
+          venture_name?: string | null
+          venture_one_liner?: string | null
+          venture_stage?: string | null
+          venture_url?: string | null
           working_on?: string | null
         }
         Update: {
+          availability_hours?: string | null
           avatar_path?: string | null
           bio?: string | null
           bio_focus?: string | null
           bio_hobbies?: string | null
           course?: string | null
           created_at?: string
+          current_focus?: string | null
+          cv_original_filename?: string | null
+          cv_parse_consent?: boolean
+          cv_parse_consent_at?: string | null
+          cv_path?: string | null
+          cv_uploaded_at?: string | null
           first_name?: string
           github_url?: string | null
           grad_year?: number | null
           id?: string
+          intake_completed_at?: string | null
+          intake_deferred_at?: string | null
+          intent_urgency?: string | null
           linkedin_url?: string | null
           portfolio_url?: string | null
           preferred_name?: string | null
           profile_version?: number
+          recruiting_status?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           status?: Database["public"]["Enums"]["user_status"]
           surname?: string
           updated_at?: string
+          venture_name?: string | null
+          venture_one_liner?: string | null
+          venture_stage?: string | null
+          venture_url?: string | null
           working_on?: string | null
         }
         Relationships: []
@@ -819,16 +933,22 @@ export type Database = {
       }
       skills: {
         Row: {
+          aliases: string[]
+          category: string | null
           created_at: string
           id: number
           name: string
         }
         Insert: {
+          aliases?: string[]
+          category?: string | null
           created_at?: string
           id?: number
           name: string
         }
         Update: {
+          aliases?: string[]
+          category?: string | null
           created_at?: string
           id?: number
           name?: string
@@ -950,6 +1070,30 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      _apply_intake_fields: {
+        Args: {
+          p_academic_interests: string[]
+          p_availability_hours: string
+          p_bio_focus: string
+          p_bio_hobbies: string
+          p_caller: string
+          p_core_skill_ids: number[]
+          p_current_focus: string
+          p_hobbies: string[]
+          p_intent_urgency: string
+          p_intents: string[]
+          p_preferred_name: string
+          p_recruiting_status: string
+          p_sector_ids: number[]
+          p_skill_ids: number[]
+          p_venture_name: string
+          p_venture_one_liner: string
+          p_venture_stage: string
+          p_venture_url: string
+        }
+        Returns: undefined
+      }
+      admin_clear_avatar: { Args: { p_profile_id: string }; Returns: undefined }
       admin_create_event: {
         Args: {
           p_contact_email: string
@@ -1018,6 +1162,14 @@ export type Database = {
         Returns: {
           email: string
           first_name: string
+        }[]
+      }
+      admin_get_cv_info: {
+        Args: { p_profile_id: string }
+        Returns: {
+          cv_original_filename: string
+          cv_path: string
+          cv_uploaded_at: string
         }[]
       }
       admin_get_signup_emails: {
@@ -1097,6 +1249,10 @@ export type Database = {
           total_count: number
         }[]
       }
+      admin_log_cv_access: {
+        Args: { p_profile_id: string }
+        Returns: undefined
+      }
       admin_outbound_email_stats: {
         Args: never
         Returns: {
@@ -1149,6 +1305,7 @@ export type Database = {
         Returns: {
           attempts: number
           blob_key: string
+          container: string
           id: string
           max_attempts: number
         }[]
@@ -1165,6 +1322,14 @@ export type Database = {
           text_body: string
           to_address: string
         }[]
+      }
+      confirm_avatar_upload: {
+        Args: { p_blob_key: string }
+        Returns: undefined
+      }
+      confirm_cv_upload: {
+        Args: { p_blob_key: string; p_consent: boolean; p_filename: string }
+        Returns: undefined
       }
       create_post: {
         Args: { p_body: string; p_images?: Json; p_title: string }
@@ -1189,6 +1354,7 @@ export type Database = {
       }
       cron_drain_blob_deletions: { Args: never; Returns: undefined }
       cron_drain_outbound_email: { Args: never; Returns: undefined }
+      defer_intake: { Args: never; Returns: undefined }
       delete_my_account: { Args: never; Returns: undefined }
       delete_my_post: { Args: { p_post_id: string }; Returns: undefined }
       enqueue_outbound_email: {
@@ -1233,6 +1399,15 @@ export type Database = {
           subtitle: string
           title: string
           url: string
+        }[]
+      }
+      get_my_cv_info: {
+        Args: never
+        Returns: {
+          cv_original_filename: string
+          cv_parse_consent: boolean
+          cv_path: string
+          cv_uploaded_at: string
         }[]
       }
       get_my_listing_actions: {
@@ -1370,7 +1545,9 @@ export type Database = {
           p_sort?: string
         }
         Returns: {
-          bio: string
+          avatar_path: string
+          bio_focus: string
+          bio_hobbies: string
           course: string
           created_at: string
           first_name: string
@@ -1381,7 +1558,6 @@ export type Database = {
           skill_names: string[]
           surname: string
           total_count: number
-          working_on: string
         }[]
       }
       list_directory_facets: {
@@ -1535,6 +1711,8 @@ export type Database = {
           title: string
         }[]
       }
+      remove_my_avatar: { Args: never; Returns: undefined }
+      remove_my_cv: { Args: never; Returns: undefined }
       report_post: {
         Args: { p_category: string; p_post_id: string; p_reason: string }
         Returns: {
@@ -1561,17 +1739,35 @@ export type Database = {
         }
         Returns: string
       }
+      submit_intake: {
+        Args: {
+          p_academic_interests?: string[]
+          p_availability_hours?: string
+          p_bio_focus: string
+          p_bio_hobbies: string
+          p_core_skill_ids?: number[]
+          p_current_focus?: string
+          p_hobbies?: string[]
+          p_intent_urgency?: string
+          p_intents?: string[]
+          p_preferred_name: string
+          p_recruiting_status?: string
+          p_sector_ids?: number[]
+          p_skill_ids?: number[]
+          p_venture_name?: string
+          p_venture_one_liner?: string
+          p_venture_stage?: string
+          p_venture_url?: string
+        }
+        Returns: undefined
+      }
       submit_onboarding: {
         Args: {
-          p_bio: string
           p_course: string
           p_github_url: string
           p_grad_year: number
           p_linkedin_url: string
           p_portfolio_url: string
-          p_sector_ids: number[]
-          p_skill_ids: number[]
-          p_working_on: string
         }
         Returns: undefined
       }
@@ -1659,17 +1855,30 @@ export type Database = {
       }
       update_profile: {
         Args: {
-          p_bio: string
+          p_academic_interests?: string[]
+          p_availability_hours?: string
+          p_bio_focus?: string
+          p_bio_hobbies?: string
+          p_core_skill_ids?: number[]
           p_course: string
+          p_current_focus?: string
           p_first_name: string
           p_github_url: string
           p_grad_year: number
+          p_hobbies?: string[]
+          p_intent_urgency?: string
+          p_intents?: string[]
           p_linkedin_url: string
           p_portfolio_url: string
-          p_sector_ids: number[]
-          p_skill_ids: number[]
+          p_preferred_name?: string
+          p_recruiting_status?: string
+          p_sector_ids?: number[]
+          p_skill_ids?: number[]
           p_surname: string
-          p_working_on: string
+          p_venture_name?: string
+          p_venture_one_liner?: string
+          p_venture_stage?: string
+          p_venture_url?: string
         }
         Returns: undefined
       }
@@ -1870,4 +2079,3 @@ export const Constants = {
     },
   },
 } as const
-

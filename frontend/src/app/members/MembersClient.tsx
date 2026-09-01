@@ -7,8 +7,9 @@ import { useUrlFilters, useSearchDraft } from "@/lib/filters/useUrlFilters";
 import { SearchInput, FilterPanel, ChipGroup, RangeFilter } from "@/components/filters/FilterBar";
 import { Pager } from "@/components/ui/Pager";
 import { MemberDialog, memberSubtitle } from "@/components/members/MemberDialog";
+import { MemberAvatar } from "@/components/members/MemberAvatar";
 // Type-only, so the server-only module is erased rather than imported.
-// bioPreview and workingOnPreview are truncated by list_directory_cards to
+// bioPreview and hobbiesPreview are truncated by list_directory_cards to
 // what the card renders; the full text and the profile links are fetched
 // when the dialog opens — they are most of the payload and almost none of
 // the page.
@@ -187,16 +188,19 @@ function MemberCard({ member: m, onClick }: { member: DirectoryMember; onClick: 
     >
       <header className="mb-2">
         <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0 flex-1">
-            <div className="text-[0.95rem] font-medium text-text-primary truncate">
-              {m.firstName} {m.surname}
+          <div className="flex min-w-0 flex-1 items-start gap-3">
+            <MemberAvatar member={m} size="sm" />
+            <div className="min-w-0">
+              <div className="text-[0.95rem] font-medium text-text-primary truncate">
+                {m.firstName} {m.surname}
+              </div>
+              <div className="text-[0.725rem] text-text-muted mt-0.5">
+                {memberSubtitle(m)}
+              </div>
+              {m.course && (
+                <div className="text-[0.725rem] text-text-secondary mt-1 truncate">{m.course}</div>
+              )}
             </div>
-            <div className="text-[0.725rem] text-text-muted mt-0.5">
-              {memberSubtitle(m)}
-            </div>
-            {m.course && (
-              <div className="text-[0.725rem] text-text-secondary mt-1 truncate">{m.course}</div>
-            )}
           </div>
           <span className="mt-1 shrink-0 text-text-muted transition-colors group-hover:text-text-primary"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="transition-transform duration-150 group-hover:translate-x-0.5"><line x1="4" y1="12" x2="19" y2="12" /><polyline points="13 6 19 12 13 18" /></svg></span>
         </div>
@@ -208,9 +212,9 @@ function MemberCard({ member: m, onClick }: { member: DirectoryMember; onClick: 
         </p>
       )}
 
-      {m.workingOnPreview && (
+      {m.hobbiesPreview && (
         <div className="mt-2 line-clamp-1 break-all text-[0.75rem] leading-relaxed text-text-muted">
-          <span className="label-wide text-text-muted">Working on:</span> {m.workingOnPreview}
+          <span className="label-wide text-text-muted">Outside of that:</span> {m.hobbiesPreview}
         </div>
       )}
 

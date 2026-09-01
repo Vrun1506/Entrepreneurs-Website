@@ -151,6 +151,55 @@ foreign key precisely so that a member cannot erase the record of their own mode
 their account — the record exists for the case where that matters. The member is told this in
 Privacy §8 and Terms §6. **This design decision should be confirmed with the DPO before launch.**
 
+### M. Profile photographs
+| Field | Detail |
+|-------|--------|
+| **Data** | A member-supplied photo, cropped by the member to a square before upload |
+| **Purpose** | Display the member in the directory and their own profile |
+| **Suggested basis** | Consent (upload is optional and skippable; a member who declines is shown initials instead) |
+| **Recipients** | Microsoft Azure UK South only — never Supabase, never the web tier |
+| **Retention** | Follows the profile; replacing or removing a photo, or deleting the account, immediately queues the old blob for deletion (drained within ~5 min); the 30-day account-lifecycle rule is the backstop |
+| **Location** | Azure Blob Storage (UK South), private container, read only via short-expiry SAS |
+
+Re-encoded on upload the same way a community post image is — EXIF (including GPS) stripped, no
+original retained. A face is personal data, but is **not** treated as biometric data under Art. 9:
+the photo is never processed for unique identification, only displayed, so no special-category
+basis applies.
+
+### N. CV / résumé storage
+| Field | Detail |
+|-------|--------|
+| **Data** | A member-supplied PDF or DOCX CV, stored as uploaded — the original bytes, not re-encoded |
+| **Purpose** | Let the member share their CV from their profile; source document for the skill-suggestion processing in item O |
+| **Suggested basis** | Consent (upload is optional; a separate, explicit, unticked-by-default checkbox covers the text-extraction use in item O) |
+| **Recipients** | Microsoft Azure UK South only. **Admin access is permitted and logged**: every admin view of a member's CV writes an `admin_actions` row (`action='view_cv'`) — this is a deliberate decision, not an oversight, needed for abuse handling and DSARs |
+| **Retention** | One CV per member, no version history. Replacing or removing it, or deleting the account, immediately queues the old blob for deletion (drained within ~5 min); the 30-day account-lifecycle rule is the backstop |
+| **Location** | Azure Blob Storage (UK South), private container, read only via short-expiry SAS scoped to the owner or an admin |
+
+A CV routinely carries data from which health, ethnicity, religion or age are inferable, which is
+why it gets its own item rather than folding into "member profile." **PDF embedded JavaScript /
+launch actions are accepted, not stripped** — a deliberate decision, not an oversight: the file is
+served `Content-Disposition: attachment` from a separate origin, so any embedded script is inert
+unless a member downloads and opens it in a desktop PDF reader, and the only person exposed to that
+is the CV's own owner or an admin who chose to open it. Stripping it would require re-encoding the
+document, which would break the "re-runnable from the original bytes" property the skill-suggestion
+matcher in item O depends on.
+
+### O. CV text extraction for skill suggestion
+| Field | Detail |
+|-------|--------|
+| **Data** | Plain text extracted from the CV in item N, held only in memory for the duration of one request |
+| **Purpose** | Suggest closed-taxonomy skills for the member to confirm on their profile — a deterministic string match, not inference. The list of ~180 possible skills is fixed; nothing outside it can ever be suggested |
+| **Suggested basis** | Consent — a separate, explicit, unticked-by-default checkbox, distinct from the CV-upload consent in item N |
+| **Recipients** | None — processed entirely within the member's own upload request; the extracted text is never sent to a third party, never logged, and never rendered back to any user |
+| **Retention** | **Not retained.** The text is extracted, matched against the fixed skill list, and discarded within the same request. Only the matched skill ids — not the text, and not the matched strings — are returned to the member's browser, and only as suggestions the member must actively confirm |
+| **Location** | Vercel (the Next.js server action that already holds the CV read credential) |
+
+No LLM is involved and no automated decision is made: the match is a fixed string comparison
+against a controlled vocabulary, and every suggestion requires the member's own action to become
+part of their profile. This is a materially weaker processing claim than an LLM-based version would
+be — see `07-dpia-screening.md` for the corresponding re-screen.
+
 ---
 
 ## Retention summary (as actually implemented in code)
@@ -164,6 +213,9 @@ Privacy §8 and Terms §6. **This design decision should be confirmed with the D
 | Post likes | Cascade-deletes with the post; no independent retention | `on delete cascade` from `posts` |
 | Abandoned image uploads | 24 hours | `purge_stale_upload_tickets()` hourly (:25) |
 | Image bytes in Azure Blob | Follows the post; queued on delete | `blob_deletion_queue` → drained every 5 min; 30-day account lifecycle rule as backstop |
+| Profile photograph | Follows the profile; queued on replace/remove/delete | `blob_deletion_queue` → drained every 5 min; 30-day account lifecycle rule as backstop |
+| CV / résumé | One per member, no versions; queued on replace/remove/delete | `blob_deletion_queue` → drained every 5 min; 30-day account lifecycle rule as backstop |
+| CV extracted text (skill suggestion) | Not retained — discarded within the same request | Held in memory only, never written to a table or a log |
 | Post reports | 12 months | `purge_moderation_records()` daily (02:35) |
 | Post moderation log (takedowns) | 12 months, unless `legal_hold` | `purge_moderation_records()` daily (02:35) |
 | Account & all user-owned data | Immediate on request | `delete_my_account()` (user-initiated) |

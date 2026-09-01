@@ -9,7 +9,7 @@ export const metadata = {
   title: "Privacy Policy · Foundry",
 };
 
-const LAST_UPDATED = "29 August 2026";
+const LAST_UPDATED = "1 September 2026";
 
 export default function PrivacyPage() {
   return (
@@ -50,7 +50,8 @@ export default function PrivacyPage() {
             <p>We collect only what we need to run a members&rsquo; directory and the features you use:</p>
             <ul className="list-disc pl-5 space-y-1 mt-2">
               <li><strong>Account data</strong> — your name and email address. If you sign in with Google, Google provides your name and email to us (see section 4).</li>
-              <li><strong>Profile data (onboarding)</strong> — the course you study or studied, your graduation year, an optional short bio and &ldquo;what you&rsquo;re working on&rdquo;, optional LinkedIn / GitHub / portfolio links, and the sectors and skills you select.</li>
+              <li><strong>Profile data (onboarding and after)</strong> — the course you study or studied, your graduation year, an optional short bio, an optional profile photograph, optional LinkedIn / GitHub / portfolio links, and (once you complete the post-approval intake) your ranked interests, the venture or role you&rsquo;re working on, and the sectors and skills you select.</li>
+              <li><strong>Your CV, if you choose to upload one</strong> — stored as the file you uploaded. If you tick the separate consent for it, we read the text once to suggest skills from our fixed list for you to confirm — see section 2a below for exactly what that does and doesn&rsquo;t do.</li>
               <li><strong>Membership status</strong> — whether you are a current student or alum, and your approval status, which our admins set during review.</li>
               <li><strong>Content you post</strong> — the opportunities, events, and VC / grant listings you submit, including any contact email you choose to attach to a listing; and your community posts, including any images you attach and the text you write to describe them.</li>
               <li><strong>Reports and moderation records</strong> — if you report a community post, what you tell us about it; and if one of your posts is removed by an admin, a record of the post and the reason it was removed. See section 8 for how long we keep these.</li>
@@ -58,9 +59,26 @@ export default function PrivacyPage() {
               <li><strong>Technical and security data</strong> — your IP address and request metadata, used by our edge provider and rate limiter to prevent abuse, and limited error diagnostics (e.g. URL, browser, your user ID) if something goes wrong.</li>
             </ul>
             <p className="mt-2">
-              We do <strong>not</strong> collect special category data (such as health, ethnicity, or political
-              opinions), and we do not ask for payment details — Foundry is free to use.
+              We do not deliberately collect special category data (such as health, ethnicity, or political
+              opinions), and we do not ask for payment details — Foundry is free to use. A CV can incidentally
+              carry information from which such things are inferable; we do not extract, infer, or act on any of
+              that — see section 2a.
             </p>
+          </Section>
+
+          <Section title="2a. Your CV: what we do, and don&rsquo;t do, with it">
+            <p>
+              Uploading a CV is optional, and so is letting us read it. If you tick the separate consent checkbox
+              on upload, we extract the plain text from your CV once, compare it against a fixed list of around 180
+              skills, and show you the matches as suggestions you can tap to add to your profile. Nothing is added
+              without you choosing to add it.
+            </p>
+            <ul className="list-disc pl-5 space-y-1 mt-2">
+              <li>The extracted text is <strong>never stored</strong> — it exists only for the moment it takes to run that comparison, and is then discarded.</li>
+              <li>The extracted text is <strong>never shown back to you or anyone else</strong>, sent to a third party, or used for anything except that one comparison.</li>
+              <li>The match is a fixed string comparison, not a model — it can only ever suggest one of the ~180 skills on our list, never anything else.</li>
+              <li>Your CV file itself is kept as you uploaded it (see sections 5 and 8), separately from this suggestion feature, so you can share it or remove it whenever you like.</li>
+            </ul>
           </Section>
 
           <Section title="3. How we use your data, and our lawful basis">
@@ -68,6 +86,7 @@ export default function PrivacyPage() {
             <ul className="list-disc pl-5 space-y-1.5 mt-2">
               <li><strong>Creating and running your account and verifying your eligibility</strong> — to provide the membership service you asked for (performance of a contract under our Terms), supported by your consent at sign-up.</li>
               <li><strong>Showing your profile in the member directory</strong> — your consent. You can withdraw this at any time by editing your profile or deleting your account.</li>
+              <li><strong>Storing a profile photo or a CV you upload</strong> — your consent. Both are optional and skippable, and reading your CV to suggest skills needs a separate consent tick, unticked by default.</li>
               <li><strong>Sending you service / transactional emails</strong> (sign-in and password reset, decisions on your application and listings, account and content notices, and replies when you contact us) — necessary to perform our contract with you and our legitimate interest in operating the platform.</li>
               <li><strong>Keeping the platform secure</strong> (anti-bot challenges, rate limiting, abuse prevention) — our legitimate interest in protecting members and the service.</li>
               <li><strong>Understanding how the product is used</strong> (cookieless, pseudonymous analytics) — our legitimate interest in improving Foundry. See our <Link href="/cookies" className="text-accent hover:text-accent-light no-underline">Cookie Policy</Link>.</li>
@@ -95,7 +114,7 @@ export default function PrivacyPage() {
             <ul className="list-disc pl-5 space-y-1 mt-2">
               <li><strong>Supabase</strong> (EU / London) — database, authentication, and storage. Holds your profile and the content you post.</li>
               <li><strong>Vercel</strong> (EU / Frankfurt) — application hosting and serving.</li>
-              <li><strong>Microsoft Azure</strong> (UK South) — image storage and processing. Holds images you attach to community posts; the processing service strips embedded metadata, including any location recorded by your camera, before an image is stored.</li>
+              <li><strong>Microsoft Azure</strong> (UK South) — image and document storage. Holds images you attach to community posts and any profile photo you upload; these are re-processed on upload, which strips embedded metadata including any location recorded by your camera. It also holds any CV you upload, kept as the file you gave us rather than reprocessed, in a separate, more tightly restricted location that only you and our admins can read.</li>
               <li><strong>Resend</strong> (EU) — sending our service emails; processes the recipient address and message content in transit.</li>
               <li><strong>Cloudflare</strong> (EU) — DNS, inbound contact-email routing, edge security, and the Turnstile anti-bot challenge on our forms. Processes request metadata such as your IP address to block abuse.</li>
               <li><strong>Upstash</strong> (EU) — rate limiting. Stores only short-lived request counters keyed to your user ID or IP; no profile data.</li>
@@ -115,11 +134,13 @@ export default function PrivacyPage() {
 
           <Section title="7. Who can see your data">
             <p>
-              Your profile (name, course, graduation year, bio, what you&rsquo;re working on, sectors, skills, and
-              links) is visible to other approved Foundry members in the directory. Your email address is{" "}
-              <strong>not</strong> displayed unless you explicitly choose to make a listing&rsquo;s contact email
-              visible. Our admins can see all profile data, including email addresses, for review and operational
-              purposes. We do not make your data public on the open internet.
+              Your profile (name, course, graduation year, photo, bio, what you&rsquo;re working on, sectors,
+              skills, and links) is visible to other approved Foundry members in the directory. Your email address
+              is <strong>not</strong> displayed unless you explicitly choose to make a listing&rsquo;s contact email
+              visible. Your CV is visible only to you and to our admins — it is never shown to other members. Our
+              admins can see all profile data, including email addresses and CVs, for review and operational
+              purposes; every admin view of a member&rsquo;s CV is individually logged. We do not make your data
+              public on the open internet.
             </p>
           </Section>
 
@@ -136,6 +157,7 @@ export default function PrivacyPage() {
             </p>
             <ul className="list-disc pl-5 space-y-1 mt-2">
               <li><strong>Community posts and their images — 7 days.</strong> Every post is deleted automatically seven days after it is published, along with any images attached to it. You can delete a post sooner at any time from Community → My posts.</li>
+              <li><strong>Profile photo and CV — until you replace, remove, or your account is deleted.</strong> We keep one of each at a time; uploading a new one, removing it, or deleting your account queues the old file for deletion within minutes.</li>
               <li><strong>Moderation records — 12 months.</strong> If an admin removes one of your posts, we keep a record of the removal: the post&rsquo;s title and text, the reason given, and who removed it and when. We keep this so that a removal can be explained, reviewed, or defended if it is challenged, which is a legitimate interest and, where the record relates to a potential legal claim, is permitted under Article 17(3)(e) UK GDPR even if you ask us to erase your data. It is deleted after 12 months unless a specific dispute is still live.</li>
               <li><strong>Reports — 12 months.</strong> If you report a post, we keep your report, what you told us, and the outcome, on the same 12-month clock.</li>
             </ul>

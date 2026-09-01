@@ -1,26 +1,20 @@
 // ════════════════════════════════════════════════════════════════════
-// Foundry · Intake step model
+// Foundry · Post-approval intake step model
 //
-// The intake is nine screens in three groups. The grouping is the point:
-// it tells a member, before they start, which questions are the door and
-// which are optional depth. The old four-step form had no such signal, so
-// every field looked equally mandatory.
+// Identity (affiliation, name, course, grad year) is collected earlier,
+// at /onboarding, and feeds the admin review queue before this flow
+// ever runs — see 20260901000006's header comment for why the split
+// happened. Everything here runs only once a member is approved, is
+// entirely optional (every screen has a Skip), and writes through
+// submit_intake once, then update_profile from then on.
 //
-// Screen numbering and group labels are the prototype's. "You're in" is
-// deliberately unnumbered — it is a result, not a question, and giving it
-// a number would imply there is something to fill in.
+// "You're in" is a result screen, not a question — it carries no field
+// and does not advance completeness. Termly refresh (screen 08 of the
+// original nine-screen prototype) stays unrouted; see components/intake
+// screens.tsx's RefreshScreen for why.
 // ════════════════════════════════════════════════════════════════════
 
-export type StepId =
-  | "identity"
-  | "face"
-  | "youre-in"
-  | "cv"
-  | "skills"
-  | "interests"
-  | "where"
-  | "want"
-  | "refresh";
+export type StepId = "face" | "youre-in" | "cv" | "skills" | "interests" | "where" | "want";
 
 export type Step = {
   id: StepId;
@@ -28,7 +22,7 @@ export type Step = {
   num: string | null;
   /** Sidebar label — short. */
   label: string;
-  /** Eyebrow above the heading, e.g. "GATE · 1 OF 2". */
+  /** Eyebrow above the heading. */
   eyebrow: string;
   /** The screen's own heading. */
   title: string;
@@ -42,87 +36,61 @@ export type Group = {
 };
 
 export const STEPS: Record<StepId, Step> = {
-  identity: {
-    id: "identity",
-    num: "01",
-    label: "Identity",
-    eyebrow: "Gate · 1 of 2",
-    title: "Who let you in?",
-  },
   face: {
     id: "face",
-    num: "02",
+    num: "01",
     label: "Face & bio",
-    eyebrow: "Gate · 2 of 2",
+    eyebrow: "Who you are · 1 of 1",
     title: "Put a face to it",
   },
   "youre-in": {
     id: "youre-in",
     num: null,
     label: "You're in",
-    eyebrow: "Gate complete",
+    eyebrow: "Welcome",
     title: "You're in",
   },
   cv: {
     id: "cv",
-    num: "03",
+    num: "02",
     label: "CV",
-    eyebrow: "Unlock · Step 1 of 3",
+    eyebrow: "Unlock your matches · 1 of 3",
     title: "Your CV, if you have one",
   },
   skills: {
     id: "skills",
-    num: "04",
+    num: "03",
     label: "Skills",
-    eyebrow: "Unlock · Step 2 of 3",
+    eyebrow: "Unlock your matches · 2 of 3",
     title: "What are you actually good at?",
   },
   interests: {
     id: "interests",
-    num: "05",
+    num: "04",
     label: "Interests",
-    eyebrow: "Unlock · Step 3 of 3",
+    eyebrow: "Unlock your matches · 3 of 3",
     title: "What you're into",
   },
   where: {
     id: "where",
-    num: "06",
+    num: "05",
     label: "Where you're at",
-    eyebrow: "Later · Step 1 of 3",
+    eyebrow: "Where you're at · 1 of 2",
     title: "Where are you at?",
   },
   want: {
     id: "want",
-    num: "07",
+    num: "06",
     label: "What you want",
-    eyebrow: "Later · Step 2 of 3",
+    eyebrow: "Where you're at · 2 of 2",
     title: "What do you want from this?",
-  },
-  refresh: {
-    id: "refresh",
-    num: "08",
-    label: "Termly refresh",
-    eyebrow: "Later · Step 3 of 3",
-    title: "Still accurate?",
   },
 };
 
 export const GROUPS: Group[] = [
-  {
-    label: "The gate",
-    note: "Nine fields. About a minute.",
-    steps: ["identity", "face", "youre-in"],
-  },
-  {
-    label: "Unlock your matches",
-    note: "Behind the door. Costs you nothing.",
-    steps: ["cv", "skills", "interests"],
-  },
-  {
-    label: "Later, prompted",
-    note: "We'll ask when it's useful.",
-    steps: ["where", "want", "refresh"],
-  },
+  { label: "Who you are", note: "A face and a couple of lines.", steps: ["face", "youre-in"] },
+  { label: "Unlock your matches", note: "Costs you nothing. Skip any of it.", steps: ["cv", "skills", "interests"] },
+  { label: "Where you're at", note: "Changes often — you can always update it.", steps: ["where", "want"] },
 ];
 
 /** Flat running order. */
@@ -130,27 +98,20 @@ export const ORDER: StepId[] = GROUPS.flatMap((g) => g.steps);
 
 export const TOTAL_SCREENS = ORDER.length;
 
-/** The last screen of the gate — everything after it is post-signup. */
-export const GATE_END: StepId = "youre-in";
-
 export const indexOf = (id: StepId): number => ORDER.indexOf(id);
 
+/** The six real questions — "You're in" is a result, and doesn't advance this. */
+const QUESTION_ORDER: StepId[] = ["face", "cv", "skills", "interests", "where", "want"];
+
 /**
- * Profile completeness, as a percentage, for the progress bar.
- *
- * The gate is deliberately worth 40% on its own: the prototype's argument is
- * that a member who answers nine questions should see they have bought
- * something, and a bar that reads 22% after the hardest part of the flow
- * says the opposite. The remaining 60% is spread evenly over the six
- * optional screens.
+ * Profile completeness, as a percentage, spread evenly over the six
+ * question screens. "You're in" reports the same value as "face" — it
+ * hasn't asked anything new yet.
  */
 export function completeness(id: StepId): number {
-  const i = indexOf(id);
-  const gateEnd = indexOf(GATE_END);
-  if (i <= gateEnd) return Math.round(((i + 1) / (gateEnd + 1)) * 40);
-  const after = i - gateEnd;
-  const remaining = TOTAL_SCREENS - 1 - gateEnd;
-  return 40 + Math.round((after / remaining) * 60);
+  const base = id === "youre-in" ? "face" : id;
+  const i = QUESTION_ORDER.indexOf(base);
+  return Math.round(((i + 1) / QUESTION_ORDER.length) * 100);
 }
 
 // ─── Affiliation ─────────────────────────────────────────────────────

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import AppShell from "@/components/app/AppShell";
+import { IntakePromptCard } from "@/components/app/IntakePromptCard";
 import NewestMembers from "@/components/members/NewestMembers";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { requireApprovedUser } from "@/lib/auth/guard";
@@ -44,17 +45,23 @@ function newestFirst<T extends { createdAt: string }>(items: T[], n: number): T[
 }
 
 export default async function HomePage() {
-  const { supabase, user, isAdmin } = await requireApprovedUser();
+  const { supabase, user, isAdmin } = await requireApprovedUser({ bounceToIntake: true });
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("first_name, surname, preferred_name")
+    .select("first_name, surname, preferred_name, profile_version")
     .eq("id", user.id)
     .single();
 
   const name =
     profile?.preferred_name?.trim() || profile?.first_name?.trim() || "there";
   const fullName = [profile?.first_name, profile?.surname].filter(Boolean).join(" ");
+  // requireApprovedUser({ bounceToIntake: true }) already redirected anyone
+  // who has never seen /intake — reaching this line at profile_version < 2
+  // means the member deferred it at least once, so this is a reminder, not
+  // a first invitation. Admins never get the bounce, so they see this too,
+  // which is fine — it's inert for them either way.
+  const showIntakePrompt = (profile?.profile_version ?? 2) < 2;
 
   // Started, not awaited — the four sections resolve in the same tick.
   const members = newestMembers(supabase);
@@ -71,6 +78,8 @@ export default async function HomePage() {
             {name}
           </h1>
         </header>
+
+        {showIntakePrompt && <IntakePromptCard />}
 
         <Suspense fallback={<StripSkeleton />}>
           <Newest data={members} />

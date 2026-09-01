@@ -4,20 +4,22 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 // ════════════════════════════════════════════════════════════════════
 // Foundry · Upload tickets
 //
-// A short-lived bearer token that lets a browser upload one image
-// directly to the FastAPI gateway, without the gateway needing a
+// A short-lived bearer token that lets a browser upload one image or
+// document directly to the FastAPI gateway, without the gateway needing a
 // database, a Supabase client, or any idea of what a Foundry member is.
 //
 // The division of labour:
 //
 //   Next.js   decides WHO may upload (approved member, rate limit,
-//             kill switch) using guards that already exist, and issues a
-//             ticket naming exactly one blob key.
+//             kill switch — the last only for post_image) using guards
+//             that already exist, and issues a ticket naming exactly one
+//             blob key.
 //   Gateway   decides WHAT may be stored (magic bytes, dimensions,
-//             re-encode) and trusts the ticket for identity.
+//             re-encode for images; magic bytes, macro/zip-bomb checks for
+//             documents) and trusts the ticket for identity.
 //
 // This keeps every authorisation decision in one place while keeping
-// image bytes off Vercel entirely. It also means the eventual move to
+// upload bytes off Vercel entirely. It also means the eventual move to
 // Clerk does not touch the gateway: the token format is ours, not
 // Supabase's, so nothing about it changes when the identity provider
 // does.
@@ -36,12 +38,17 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 // anyone could use it.
 const TTL_SECONDS = 300;
 
-// 8 MB. The gateway re-encodes everything down to ≤1600px WebP, so this
-// bounds what may be *sent*, not what is stored. nginx is configured with
-// client_max_body_size 10m to leave headroom for multipart overhead.
-export const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
+export type TicketPurpose = "post_image" | "profile_picture" | "cv";
 
-export type TicketPurpose = "post_image";
+// 8 MB for every purpose today. Images re-encode down to a bounded WebP
+// regardless of what arrives, so this bounds what may be *sent*, not what
+// is stored; a CV is stored verbatim, so its cap is a real ceiling on the
+// original file. Kept as one constant rather than diverging per purpose
+// because nginx's client_max_body_size (10m) was sized against this
+// single number — raising one purpose's cap without raising the other
+// would silently make nginx the more restrictive limit for whichever
+// purpose fell behind.
+export const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
 
 export type TicketClaims = {
   sub: string;
@@ -76,12 +83,12 @@ function sign(data: string): string {
 export function issueTicket(args: {
   userId: string;
   key: string;
-  purpose?: TicketPurpose;
+  purpose: TicketPurpose;
 }): string {
   const now = Math.floor(Date.now() / 1000);
   const claims: TicketClaims = {
     sub: args.userId,
-    purpose: args.purpose ?? "post_image",
+    purpose: args.purpose,
     key: args.key,
     max_bytes: MAX_UPLOAD_BYTES,
     iat: now,
@@ -131,9 +138,17 @@ export function gatewayUrl(): string {
   return value.replace(/\/$/, "");
 }
 
-/** True when the gateway is configured. The composer hides image upload
- *  rather than offering a control that cannot work — a storage gateway
- *  must not be able to take out the Community tab. */
+/** The gateway path this purpose uploads to. Images (post_image and
+ *  profile_picture) share one endpoint; a CV is validated differently and
+ *  never touches the image sanitiser, so it gets its own. */
+export function gatewayUploadUrl(purpose: TicketPurpose): string {
+  return `${gatewayUrl()}${purpose === "cv" ? "/v1/documents" : "/v1/images"}`;
+}
+
+/** True when the gateway is configured. Every upload control hides rather
+ *  than offering something that cannot work — a storage gateway must not
+ *  be able to take out the Community tab, the onboarding photo step, or
+ *  the CV step. */
 export function uploadsEnabled(): boolean {
   return Boolean(process.env.UPLOAD_GATEWAY_URL && process.env.UPLOAD_TICKET_SECRET);
 }

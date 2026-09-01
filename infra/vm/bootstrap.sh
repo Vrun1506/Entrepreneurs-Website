@@ -102,8 +102,11 @@ UPLOAD_TICKET_SECRET=$(openssl rand -base64 48)
 SERVICE_TOKEN=$(openssl rand -base64 48)
 AZURE_STORAGE_ACCOUNT=CHANGE_ME
 AZURE_BLOB_CONTAINER=post-images
+AZURE_AVATAR_CONTAINER=profile-pictures
+AZURE_CV_CONTAINER=member-cvs
 ALLOWED_ORIGINS=https://www.imperialentrepreneurs.com
 MAX_UPLOAD_BYTES=8388608
+MAX_DOCUMENT_BYTES=8388608
 EOF
   chmod 600 /etc/foundry/gateway.env
   ok "generated /etc/foundry/gateway.env"
@@ -115,6 +118,21 @@ EOF
   sed 's/^/        /' /etc/foundry/gateway.env
   echo
 else
+  # This branch is what actually runs against the already-bootstrapped
+  # production VM — the file exists, so it is left alone rather than
+  # overwritten (that's the whole point: it holds live secrets a re-run
+  # must never regenerate). AZURE_AVATAR_CONTAINER, AZURE_CV_CONTAINER
+  # and MAX_DOCUMENT_BYTES were added to the template above for the
+  # profile-picture/CV upload feature — an EXISTING file predates them and
+  # will not gain them automatically. Add them by hand once, over SSH:
+  #   printf 'AZURE_AVATAR_CONTAINER=profile-pictures\nAZURE_CV_CONTAINER=member-cvs\nMAX_DOCUMENT_BYTES=8388608\n' \
+  #     | sudo tee -a /etc/foundry/gateway.env
+  #   sudo systemctl restart foundry-gateway
+  if ! grep -q '^AZURE_AVATAR_CONTAINER=' /etc/foundry/gateway.env; then
+    echo "    ⚠ /etc/foundry/gateway.env exists but predates AZURE_AVATAR_CONTAINER /"
+    echo "      AZURE_CV_CONTAINER / MAX_DOCUMENT_BYTES — see the comment above this"
+    echo "      line in bootstrap.sh for the one-time manual addition needed."
+  fi
   ok "/etc/foundry/gateway.env already exists — left alone"
 fi
 

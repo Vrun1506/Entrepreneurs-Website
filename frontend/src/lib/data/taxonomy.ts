@@ -38,6 +38,17 @@ export async function listSkills(db: Db): Promise<Taxon[]> {
   return rows("skills", () => db.from("skills").select("id, name").order("name"));
 }
 
+/** A skill row plus the fields the closed-taxonomy picker and the
+ *  deterministic CV matcher need: `category` for grouping the picker,
+ *  `aliases` for matching a CV's own vocabulary onto our skill ids. */
+export type SkillDetail = { id: number; name: string; category: string | null; aliases: string[] };
+
+export async function listSkillsDetailed(db: Db): Promise<SkillDetail[]> {
+  return rows("skills", () =>
+    db.from("skills").select("id, name, category, aliases").order("category").order("name"),
+  ) as unknown as Promise<SkillDetail[]>;
+}
+
 export async function listSectors(db: Db): Promise<Taxon[]> {
   return rows("sectors", () => db.from("sectors").select("id, name").order("name"));
 }
@@ -64,6 +75,41 @@ export async function profileTaxonomy(db: Db, profileId: string): Promise<Select
   return {
     skillIds:  skills.map((r) => r.skill_id),
     sectorIds: sectors.map((r) => r.sector_id),
+  };
+}
+
+/** Everything /intake and /profile write beyond identity and sectors —
+ *  core-starred skills, free-text interests/hobbies, and ranked intents. */
+export type ProfileIntakeData = {
+  skillIds: number[];
+  coreSkillIds: number[];
+  sectorIds: number[];
+  academicInterests: string[];
+  hobbies: string[];
+  intents: string[];
+};
+
+export async function profileIntakeData(db: Db, profileId: string): Promise<ProfileIntakeData> {
+  const [skills, sectors, interests, intents] = await Promise.all([
+    rows("profile_skills", () =>
+      db.from("profile_skills").select("skill_id, is_core").eq("profile_id", profileId),
+    ) as unknown as Promise<{ skill_id: number; is_core: boolean }[]>,
+    rows("profile_sectors", () => db.from("profile_sectors").select("sector_id").eq("profile_id", profileId)),
+    rows("profile_interests", () =>
+      db.from("profile_interests").select("kind, label").eq("profile_id", profileId),
+    ) as unknown as Promise<{ kind: "academic" | "hobby"; label: string }[]>,
+    rows("profile_intents", () =>
+      db.from("profile_intents").select("intent, rank").eq("profile_id", profileId).order("rank"),
+    ) as unknown as Promise<{ intent: string; rank: number }[]>,
+  ]);
+
+  return {
+    skillIds: skills.map((r) => r.skill_id),
+    coreSkillIds: skills.filter((r) => r.is_core).map((r) => r.skill_id),
+    sectorIds: sectors.map((r) => r.sector_id),
+    academicInterests: interests.filter((r) => r.kind === "academic").map((r) => r.label),
+    hobbies: interests.filter((r) => r.kind === "hobby").map((r) => r.label),
+    intents: intents.map((r) => r.intent),
   };
 }
 

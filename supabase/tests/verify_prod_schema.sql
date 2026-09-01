@@ -75,21 +75,24 @@ begin
   raise notice 'OK  2b on_auth_user_email_change present on auth.users';
 
   -- 3. Signature integrity for the two RPCs whose arg lists changed last:
-  --    submit_onboarding = 9 args, update_profile = 11 args. Wrong count =
-  --    either a drifted overload or the wrong migration applied.
+  --    submit_onboarding = 5 args (shrunk to identity-only by
+  --    20260901000006, when the rich intake fields moved to
+  --    submit_intake), update_profile = 24 args (grew to cover every
+  --    intake field, same migration). Wrong count = either a drifted
+  --    overload or the wrong migration applied.
   select pronargs into v_n
   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
   where n.nspname = 'public' and p.proname = 'submit_onboarding';
-  if v_n is distinct from 9 then
-    raise exception 'submit_onboarding has % args, expected 9', coalesce(v_n::text,'NONE');
+  if v_n is distinct from 5 then
+    raise exception 'submit_onboarding has % args, expected 5', coalesce(v_n::text,'NONE');
   end if;
   select pronargs into v_n
   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
   where n.nspname = 'public' and p.proname = 'update_profile';
-  if v_n is distinct from 11 then
-    raise exception 'update_profile has % args, expected 11', coalesce(v_n::text,'NONE');
+  if v_n is distinct from 24 then
+    raise exception 'update_profile has % args, expected 24', coalesce(v_n::text,'NONE');
   end if;
-  raise notice 'OK  3  submit_onboarding(9) + update_profile(11) signatures intact';
+  raise notice 'OK  3  submit_onboarding(5) + update_profile(24) signatures intact';
 
   -- 4. RLS enabled on every base table in public (no table silently world-open).
   select string_agg(c.relname, ', ') into v_bad

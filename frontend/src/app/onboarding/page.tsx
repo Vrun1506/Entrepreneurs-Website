@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { listTaxonomy } from "@/lib/data/taxonomy";
 import OnboardingForm from "./OnboardingForm";
 
 export default async function OnboardingPage() {
@@ -9,9 +8,8 @@ export default async function OnboardingPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [profileRes, taxonomy, isAdminRes] = await Promise.all([
+  const [profileRes, isAdminRes] = await Promise.all([
     supabase.from("profiles").select("role, status, first_name, surname").eq("id", user.id).single(),
-    listTaxonomy(supabase),
     supabase.rpc("is_admin"),
   ]);
 
@@ -32,8 +30,6 @@ export default async function OnboardingPage() {
       role={profile.role}
       firstName={profile.first_name}
       surname={profile.surname}
-      skills={taxonomy.skills}
-      sectors={taxonomy.sectors}
     />
   );
 }

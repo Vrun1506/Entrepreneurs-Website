@@ -2,7 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import AppShell from "@/components/app/AppShell";
-import { listTaxonomy, profileTaxonomy } from "@/lib/data/taxonomy";
+import { listSkillsDetailed, listSectors, profileIntakeData } from "@/lib/data/taxonomy";
+import { signedImageUrls } from "@/lib/storage/blobRead";
 import AffiliationSection from "./AffiliationSection";
 import ProfileForm from "./ProfileForm";
 
@@ -12,11 +13,23 @@ export default async function ProfilePage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [profileRes, taxonomy, selected, isAdminRes] = await Promise.all([
-    supabase.from("profiles").select("role, status, first_name, surname, course, grad_year, linkedin_url, github_url, portfolio_url, bio, working_on").eq("id", user.id).single(),
-    listTaxonomy(supabase),
-    profileTaxonomy(supabase, user.id),
+  const [profileRes, skillTaxonomy, sectors, selected, isAdminRes, cvInfoRes] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select(`
+        role, status, first_name, surname, course, grad_year,
+        linkedin_url, github_url, portfolio_url,
+        preferred_name, bio_focus, bio_hobbies, avatar_path,
+        current_focus, venture_stage, venture_name, venture_url, venture_one_liner,
+        recruiting_status, intent_urgency, availability_hours
+      `)
+      .eq("id", user.id)
+      .single(),
+    listSkillsDetailed(supabase),
+    listSectors(supabase),
+    profileIntakeData(supabase, user.id),
     supabase.rpc("is_admin"),
+    supabase.rpc("get_my_cv_info").maybeSingle(),
   ]);
 
   const profile = profileRes.data;
@@ -24,6 +37,16 @@ export default async function ProfilePage() {
   if (!profile) redirect("/login");
   // Admins bypass the onboarding gate so they can browse the user-facing UI for diagnostics.
   if (!isAdmin && profile.status === "pending_onboarding") redirect("/onboarding");
+
+  const [avatarUrl] = profile.avatar_path
+    ? await signedImageUrls([profile.avatar_path], "profile_picture")
+    : [null];
+
+  const cvInfo = cvInfoRes.data as {
+    cv_path: string | null;
+    cv_original_filename: string | null;
+    cv_uploaded_at: string | null;
+  } | null;
 
   return (
     <AppShell active="settings" isApproved={profile.status === "approved"} isAdmin={isAdmin}>
@@ -54,11 +77,28 @@ export default async function ProfilePage() {
             linkedinUrl={profile.linkedin_url ?? ""}
             githubUrl={profile.github_url ?? ""}
             portfolioUrl={profile.portfolio_url ?? ""}
-            bio={profile.bio ?? ""}
-            workingOn={profile.working_on ?? ""}
-            skills={taxonomy.skills}
-            sectors={taxonomy.sectors}
-            selectedSkills={selected.skillIds}
+            preferredName={profile.preferred_name ?? ""}
+            bioFocus={profile.bio_focus ?? ""}
+            bioHobbies={profile.bio_hobbies ?? ""}
+            avatarUrl={avatarUrl}
+            cvOriginalFilename={cvInfo?.cv_original_filename ?? null}
+            cvUploadedAt={cvInfo?.cv_uploaded_at ?? null}
+            hasCv={!!cvInfo?.cv_path}
+            currentFocus={profile.current_focus ?? ""}
+            ventureStage={profile.venture_stage ?? ""}
+            ventureName={profile.venture_name ?? ""}
+            ventureUrl={profile.venture_url ?? ""}
+            ventureOneLiner={profile.venture_one_liner ?? ""}
+            recruitingStatus={profile.recruiting_status ?? ""}
+            intentUrgency={profile.intent_urgency ?? ""}
+            availabilityHours={profile.availability_hours ?? ""}
+            intents={selected.intents}
+            academicInterests={selected.academicInterests}
+            hobbies={selected.hobbies}
+            skillTaxonomy={skillTaxonomy.map((t) => ({ id: t.id, name: t.name, category: t.category }))}
+            sectors={sectors}
+            selectedSkillIds={selected.skillIds}
+            selectedCoreSkillIds={selected.coreSkillIds}
             selectedSectors={selected.sectorIds}
           />
 

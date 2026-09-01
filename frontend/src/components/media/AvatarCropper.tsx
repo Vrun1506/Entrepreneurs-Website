@@ -1,0 +1,238 @@
+"use client";
+
+import { useEffect, useId, useRef, useState } from "react";
+
+// ════════════════════════════════════════════════════════════════════
+// Foundry · Avatar cropper
+//
+// Hand-rolled rather than a dependency (see ethereal-fluttering-blossom.md
+// §4c for why): drag to pan, a labelled range input to zoom. The zoom
+// slider is simultaneously the accessibility answer and removes every
+// pinch-gesture edge case, which is the only genuinely fiddly part of a
+// cropper — what's left is around 40 lines of drag math.
+//
+// THE SELECTED REGION IS WHAT IS STORED. There is no "original" kept
+// anywhere: onCropped hands back exactly the square the member framed,
+// and re-adjusting later means re-picking the source file.
+//
+// EXIF ORIENTATION: loaded via createImageBitmap(file, { imageOrientation:
+// "from-image" }) so a portrait iPhone photo (orientation tag 6) doesn't
+// draw sideways before the member even starts cropping.
+// ════════════════════════════════════════════════════════════════════
+
+const BOX = 288; // on-screen crop box, px
+const OUTPUT = 512; // stored square, px — matches server AVATAR_MAX_EDGE
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 3;
+const NUDGE = 12;
+
+type Offset = { x: number; y: number };
+
+export function AvatarCropper({
+  file,
+  onCropped,
+  onCancel,
+}: {
+  file: File;
+  onCropped: (blob: Blob) => void;
+  onCancel: () => void;
+}) {
+  const zoomId = useId();
+  const [bitmap, setBitmap] = useState<ImageBitmap | null>(null);
+  const [error, setError] = useState("");
+  const [zoom, setZoom] = useState(MIN_ZOOM);
+  const [offset, setOffset] = useState<Offset>({ x: 0, y: 0 });
+  const dragRef = useRef<{ startX: number; startY: number; origin: Offset } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setError("");
+    setBitmap(null);
+    createImageBitmap(file, { imageOrientation: "from-image" })
+      .then((bmp) => {
+        if (cancelled) return;
+        setBitmap(bmp);
+        setZoom(MIN_ZOOM);
+      })
+      .catch(() => {
+        if (!cancelled) setError("That image couldn't be read. Try a different file.");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [file]);
+
+  // Scale that makes the image cover the crop box at zoom = 1, like
+  // object-fit: cover — then zoom multiplies on top of that.
+  const baseScale = bitmap ? BOX / Math.min(bitmap.width, bitmap.height) : 1;
+  const scale = baseScale * zoom;
+  const dw = bitmap ? bitmap.width * scale : 0;
+  const dh = bitmap ? bitmap.height * scale : 0;
+
+  const clamp = (o: Offset, w: number, h: number): Offset => {
+    const minX = Math.min(0, BOX - w);
+    const minY = Math.min(0, BOX - h);
+    return { x: Math.min(0, Math.max(minX, o.x)), y: Math.min(0, Math.max(minY, o.y)) };
+  };
+
+  // Re-centre whenever the image or zoom level changes the display size,
+  // rather than letting a stale offset clamp to a corner.
+  useEffect(() => {
+    if (!bitmap) return;
+    setOffset((prev) => clamp(prev, dw, dh));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- clamp is pure and re-created each render
+  }, [bitmap, zoom]);
+
+  useEffect(() => {
+    if (bitmap) {
+      setOffset({ x: (BOX - dw) / 2, y: (BOX - dh) / 2 });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only on new bitmap
+  }, [bitmap]);
+
+  const nudge = (dx: number, dy: number) => setOffset((prev) => clamp({ x: prev.x + dx, y: prev.y + dy }, dw, dh));
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    dragRef.current = { startX: e.clientX, startY: e.clientY, origin: offset };
+  };
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!dragRef.current) return;
+    const dx = e.clientX - dragRef.current.startX;
+    const dy = e.clientY - dragRef.current.startY;
+    setOffset(clamp({ x: dragRef.current.origin.x + dx, y: dragRef.current.origin.y + dy }, dw, dh));
+  };
+  const onPointerUp = () => {
+    dragRef.current = null;
+  };
+
+  const confirm = () => {
+    if (!bitmap) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = OUTPUT;
+    canvas.height = OUTPUT;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const k = OUTPUT / BOX;
+    ctx.drawImage(bitmap, 0, 0, bitmap.width, bitmap.height, offset.x * k, offset.y * k, dw * k, dh * k);
+    canvas.toBlob(
+      (blob) => {
+        if (blob) onCropped(blob);
+      },
+      "image/jpeg",
+      0.92,
+    );
+  };
+
+  return (
+    <div className="rounded-lg border border-border-strong bg-white/[0.04] p-5">
+      {error && <p className="mb-3 text-[0.8rem] text-[#ff8080]">{error}</p>}
+
+      {bitmap && (
+        <>
+          <div className="flex justify-center">
+            <div
+              tabIndex={0}
+              role="group"
+              aria-label="Photo position — drag, or use the arrow keys, to choose what shows in the circle"
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
+              onPointerCancel={onPointerUp}
+              onKeyDown={(e) => {
+                const step = e.shiftKey ? NUDGE * 3 : NUDGE;
+                if (e.key === "ArrowLeft") { e.preventDefault(); nudge(step, 0); }
+                if (e.key === "ArrowRight") { e.preventDefault(); nudge(-step, 0); }
+                if (e.key === "ArrowUp") { e.preventDefault(); nudge(0, step); }
+                if (e.key === "ArrowDown") { e.preventDefault(); nudge(0, -step); }
+              }}
+              style={{ width: BOX, height: BOX }}
+              className="relative cursor-move touch-none select-none overflow-hidden rounded-full border border-border-strong bg-black/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            >
+              <CropperImage bitmap={bitmap} width={dw} height={dh} x={offset.x} y={offset.y} />
+            </div>
+          </div>
+
+          <div className="mt-5">
+            <label htmlFor={zoomId} className="mb-1.5 block text-[0.7rem] font-medium uppercase tracking-[0.14em] text-text-secondary">
+              Zoom
+            </label>
+            <input
+              id={zoomId}
+              type="range"
+              min={MIN_ZOOM}
+              max={MAX_ZOOM}
+              step={0.01}
+              value={zoom}
+              onChange={(e) => setZoom(parseFloat(e.target.value))}
+              className="w-full accent-[var(--color-accent)]"
+            />
+          </div>
+
+          <div className="mt-5 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={confirm}
+              className="cursor-pointer rounded-lg border border-accent bg-accent px-4 py-2 text-[0.8rem] font-medium text-bg-primary transition-colors duration-150 hover:bg-accent-dim"
+            >
+              Use this photo
+            </button>
+            <button
+              type="button"
+              onClick={onCancel}
+              className="cursor-pointer rounded-lg border border-border-strong bg-white/[0.03] px-4 py-2 text-[0.8rem] text-text-secondary transition-colors duration-150 hover:border-accent hover:text-text-primary"
+            >
+              Choose a different photo
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** Draws the bitmap into a small canvas positioned like an <img> would be —
+ *  a canvas rather than an <img src> because the source is a decoded
+ *  ImageBitmap, not a URL. */
+function CropperImage({
+  bitmap,
+  width,
+  height,
+  x,
+  y,
+}: {
+  bitmap: ImageBitmap;
+  width: number;
+  height: number;
+  x: number;
+  y: number;
+}) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
+
+  useEffect(() => {
+    const canvas = ref.current;
+    if (!canvas) return;
+    canvas.width = Math.round(width * dpr);
+    canvas.height = Math.round(height * dpr);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  }, [bitmap, width, height, dpr]);
+
+  return (
+    <canvas
+      ref={ref}
+      aria-hidden
+      style={{
+        position: "absolute",
+        left: x,
+        top: y,
+        width,
+        height,
+        pointerEvents: "none",
+      }}
+    />
+  );
+}

@@ -255,11 +255,7 @@ begin
     p_grad_year     => 2028,
     p_linkedin_url  => null,
     p_github_url    => null,
-    p_portfolio_url => null,
-    p_bio           => null,
-    p_working_on    => null,
-    p_skill_ids     => null,
-    p_sector_ids    => null
+    p_portfolio_url => null
   );
 
   set local role none;  -- reset to the login superuser to read back status
@@ -356,11 +352,7 @@ begin
       p_grad_year     => v_cy + 1,
       p_linkedin_url  => null,
       p_github_url    => null,
-      p_portfolio_url => null,
-      p_bio           => null,
-      p_working_on    => null,
-      p_skill_ids     => null,
-      p_sector_ids    => null
+      p_portfolio_url => null
     );
     raise exception 'FAIL: non-Imperial student completed onboarding';
   exception
@@ -394,11 +386,7 @@ begin
       p_grad_year     => v_cy,          -- not in the future → rejected
       p_linkedin_url  => null,
       p_github_url    => null,
-      p_portfolio_url => null,
-      p_bio           => null,
-      p_working_on    => null,
-      p_skill_ids     => null,
-      p_sector_ids    => null
+      p_portfolio_url => null
     );
     raise exception 'FAIL: student set a non-future graduation year';
   exception
@@ -439,11 +427,7 @@ begin
       p_grad_year     => v_cy + 1,       -- future → rejected for alumni
       p_linkedin_url  => 'https://linkedin.com/in/alum13',
       p_github_url    => null,
-      p_portfolio_url => null,
-      p_bio           => null,
-      p_working_on    => null,
-      p_skill_ids     => null,
-      p_sector_ids    => null
+      p_portfolio_url => null
     );
     raise exception 'FAIL: alum set a future graduation year';
   exception
@@ -719,6 +703,16 @@ declare
     'is_admin','is_approved',
     -- account / profile (user)
     'delete_my_account','update_profile','submit_onboarding',
+    -- profile media (user) — avatar/CV upload confirm + removal, added by
+    -- 20260901000003. Each self-defends on auth.uid() and verifies an
+    -- upload_tickets row before writing.
+    'confirm_avatar_upload','remove_my_avatar','confirm_cv_upload','remove_my_cv',
+    'get_my_cv_info',
+    -- profile intake (user), added by 20260901000006 (submit_intake.sql)
+    'submit_intake','defer_intake',
+    -- profile media (admin) — moderation + access logging, added by
+    -- 20260901000003. Both self-defend on is_admin().
+    'admin_clear_avatar','admin_log_cv_access','admin_get_cv_info',
     -- Deliberately granted to `authenticated` by 20260828000004: a member
     -- corrects their own affiliation between the five non-student roles. Its
     -- own guards (never from 'student', never to 'student') are the policy,
@@ -1941,6 +1935,105 @@ begin
   if not v_ok then
     raise exception 'FAIL: get_post_like_counts accepted a batch over the 50-id cap';
   end if;
+end;
+$$;
+
+-- 22. Profile media (avatar/CV) protection — 20260901000003/000006.
+do $$
+declare
+  v_a uuid := (select v from _test_ctx where k='user_a');
+  v_b uuid := (select v from _test_ctx where k='user_b');
+  v_ok boolean := false;
+begin
+  -- 22a. A member cannot UPDATE their own avatar_path/cv_path directly —
+  --      only confirm_avatar_upload/confirm_cv_upload may, via the GUC.
+  perform _set_caller(v_a);
+  begin
+    update public.profiles set avatar_path = 'x.webp' where id = v_a;
+    raise exception 'FAIL: member wrote avatar_path directly';
+  exception when sqlstate '42501' then v_ok := true;
+  end;
+  if not v_ok then
+    raise exception 'FAIL: direct avatar_path UPDATE was not rejected with 42501';
+  end if;
+
+  v_ok := false;
+  begin
+    update public.profiles set cv_path = 'x.pdf' where id = v_a;
+    raise exception 'FAIL: member wrote cv_path directly';
+  exception when sqlstate '42501' then v_ok := true;
+  end;
+  if not v_ok then
+    raise exception 'FAIL: direct cv_path UPDATE was not rejected with 42501';
+  end if;
+
+  -- 22b. cv_path is not readable by column privilege at all, even for the
+  --      caller's own row — profiles_select_directory is a ROW policy and
+  --      cannot express "only your own", so the column itself is locked.
+  --      get_my_cv_info() is the one legitimate way back in.
+  if has_column_privilege('authenticated', 'public.profiles', 'cv_path', 'SELECT') then
+    raise exception 'FAIL: authenticated can still SELECT profiles.cv_path directly';
+  end if;
+
+  -- 22c. issue_upload_ticket refuses a caller who isn't approved yet.
+  --      Status flips need service_role context, not just a role reset —
+  --      tg_profiles_protect_status reads the JWT claims GUC, which
+  --      `set local role none` alone does not touch (see test 8).
+  set local role none;
+  perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+  update public.profiles set status = 'pending_review' where id = v_b;
+
+  v_ok := false;
+  perform _set_caller(v_b);
+  begin
+    perform public.issue_upload_ticket('cv');
+    raise exception 'FAIL: a pending_review member obtained a CV upload ticket';
+  exception when sqlstate '42501' then v_ok := true;
+  end;
+  if not v_ok then
+    raise exception 'FAIL: issue_upload_ticket did not reject a non-approved caller';
+  end if;
+
+  set local role none;
+  perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+  update public.profiles set status = 'approved' where id = v_b;
+
+  -- 22d. confirm_cv_upload refuses a ticket issued to a DIFFERENT member —
+  --      the exact IDOR a forged/replayed blob key would attempt.
+  insert into public.upload_tickets (blob_key, user_id, purpose)
+  values ('11111111-1111-1111-1111-111111111111.pdf', v_b, 'cv')
+  on conflict do nothing;
+  v_ok := false;
+  perform _set_caller(v_a);  -- v_a, not v_b — the ticket belongs to v_b
+  begin
+    perform public.confirm_cv_upload(
+      '11111111-1111-1111-1111-111111111111.pdf', 'cv.pdf', false);
+    raise exception 'FAIL: confirmed a CV upload using another member''s ticket';
+  exception when sqlstate '42501' then v_ok := true;
+  end;
+  if not v_ok then
+    raise exception 'FAIL: confirm_cv_upload did not reject a foreign ticket';
+  end if;
+
+  -- 22e. submit_intake refuses a caller who is not yet approved.
+  set local role none;
+  perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+  update public.profiles set status = 'pending_review' where id = v_a;
+
+  v_ok := false;
+  perform _set_caller(v_a);
+  begin
+    perform public.submit_intake('Al', 'Focus', 'Hobbies');
+    raise exception 'FAIL: a pending_review member completed submit_intake';
+  exception when sqlstate '42501' then v_ok := true;
+  end;
+  if not v_ok then
+    raise exception 'FAIL: submit_intake did not reject a non-approved caller';
+  end if;
+
+  set local role none;
+  perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+  update public.profiles set status = 'approved' where id = v_a;
 end;
 $$;
 

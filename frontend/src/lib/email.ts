@@ -112,6 +112,16 @@ function escapeHtml(s: string): string {
 // Rendered separately from sending, like renderGraduationEmail below, so
 // the bulk approve path can build many of these and hand them to
 // enqueueEmailsBulk in one round trip instead of one insert per member.
+//
+// `appUrl` deep-links to /intake, not /home. Under the identity/intake
+// split (20260901000006), this email is the ONLY thing that brings an
+// approved alum back to finish their profile — /home itself only bounces
+// a first-time visitor there, and this is what gets them to that first
+// visit. See ethereal-fluttering-blossom.md §4j.
+//
+// NOTE: the CTA button below is still #c9a84c gold, from before the
+// 2026-08-27 monochrome redesign (PRODUCT.md). Flagged, not fixed here —
+// email visual rebrand is its own piece of work.
 export function renderAcceptanceEmail(opts: {
   firstName: string | null;
   appUrl: string;
@@ -130,7 +140,7 @@ export function renderAcceptanceEmail(opts: {
     "  • Find live VCs and grants accepting applications on the VCs page",
     "  • Post your own opportunity, event or VC/grant for admin review",
     "",
-    "Take a minute to fill out the rest of your profile — what you're working on, the sectors you care about, and your portfolio links. People can only find you for the things they know you do.",
+    "About two minutes finishes your profile — a photo, your skills, and what you're looking for. It's the difference between being a name in a list and being findable for the things you actually do:",
     "",
     opts.appUrl,
     "",
@@ -151,9 +161,9 @@ export function renderAcceptanceEmail(opts: {
         <li>Find live VCs and grants accepting applications on the <strong>VCs</strong> page</li>
         <li>Post your own opportunity, event or VC/grant for admin review</li>
       </ul>
-      <p>Take a minute to fill out the rest of your profile — what you're working on, the sectors you care about, and your portfolio links. People can only find you for the things they know you do.</p>
+      <p>About two minutes finishes your profile — a photo, your skills, and what you're looking for. It's the difference between being a name in a list and being findable for the things you actually do.</p>
       <p style="margin: 20px 0;">
-        <a href="${escapeHtml(opts.appUrl)}" style="display: inline-block; padding: 10px 18px; border-radius: 8px; background: #c9a84c; color: #0c0c0b; text-decoration: none; font-weight: 500;">Open Foundry →</a>
+        <a href="${escapeHtml(opts.appUrl)}" style="display: inline-block; padding: 10px 18px; border-radius: 8px; background: #c9a84c; color: #0c0c0b; text-decoration: none; font-weight: 500;">Finish your profile →</a>
       </p>
       <p>If you have any questions, just reply to this email.</p>
       <p style="color: #5a5855; margin-top: 32px;">— The Foundry team</p>
