@@ -24,11 +24,11 @@ export const metadata: Metadata = {
 };
 
 export default async function MyPostsPage() {
-  const { supabase, isAdmin } = await requireApprovedUser();
+  const { supabase, isAdmin, displayName } = await requireApprovedUser();
   const { posts, nextCursor } = await myPostsPage(supabase, null);
 
   return (
-    <AppShell active="community" isAdmin={isAdmin}>
+    <AppShell active="community" name={displayName} isAdmin={isAdmin}>
       <div className="px-4 sm:px-8 py-10 sm:py-12">
         <div className="max-w-[720px] mx-auto">
           <div className="mb-8 rule-draw pt-4">

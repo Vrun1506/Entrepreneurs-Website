@@ -4,12 +4,12 @@ import { listTaxonomy } from "@/lib/data/taxonomy";
 import OpportunityForm from "./OpportunityForm";
 
 export default async function NewOpportunityPage() {
-  const { supabase, user, isAdmin } = await requireApprovedUser();
+  const { supabase, user, isAdmin, displayName } = await requireApprovedUser();
 
   const { skills, sectors } = await listTaxonomy(supabase);
 
   return (
-    <AppShell active="opportunities" isAdmin={isAdmin}>
+    <AppShell active="opportunities" name={displayName} isAdmin={isAdmin}>
       <div className="px-4 sm:px-8 py-10 sm:py-12">
         <div className="max-w-[720px] mx-auto">
           <div className="mb-8 rule-draw pt-6">

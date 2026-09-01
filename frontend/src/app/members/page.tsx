@@ -39,14 +39,14 @@ export default async function CommunityPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  const { supabase, isAdmin } = await requireApprovedUser();
+  const { supabase, isAdmin, displayName } = await requireApprovedUser();
   const filters = parseFilters(await searchParams);
 
   // Started, not awaited — see the note in app/vcs/page.tsx.
   const data = directoryPage(supabase, filters, { isAdmin });
 
   return (
-    <AppShell active="members" isAdmin={isAdmin}>
+    <AppShell active="members" name={displayName} isAdmin={isAdmin}>
       <div className="px-4 sm:px-8 py-10 sm:py-12">
         <div className="max-w-[1200px] mx-auto">
           <div className="mb-8 rule-draw pt-4">

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { computeDisplayName } from "@/lib/auth/guard";
 import AppShell from "@/components/app/AppShell";
 import { listSkillsDetailed, listSectors, profileIntakeData } from "@/lib/data/taxonomy";
 import { signedImageUrls } from "@/lib/storage/blobRead";
@@ -49,7 +50,12 @@ export default async function ProfilePage() {
   } | null;
 
   return (
-    <AppShell active="settings" isApproved={profile.status === "approved"} isAdmin={isAdmin}>
+    <AppShell
+      active="settings"
+      name={computeDisplayName(profile)}
+      isApproved={profile.status === "approved"}
+      isAdmin={isAdmin}
+    >
       <div className="px-4 sm:px-8 py-10 sm:py-12">
         <div className="max-w-[640px] mx-auto">
           <Link

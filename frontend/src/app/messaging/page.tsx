@@ -21,10 +21,10 @@ export const metadata: Metadata = {
 };
 
 export default async function MessagingPage() {
-  const { isAdmin } = await requireApprovedUser();
+  const { isAdmin, displayName } = await requireApprovedUser();
 
   return (
-    <AppShell active="messaging" isAdmin={isAdmin}>
+    <AppShell active="messaging" name={displayName} isAdmin={isAdmin}>
       <div className="mx-auto flex w-full max-w-[1100px] flex-col items-center px-6 py-20 text-center sm:px-10 sm:py-28">
         <span
           aria-hidden

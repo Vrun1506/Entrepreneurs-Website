@@ -4,12 +4,12 @@ import { myActivity } from "@/lib/data/activity";
 import MyActivityClient from "./MyActivityClient";
 
 export default async function MyActivityPage() {
-  const { supabase, isAdmin } = await requireApprovedUser();
+  const { supabase, isAdmin, displayName } = await requireApprovedUser();
 
   const items = await myActivity(supabase);
 
   return (
-    <AppShell active="activity" isAdmin={isAdmin}>
+    <AppShell active="activity" name={displayName} isAdmin={isAdmin}>
       <div className="px-6 sm:px-8 py-12">
         <div className="max-w-[820px] mx-auto">
           <div className="mb-8 rule-draw pt-4">

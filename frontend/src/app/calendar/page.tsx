@@ -5,7 +5,7 @@ import { myCalendarListings } from "@/lib/data/ownListings";
 import CalendarClient, { type CalItem } from "./CalendarClient";
 
 export default async function CalendarPage() {
-  const { supabase, user, isAdmin } = await requireApprovedUser();
+  const { supabase, user, isAdmin, displayName } = await requireApprovedUser();
 
   // Two sources: items the user marked as applied/going (get_my_activity)
   // and listings the user posted themselves. Own listings cover pending +
@@ -86,7 +86,7 @@ export default async function CalendarPage() {
   const items = Array.from(byKey.values());
 
   return (
-    <AppShell active="calendar" isAdmin={isAdmin}>
+    <AppShell active="calendar" name={displayName} isAdmin={isAdmin}>
       <div className="px-6 sm:px-8 py-12">
         <div className="max-w-[1080px] mx-auto">
           <div className="mb-8 rule-draw pt-4">
