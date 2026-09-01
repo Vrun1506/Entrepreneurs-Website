@@ -6,7 +6,10 @@ const INSTAGRAM_URL = "https://www.instagram.com/imperialentrepreneurs/";
 
 export default function Footer() {
   return (
-    <footer className="border-t border-border bg-bg-secondary py-12 px-8">
+    // Extra bottom padding on mobile clears Navbar's fixed sticky CTA bar,
+    // which would otherwise sit on top of this content at the bottom of
+    // the page.
+    <footer className="border-t border-border bg-bg-secondary pt-12 pb-28 px-8 md:py-12">
       <div className="max-w-[1200px] mx-auto flex flex-wrap justify-between items-center gap-6">
         <BrandLogo size="xs" showAffiliation />
 

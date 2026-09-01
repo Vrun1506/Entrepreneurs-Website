@@ -1,8 +1,14 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import AppShell from "@/components/app/AppShell";
 import { BrandLogo } from "@/components/BrandLogo";
 import ContactForm from "./ContactForm";
+
+export const metadata: Metadata = {
+  title: "Contact",
+  description: "Get in touch with Foundry, the founder community at Imperial College London.",
+};
 
 // Public front door: reachable by anyone (prospective members, alumni,
 // sponsors, press), not just signed-in users. Spam is held off by Turnstile
