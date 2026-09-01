@@ -1,5 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
+import * as Sentry from "@sentry/nextjs";
+
 // global-error renders only when the root layout itself throws — so we
 // can't rely on layout.tsx, fonts, or globals.css. Plain inline styles
 // only. This is the last line of defence.
@@ -14,6 +17,12 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  // instrumentation-client.ts initialises Sentry independently of the root
+  // layout, so this still reports even though the layout itself crashed.
+  useEffect(() => {
+    Sentry.captureException(error);
+  }, [error]);
+
   return (
     <html lang="en">
       <body
