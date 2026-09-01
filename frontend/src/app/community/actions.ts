@@ -8,7 +8,7 @@ import { ok, err, type Result } from "@/lib/result";
 import { describeSupabaseError } from "@/lib/supabaseErrors";
 import { sendPostTakedownEmail, sendPostReportEmail } from "@/lib/email";
 import { postSchema, reportSchema, validatePost } from "@/lib/validation/posts";
-import { issueTicket, gatewayUrl, uploadsEnabled, MAX_UPLOAD_BYTES } from "@/lib/storage/uploadTicket";
+import { issueTicket, gatewayUploadUrl, uploadsEnabled, MAX_UPLOAD_BYTES } from "@/lib/storage/uploadTicket";
 import { blobsExist } from "@/lib/storage/blobRead";
 import { communityFeedPage, myPostsPage, decodeCursor } from "@/lib/data/posts";
 import { toFeedView, toMyPostView, type FeedPostView, type MyPostView } from "./feedView";
@@ -96,9 +96,9 @@ export async function requestUploadTicket(): Promise<
   if (!data) return err("Could not start the upload. Please try again.");
 
   return ok({
-    token: issueTicket({ userId: user.id, key: data }),
+    token: issueTicket({ userId: user.id, key: data, purpose: "post_image" }),
     key: data,
-    uploadUrl: `${gatewayUrl()}/v1/images`,
+    uploadUrl: gatewayUploadUrl("post_image"),
     maxBytes: MAX_UPLOAD_BYTES,
   });
 }

@@ -83,8 +83,7 @@ begin
       json_build_object('sub', v_id::text, 'role', 'authenticated')::text, true);
 
     perform public.submit_onboarding(
-      'MEng Computing', v_year, v_linkedin, null, null,
-      'A bio', 'Working on things', null, null);
+      'MEng Computing', v_year, v_linkedin, null, null);
 
     perform set_config('request.jwt.claims',
       json_build_object('role', 'service_role')::text, true);
@@ -135,7 +134,7 @@ begin
   begin
     perform public.submit_onboarding(
       'MEng Computing', extract(year from now())::int + 2,
-      null, null, null, 'bio', 'working', null, null);
+      null, null, null);
   exception when others then
     v_ok := true;
     raise notice 'ok   non-Imperial student rejected: %', sqlerrm;
@@ -409,7 +408,7 @@ begin
   -- which is how the first draft of this test passed against broken code.
   perform public.submit_onboarding(
     'MEng Computing', extract(year from now())::int - 3,
-    'https://www.linkedin.com/in/guc', null, null, null, null, null, null);
+    'https://www.linkedin.com/in/guc', null, null);
 
   begin
     update public.profiles set status = 'approved' where id = v_id;  -- must still fail

@@ -1,9 +1,11 @@
 """Azure Blob Storage access.
 
-This process is the ONLY thing in the system that can write or delete an
-image. Next.js holds a read-only principal used solely to sign SAS URLs; the
-storage account key is not held anywhere, and shared-key access is disabled
-on the account, so there is no connection string that could leak.
+This process is the ONLY thing in the system that can write or delete a
+blob in any of the three containers (post-images, profile-pictures,
+member-cvs). Next.js holds a read-only principal per container, used solely
+to sign SAS URLs; the storage account key is not held anywhere, and
+shared-key access is disabled on the account, so there is no connection
+string that could leak.
 
 Credentials here come from the VM's system-assigned managed identity via
 DefaultAzureCredential, which means there are no storage secrets on disk at
@@ -35,26 +37,36 @@ def _service() -> BlobServiceClient:
     )
 
 
-def put_image(key: str, data: bytes) -> None:
-    """Write a sanitised image. Create-only — never an overwrite.
+def put_blob(
+    container: str,
+    key: str,
+    data: bytes,
+    *,
+    content_type: str,
+    content_disposition: str,
+) -> None:
+    """Write a sanitised blob. Create-only — never an overwrite.
 
     `overwrite=False` is the control that contains a leaked ticket secret.
     Without it, anyone holding the signing key could mint a ticket naming an
-    existing key and replace another member's image in place, while the post
-    row and the moderation log both still described the original. With it, a
-    forged or replayed ticket can only ever fail.
+    existing key and replace another member's file in place, while the
+    referencing row and the moderation/consent log both still described the
+    original. With it, a forged or replayed ticket can only ever fail.
 
-    Content-Type is fixed rather than echoed from the request: the storage
-    host must never serve a type the client had a hand in choosing.
+    Content-Type and Content-Disposition are always supplied by the caller
+    from what it itself determined (sniffed magic bytes for Content-Type;
+    a fixed policy per purpose for disposition) — never echoed from the
+    request. The storage host must never serve a type or disposition the
+    client had a hand in choosing.
     """
-    blob = _service().get_blob_client(settings().blob_container, key)
+    blob = _service().get_blob_client(container, key)
     try:
         blob.upload_blob(
             data,
             overwrite=False,
             content_settings=ContentSettings(
-                content_type="image/webp",
-                content_disposition="inline",
+                content_type=content_type,
+                content_disposition=content_disposition,
                 cache_control="private, max-age=3600",
             ),
         )
@@ -62,7 +74,7 @@ def put_image(key: str, data: bytes) -> None:
         raise BlobAlreadyExists(key) from exc
 
 
-def delete_image(key: str) -> bool:
+def delete_blob(container: str, key: str) -> bool:
     """Delete one blob. Returns False when it was already gone.
 
     "Already gone" is not an error. A retried batch, a key the account
@@ -70,7 +82,7 @@ def delete_image(key: str) -> bool:
     reach here legitimately, and treating them as failures would retry the
     row to its dead-letter state while the bytes are in fact destroyed.
     """
-    blob = _service().get_blob_client(settings().blob_container, key)
+    blob = _service().get_blob_client(container, key)
     try:
         blob.delete_blob()
         return True

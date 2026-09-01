@@ -69,6 +69,21 @@ describe("describeSupabaseError", () => {
     ).toBe("Link must be 512 characters or fewer.");
   });
 
+  it("passes through a hand-raised 23514 from a per-profile cap trigger", () => {
+    // profile_interests_per_profile_cap and profile_skills_cap_core can't be
+    // real CHECK constraints (a CHECK can't count sibling rows), so they're
+    // enforced by a trigger that raises errcode 23514 with a message already
+    // written for the user. Verified live against PostgREST that `RAISE ...
+    // USING CONSTRAINT = 'x'` does NOT inject `constraint "x"` into the
+    // message text — these must not fall into the native-constraint path.
+    expect(
+      describeSupabaseError({ code: "23514", message: "You can add up to 12 entries in this section." }),
+    ).toBe("You can add up to 12 entries in this section.");
+    expect(
+      describeSupabaseError({ code: "23514", message: "At most 3 core skills are allowed" }),
+    ).toBe("At most 3 core skills are allowed");
+  });
+
   it("maps FK violation (23503) and not-found (PGRST116)", () => {
     expect(describeSupabaseError({ code: "23503" })).toBe("That item no longer exists.");
     expect(describeSupabaseError({ code: "PGRST116" })).toBe("Not found.");

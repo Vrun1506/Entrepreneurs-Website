@@ -31,10 +31,26 @@ ImageFile.LOAD_TRUNCATED_IMAGES = False
 # Longest edge after re-encoding. A feed column is ~720px wide, so 1600
 # covers 2x displays with room to spare and nothing larger is ever useful.
 MAX_EDGE = 1600
+# A profile picture is never displayed larger than a small circle — the
+# cropper already produces a square, so 512 covers 2x on the biggest
+# reasonable avatar slot without storing four times more than anything
+# will ever render.
+AVATAR_MAX_EDGE = 512
 WEBP_QUALITY = 82
 
 MIN_EDGE = 16
 MAX_INPUT_EDGE = 12_000
+
+# Above this many distinct colours, treat the image as a photograph and
+# encode lossy; at or below it, treat it as line art (a logo, a screenshot,
+# an icon) and encode lossless instead. A photo has thousands of colours
+# from noise and gradients alone, so this never fires for one — but a flat
+# black-and-white logo has a handful, and lossy WEBP_QUALITY puts visible
+# ringing around exactly the sharp edges and small text such graphics are
+# made of, which reads as "blurry" or "pixelated" even though a photo at
+# the same quality looks fine. Counted after the resize, so it costs at
+# most max_edge² pixels.
+LOSSLESS_COLOR_THRESHOLD = 256
 
 
 class RejectedImage(Exception):
@@ -79,7 +95,7 @@ def sniff_format(data: bytes) -> str | None:
     return None
 
 
-def sanitise(data: bytes) -> SanitisedImage:
+def sanitise(data: bytes, *, max_edge: int = MAX_EDGE) -> SanitisedImage:
     """Decode, bound, and re-encode an uploaded image.
 
     Returns freshly encoded WebP bytes. The original bytes are never
@@ -93,6 +109,10 @@ def sanitise(data: bytes) -> SanitisedImage:
         forward and the trailing bytes are never copied.
       * The output is one predictable format at a bounded size, so the
         rendering path has exactly one decoder to worry about.
+
+    max_edge defaults to the feed's 1600px, but a profile picture — never
+    displayed larger than a small circle — is called with 512 instead, so
+    it isn't stored four times larger than anything that will ever render it.
     """
     fmt = sniff_format(data)
     if fmt is None:
@@ -114,12 +134,17 @@ def sanitise(data: bytes) -> SanitisedImage:
             if img.mode not in ("RGB", "RGBA"):
                 img = img.convert("RGBA" if "A" in img.getbands() else "RGB")
 
-            img.thumbnail((MAX_EDGE, MAX_EDGE), Image.Resampling.LANCZOS)
+            img.thumbnail((max_edge, max_edge), Image.Resampling.LANCZOS)
 
             out = io.BytesIO()
-            # No exif= and no icc_profile= argument, so neither is carried
-            # across. This is the line that strips location data.
-            img.save(out, format="WEBP", quality=WEBP_QUALITY, method=4)
+            # No exif= and no icc_profile= argument in either branch, so
+            # neither is carried across. This is what strips location data.
+            if img.getcolors(maxcolors=LOSSLESS_COLOR_THRESHOLD) is not None:
+                # Flat graphic (logo, screenshot, icon): encode exactly, no
+                # ringing on the sharp edges lossy compression would blur.
+                img.save(out, format="WEBP", lossless=True, quality=100, method=6)
+            else:
+                img.save(out, format="WEBP", quality=WEBP_QUALITY, method=4)
             return SanitisedImage(data=out.getvalue(), width=img.width, height=img.height)
 
     except RejectedImage:

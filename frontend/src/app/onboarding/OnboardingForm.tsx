@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { BrandLogo } from "@/components/BrandLogo";
-import { ChipGroup, type ChipItem } from "@/components/forms/ChipGroup";
 import { ErrorBanner } from "@/components/forms/Banners";
 import { inputCls } from "@/components/forms/styles";
 import { cleanText } from "@/lib/text";
@@ -16,33 +15,37 @@ import { describeSupabaseError } from "@/lib/supabaseErrors";
 import { Button } from "@/components/ui/Button";
 import { invalidateDirectoryCache } from "@/app/profile/actions";
 
-type Lookup = ChipItem;
+// ════════════════════════════════════════════════════════════════════
+// Foundry · Onboarding — identity only
+//
+// This is the admission gate, not the profile. It collects exactly what
+// admin_list_pending_profiles reviews (course, grad year, LinkedIn) plus
+// GitHub/portfolio, then flips status via submit_onboarding. Everything
+// richer — photo, CV, skills, interests, venture, intent — moved to
+// /intake, which runs only after approval (20260901000006's header
+// comment has the full reasoning for the split). Bio and "what you're
+// working on" are asked there too, not here.
+// ════════════════════════════════════════════════════════════════════
 
 type Props = {
   role: Affiliation;
   firstName: string;
   surname: string;
-  skills: Lookup[];
-  sectors: Lookup[];
 };
 
 const LINKEDIN_RE = /^https?:\/\/([a-z0-9-]+\.)*linkedin\.com\//i;
 const GITHUB_RE   = /^https?:\/\/([a-z0-9-]+\.)*github\.com\//i;
 const URL_RE      = /^https?:\/\/.+/i;
 
-const TOTAL_STEPS = 4;
-const STEP_TITLES = ["Your studies", "About you", "Interests & expertise", "Links"];
+const TOTAL_STEPS = 2;
+const STEP_TITLES = ["Your studies", "Links"];
 
-export default function OnboardingForm({ role, firstName, surname, skills, sectors }: Props) {
+export default function OnboardingForm({ role, firstName, surname }: Props) {
   const router = useRouter();
   const supabase = createClient();
 
   const [course, setCourse] = useState("");
   const [gradYear, setGradYear] = useState<string>("");
-  const [bio, setBio] = useState("");
-  const [workingOn, setWorkingOn] = useState("");
-  const [skillIds, setSkillIds] = useState<Set<number>>(new Set());
-  const [sectorIds, setSectorIds] = useState<Set<number>>(new Set());
   const [linkedin, setLinkedin] = useState("");
   const [github, setGithub] = useState("");
   const [portfolio, setPortfolio] = useState("");
@@ -50,12 +53,6 @@ export default function OnboardingForm({ role, firstName, surname, skills, secto
   const [step, setStep] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-
-  const toggle = (set: Set<number>, id: number, setter: (s: Set<number>) => void) => {
-    const next = new Set(set);
-    if (next.has(id)) next.delete(id); else next.add(id);
-    setter(next);
-  };
 
   const validateStep = (s: number): string | null => {
     if (s === 0) {
@@ -68,10 +65,6 @@ export default function OnboardingForm({ role, firstName, surname, skills, secto
       if (yearErr) return yearErr;
     }
     if (s === 1) {
-      if (bio.length > 1000) return "Bio must be 1000 characters or fewer.";
-      if (workingOn.length > 500) return "\"What you're working on\" must be 500 characters or fewer.";
-    }
-    if (s === 3) {
       const lk = cleanText(linkedin);
       const gh = cleanText(github);
       const pf = cleanText(portfolio);
@@ -114,10 +107,6 @@ export default function OnboardingForm({ role, firstName, surname, skills, secto
       p_linkedin_url:  cleanText(linkedin) || null,
       p_github_url:    cleanText(github) || null,
       p_portfolio_url: cleanText(portfolio) || null,
-      p_bio:           cleanText(bio) || null,
-      p_working_on:    cleanText(workingOn) || null,
-      p_skill_ids:     Array.from(skillIds),
-      p_sector_ids:    Array.from(sectorIds),
     });
     if (rpcError) {
       setError(describeSupabaseError(rpcError));
@@ -126,8 +115,9 @@ export default function OnboardingForm({ role, firstName, surname, skills, secto
     }
     // The RPC decides the status: student ⇒ approved, everything else ⇒
     // pending_review (allow-list, default deny — 20260828000002). Route on
-    // the same rule, through HOME_FOR_STATUS rather than a second hardcoded
-    // path, so an approved member lands on /home like every other entry point.
+    // the same rule, through destinationForStatus rather than a second
+    // hardcoded path — an approved student lands on /home, which then
+    // bounces them into /intake for the rest of their profile.
     router.replace(
       destinationForStatus(role === "student" ? "approved" : "pending_review"),
     );
@@ -155,15 +145,15 @@ export default function OnboardingForm({ role, firstName, surname, skills, secto
           <div className="text-center mb-8">
             <p className="label-wide text-text-secondary mb-3">Step {step + 1} of {TOTAL_STEPS} · {STEP_TITLES[step]}</p>
             <h1 className="font-display text-text-primary leading-[1.1] tracking-tight mb-4 text-[clamp(2rem,4vw,2.75rem)]">
-              Tell us about <span className="font-light text-text-secondary">yourself.</span>
+              Who let you <span className="font-light text-text-secondary">in?</span>
             </h1>
             <p className="text-[0.9rem] text-text-secondary leading-[1.7]">
               {role !== "student"
                 ? "Help us verify your Imperial connection and your work."
-                : "Help your peers find you in the directory."}
+                : "A couple of questions, then you're through."}
               <br />
               <span className="text-text-muted text-[0.825rem]">
-                You can go back to any step. You can edit any of this later from your profile.
+                You can go back to any step. There&apos;s more to add once you&apos;re in.
               </span>
             </p>
           </div>
@@ -182,21 +172,6 @@ export default function OnboardingForm({ role, firstName, surname, skills, secto
               />
             )}
             {step === 1 && (
-              <AboutStep
-                bio={bio} setBio={setBio}
-                workingOn={workingOn} setWorkingOn={setWorkingOn}
-                inputCls={inputCls}
-              />
-            )}
-            {step === 2 && (
-              <InterestsStep
-                skills={skills} skillIds={skillIds}
-                sectors={sectors} sectorIds={sectorIds}
-                onToggleSkill={(id) => toggle(skillIds, id, setSkillIds)}
-                onToggleSector={(id) => toggle(sectorIds, id, setSectorIds)}
-              />
-            )}
-            {step === 3 && (
               <LinksStep
                 role={role}
                 linkedin={linkedin} setLinkedin={setLinkedin}
@@ -310,75 +285,6 @@ function EducationStep({
   );
 }
 
-function AboutStep({
-  bio, setBio, workingOn, setWorkingOn, inputCls,
-}: {
-  bio: string; setBio: (v: string) => void;
-  workingOn: string; setWorkingOn: (v: string) => void;
-  inputCls: string;
-}) {
-  return (
-    <>
-      <div>
-        <label htmlFor="bio" className="block text-[0.75rem] text-text-muted mb-1.5">
-          Short bio <span className="text-text-muted/70 ml-1">— optional</span>
-          <span className="text-text-muted/70 ml-2">{bio.length}/1000</span>
-        </label>
-        <textarea
-          id="bio"
-          rows={3}
-          placeholder="A few lines about you — background, what you've built, what you're known for."
-          value={bio}
-          onChange={(e) => setBio(e.target.value)}
-          className={`${inputCls} resize-none`}
-          maxLength={1000}
-        />
-      </div>
-      <div>
-        <label htmlFor="working-on" className="block text-[0.75rem] text-text-muted mb-1.5">
-          What are you working on? <span className="text-text-muted/70 ml-1">— optional</span>
-          <span className="text-text-muted/70 ml-2">{workingOn.length}/500</span>
-        </label>
-        <textarea
-          id="working-on"
-          rows={2}
-          placeholder="A current project, company, or research focus."
-          value={workingOn}
-          onChange={(e) => setWorkingOn(e.target.value)}
-          className={`${inputCls} resize-none`}
-          maxLength={500}
-        />
-      </div>
-    </>
-  );
-}
-
-function InterestsStep({
-  skills, skillIds, sectors, sectorIds, onToggleSkill, onToggleSector,
-}: {
-  skills: Lookup[]; skillIds: Set<number>;
-  sectors: Lookup[]; sectorIds: Set<number>;
-  onToggleSkill: (id: number) => void;
-  onToggleSector: (id: number) => void;
-}) {
-  return (
-    <>
-      <ChipGroup
-        label="Sectors you're interested in"
-        items={sectors}
-        selected={sectorIds}
-        onToggle={onToggleSector}
-      />
-      <ChipGroup
-        label="Skills and expertise"
-        items={skills}
-        selected={skillIds}
-        onToggle={onToggleSkill}
-      />
-    </>
-  );
-}
-
 function LinksStep({
   role, linkedin, setLinkedin, github, setGithub, portfolio, setPortfolio, inputCls,
 }: {
@@ -439,4 +345,3 @@ function LinksStep({
     </>
   );
 }
-

@@ -17,11 +17,15 @@ import { createServiceClient } from "@/lib/supabase/service";
 // deletion inside a Postgres transaction reaches that identity.
 //
 // WHY THIS IS A COMPLIANCE PATH, NOT HOUSEKEEPING.
-// Rows land in the queue from a trigger on post_images, which fires for
-// every deletion route: author delete, admin takedown, 7-day expiry, ban,
-// and account deletion. If this drain stops, image bytes for content we
-// have told a member is deleted stay in the container. The lifecycle rule
-// on the account is a 30-day backstop, not a substitute.
+// Rows land in the queue from a trigger on post_images (author delete,
+// admin takedown, 7-day expiry, ban, account deletion) AND from
+// profiles_enqueue_media_deletion (20260901000002: an avatar or CV
+// replaced or removed, or the whole profile deleted). If this drain
+// stops, bytes for content we have told a member is deleted stay in
+// whichever container they were written to. The lifecycle rule on the
+// account is a 30-day backstop, not a substitute — see
+// infra/azure/provision.sh, which now runs it across all three
+// containers.
 //
 // Failure handling per key:
 //   * 2xx or 404       → deleted_at = now(). See NOTE below on 404.
@@ -52,6 +56,7 @@ const CONCURRENCY = 5;
 type ClaimedRow = {
   id: string;
   blob_key: string;
+  container: string;
   attempts: number;
   max_attempts: number;
 };
@@ -148,7 +153,7 @@ async function deleteOne(
         "Content-Type": "application/json",
         Authorization: `Bearer ${serviceToken}`,
       },
-      body: JSON.stringify({ keys: [row.blob_key] }),
+      body: JSON.stringify({ items: [{ key: row.blob_key, container: row.container }] }),
       // The gateway is a single small process; a hung request must not eat
       // the whole function budget.
       signal: AbortSignal.timeout(10_000),

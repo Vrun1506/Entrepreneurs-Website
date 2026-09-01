@@ -44,3 +44,25 @@ export function redirectAwayFrom(
   const dest = destinationForStatus(status);
   return dest === ownPath ? null : dest;
 }
+
+/**
+ * Where an approved member belongs before /home, if anywhere.
+ *
+ * "/home bounces to /intake" only for a member who has never seen it —
+ * profile_version < 2 (submit_intake hasn't run) AND intake_deferred_at
+ * is null (they've never hit Skip either). The 20260901000004 backfill
+ * set intake_deferred_at for every already-approved member at migration
+ * time, specifically so this bounce is a one-time invitation rather than
+ * a wall for existing members — they get /home's dismissible prompt card
+ * instead. Admins are exempt, matching every other status-gated page.
+ */
+export function postApprovalDestination(opts: {
+  profileVersion: number | null;
+  intakeDeferredAt: string | null;
+  isAdmin: boolean;
+}): string | null {
+  if (opts.isAdmin) return null;
+  if ((opts.profileVersion ?? 1) >= 2) return null;
+  if (opts.intakeDeferredAt) return null;
+  return "/intake";
+}

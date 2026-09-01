@@ -1,3 +1,74 @@
+# DPIA screening — Community posts, and post-approval intake (CV, photo, skills)
+
+## Feature: post-approval intake — CV upload, deterministic skill matching, profile photo
+
+**Controller:** IC Founders Ltd (Companies House 17171277)
+**Assessed:** 1 September 2026
+**Feature:** the `/intake` flow a member completes after admission — a profile photo (optional,
+cropped client-side before upload), a CV upload (optional, PDF/DOCX), and a closed-taxonomy skill
+picker pre-filled with deterministic string matches against the CV's extracted text.
+**Outcome:** a full DPIA is **not** required. Reasoning below. **This conclusion should be
+re-examined if the deterministic matcher is ever replaced by an LLM** — see
+`cv-matchmaker-spec.md`'s planned successor, which is explicitly out of scope for what is screened
+here.
+
+### Art. 35(3) — the mandatory triggers
+
+| Trigger | Applies? | Why |
+|---|---|---|
+| Systematic and extensive automated evaluation, profiling, or automated decision-making with legal or similarly significant effects | **No** | The matcher is a fixed string comparison against a ~180-entry controlled vocabulary — not inference, not scoring, not ranking. It produces suggestions a member must actively confirm; nothing is added to a profile, and no decision about a person is made, without that action. |
+| Large-scale processing of special category or criminal-offence data | **Considered, not met.** A CV routinely carries data from which health, ethnicity, religion or age are *inferable* — this is exactly why the feature gets its own screening rather than folding into the community-posts one. But nothing here infers or acts on those categories: the only processing is a literal substring match against a skills list, and the extracted text is discarded within the same request, never stored, never reviewed by a human as text. |
+| Systematic monitoring of a publicly accessible area on a large scale | **No** | Not applicable — this is a member uploading their own document to their own account. |
+
+None of the three mandatory triggers is met.
+
+### ICO screening criteria
+
+- **Innovative technology / new use of technology.** The closest-fitting criterion. Extracting text
+  from an uploaded document and matching it against a list is not novel, but doing so from a CV
+  specifically invites the "could this become profiling" question. **Resolved by design**: the
+  matcher can only ever return one of ~180 fixed skill ids, never freeform text, never a score,
+  and never anything the CV's author didn't already choose to write. There is no model, no
+  training, no inference step.
+- **Vulnerable data subjects.** Same population as the rest of the platform — Imperial students
+  and alumni, 18+. No change.
+- **Special category data risk.** Covered above. The mitigation is architectural, not procedural:
+  extracted text is held in memory for the one request and never written anywhere (see ROPA item
+  O), so there is nothing to later mine, re-purpose, or breach.
+- **Scale.** Bounded to the size of the membership; one CV per member, no version history.
+
+### Risks identified, and what mitigates them
+
+| Risk | Mitigation |
+|---|---|
+| CV text (potentially revealing health/ethnicity/religion/age) is retained and later repurposed | Not retained at all — extracted, matched, discarded within the same server action; never logged, never sent to a third party, never rendered back to any user (`lib/cv/extractText.ts`, `lib/cv/matchSkills.ts`) |
+| A suggested skill is added to a profile without the member's knowledge | Every suggestion is a chip the member must tap to add — nothing is auto-applied, and the UI marks suggestions as distinct from confirmed skills |
+| XXE / SSRF via a crafted DOCX | Verified directly against the actual parser (`mammoth`): a hand-built XXE-payload DOCX throws rather than resolving the external entity. No local-file-read or SSRF path exists |
+| A macro-enabled `.docm` disguised as `.docx` | Rejected at the gateway by presence of `word/vbaProject.bin` in the zip, in addition to the `word/document.xml` check |
+| Admin access to a member's CV is unaccountable | Permitted, but never silent — every admin view writes an `admin_actions` row (`action='view_cv'`), disclosed in ROPA item N |
+| PDF embedded JavaScript reaches another member | It cannot: the file is served `Content-Disposition: attachment` from a separate origin (`blob.core.windows.net`), so it is inert unless the CV's own owner or an admin chooses to download and open it in a desktop reader |
+| A member's face is treated as biometric data | It is not processed for unique identification anywhere — only displayed — so Art. 9 is not engaged (recorded explicitly in ROPA item M) |
+
+### Open point for the DPO
+
+None specific to this feature beyond the standing controller/IAO/IAA confirmations already open at
+the top of `02-ropa.md`. The one design decision worth the DPO's attention is **PDF embedded
+JavaScript is accepted, not stripped** (ROPA item N) — a deliberate trade-off (stripping would
+require re-encoding, which breaks the "re-runnable from original bytes" property the matcher
+depends on) rather than an oversight, but it is a judgement call about acceptable residual risk that
+should be confirmed rather than assumed.
+
+### Re-run this screening if
+
+- the deterministic string matcher is replaced by an LLM, embeddings, or any model that infers
+  rather than matches (`cv-matchmaker-spec.md`'s planned successor does exactly this);
+- extracted CV text starts being retained, logged, or sent to a third party for any reason;
+- suggestions are ever applied to a profile without an explicit per-suggestion confirmation;
+- the skill taxonomy stops being a fixed, curated list (e.g. free-text skills reintroduced);
+- CV access broadens beyond the owner and admins, or admin access stops being logged.
+
+---
+
 # DPIA screening — Community posts
 
 **Controller:** IC Founders Ltd (Companies House 17171277)

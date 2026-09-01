@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useId, useRef, useState, type ReactNode } from "react";
 import { inputCls, labelCls } from "@/components/forms/styles";
 
@@ -82,36 +83,38 @@ export function ChoiceCards<T extends string>({
   );
 }
 
-/** Small pill row for single-choice short options (urgency, hours). */
-export function PillChoice<T extends string>({
+/** Small pill row for single-choice short options (urgency, hours,
+ *  recruiting). `value`/`onChange` deal in the coded string a CHECK
+ *  constraint accepts; `label` is copy only. */
+export function PillChoice({
   name,
   options,
   value,
   onChange,
 }: {
   name: string;
-  options: readonly T[];
-  value: T | "";
-  onChange: (v: T) => void;
+  options: readonly { value: string; label: string }[];
+  value: string;
+  onChange: (v: string) => void;
 }) {
   return (
     <div role="radiogroup" aria-label={name} className="flex flex-wrap gap-2">
       {options.map((o) => {
-        const on = value === o;
+        const on = value === o.value;
         return (
           <button
-            key={o}
+            key={o.value}
             type="button"
             role="radio"
             aria-checked={on}
-            onClick={() => onChange(o)}
+            onClick={() => onChange(o.value)}
             className={`cursor-pointer rounded-lg border px-4 py-2 text-[0.8rem] transition-colors duration-150 ${
               on
                 ? "border-accent bg-accent font-medium text-bg-primary"
                 : "border-border-strong bg-white/[0.03] text-text-secondary hover:border-accent hover:text-text-primary"
             }`}
           >
-            {o}
+            {o.label}
           </button>
         );
       })}
@@ -120,10 +123,11 @@ export function PillChoice<T extends string>({
 }
 
 /**
- * Open text input with suggestions. Anything typed is accepted — the
- * suggestion list is a shortcut, not a whitelist. A closed list would lose
- * exactly the people worth attracting: the postgrad whose real skill is
- * "microfluidic device fabrication" picks "hardware" and the signal is gone.
+ * Open text input with suggestions, for interests and hobbies. Anything
+ * typed is accepted — the suggestion list is a shortcut, not a whitelist.
+ * These fields are never filtered on (only displayed), so a closed list
+ * would cost accuracy for no benefit. Skills are the opposite case — see
+ * SkillPicker below, which commits only from the closed taxonomy.
  */
 export function TagInput({
   id,
@@ -199,6 +203,7 @@ export function TagInput({
       <input
         id={id}
         type="text"
+        aria-label={placeholder}
         value={draft}
         disabled={atMax}
         list={listId}
@@ -234,6 +239,174 @@ export function TagInput({
             </li>
           ))}
         </ul>
+      )}
+    </div>
+  );
+}
+
+export type SkillOption = { id: number; name: string; category: string | null };
+
+/**
+ * Search-and-pick over the CLOSED skills taxonomy. Unlike TagInput, nothing
+ * typed here is ever committed directly — a skill is added only by
+ * selecting one of the taxonomy matches, which is what makes the list
+ * closed in practice and not just in the schema. On zero matches this
+ * points at /contact rather than silently accepting the typed text, which
+ * is the dead end a closed list would otherwise create.
+ *
+ * `suggested` renders as its own region, visually distinct from the
+ * selected chips below (a dashed border and a "+" glyph rather than a
+ * solid one) — see AvatarCropper's sibling comment in screens.tsx: a
+ * suggestion is an offer, a chip is a claim, and conflating them would
+ * make it look like the CV parse already changed the member's profile.
+ */
+export function SkillPicker({
+  taxonomy,
+  selectedIds,
+  coreIds,
+  suggested,
+  onAdd,
+  onRemove,
+  onToggleCore,
+  maxCore,
+}: {
+  taxonomy: SkillOption[];
+  selectedIds: number[];
+  coreIds: number[];
+  suggested: SkillOption[];
+  onAdd: (id: number) => void;
+  onRemove: (id: number) => void;
+  onToggleCore: (id: number) => void;
+  maxCore: number;
+}) {
+  const [draft, setDraft] = useState("");
+  const byId = new Map(taxonomy.map((t) => [t.id, t]));
+  const selectedSet = new Set(selectedIds);
+
+  const query = draft.trim().toLowerCase();
+  const matches = query
+    ? taxonomy.filter((t) => !selectedSet.has(t.id) && t.name.toLowerCase().includes(query)).slice(0, 8)
+    : [];
+
+  return (
+    <div>
+      {suggested.length > 0 && (
+        <div className="mb-4 rounded-lg border border-dashed border-signal/50 bg-signal-muted/40 p-3">
+          <p className="mb-2 text-[0.7rem] font-medium uppercase tracking-[0.14em] text-signal">
+            Found in your CV
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {suggested.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => onAdd(s.id)}
+                className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-signal/40 bg-white/[0.03] px-3 py-1.5 text-[0.775rem] text-text-primary transition-colors duration-150 hover:border-signal hover:bg-signal-muted"
+              >
+                <span aria-hidden className="text-signal">+</span>
+                {s.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {selectedIds.length > 0 && (
+        <ul className="mb-2 flex flex-wrap gap-2">
+          {selectedIds.map((id) => {
+            const skill = byId.get(id);
+            if (!skill) return null;
+            return (
+              <li key={id}>
+                <span className="inline-flex items-center gap-1 rounded-lg border border-border-strong bg-white/[0.06] py-1 pl-3 pr-1 text-[0.775rem] text-text-primary">
+                  {skill.name}
+                  <button
+                    type="button"
+                    onClick={() => onRemove(id)}
+                    aria-label={`Remove ${skill.name}`}
+                    className="ml-0.5 flex h-5 w-5 cursor-pointer items-center justify-center rounded border border-border-strong bg-white/[0.04] text-text-secondary transition-colors duration-150 hover:border-accent hover:text-text-primary"
+                  >
+                    <svg width="9" height="9" viewBox="0 0 9 9" fill="none" aria-hidden>
+                      <path d="M1 1L8 8M8 1L1 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                    </svg>
+                  </button>
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      <input
+        type="text"
+        aria-label="Search skills"
+        value={draft}
+        placeholder="Search ~180 skills…"
+        onChange={(e) => setDraft(e.target.value)}
+        className={inputCls}
+      />
+
+      {query && matches.length > 0 && (
+        <ul className="mt-2 flex flex-wrap gap-2">
+          {matches.map((m) => (
+            <li key={m.id}>
+              <button
+                type="button"
+                onClick={() => {
+                  onAdd(m.id);
+                  setDraft("");
+                }}
+                className="cursor-pointer rounded-lg border border-border bg-white/[0.02] px-3 py-1.5 text-[0.775rem] text-text-secondary transition-colors duration-150 hover:border-accent hover:text-text-primary"
+              >
+                + {m.name}
+                {m.category && <span className="ml-1.5 text-text-muted">· {m.category}</span>}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {query && matches.length === 0 && (
+        <p className="mt-2 text-[0.8rem] leading-[1.6] text-text-muted">
+          Nothing matches that — the list is curated,{" "}
+          <Link href="/contact" className="text-text-secondary underline underline-offset-2">
+            tell us what&apos;s missing
+          </Link>
+          .
+        </p>
+      )}
+
+      {selectedIds.length > 0 && (
+        <div className="mt-4">
+          <p className={`${labelCls} mb-2`}>
+            Core skills — {coreIds.length} of {maxCore}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {selectedIds.map((id) => {
+              const skill = byId.get(id);
+              if (!skill) return null;
+              const isCore = coreIds.includes(id);
+              const locked = !isCore && coreIds.length >= maxCore;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  disabled={locked}
+                  aria-pressed={isCore}
+                  onClick={() => onToggleCore(id)}
+                  className={`inline-flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-1.5 text-[0.775rem] transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40 ${
+                    isCore
+                      ? "border-signal/50 bg-signal-muted text-text-primary"
+                      : "border-border-strong bg-white/[0.03] text-text-secondary hover:border-accent hover:text-text-primary"
+                  }`}
+                >
+                  <span aria-hidden className={isCore ? "text-signal" : "text-text-muted"}>★</span>
+                  {skill.name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       )}
     </div>
   );
@@ -327,6 +500,7 @@ export function FilePicker({
         ref={ref}
         type="file"
         accept={accept}
+        aria-label={label}
         className="sr-only"
         onChange={(e) => {
           const f = e.target.files?.[0];
@@ -338,14 +512,16 @@ export function FilePicker({
   );
 }
 
-/** Ordered multi-select. Rank is shown as a numbered badge, not by position alone. */
+/** Ordered multi-select. Rank is shown as a numbered badge, not by position
+ *  alone. `values` holds coded `value`s in rank order — what actually gets
+ *  written to profile_intents.rank via array position. */
 export function RankPicker({
   options,
   values,
   onToggle,
   max,
 }: {
-  options: readonly string[];
+  options: readonly { value: string; label: string }[];
   values: string[];
   onToggle: (v: string) => void;
   max: number;
@@ -353,16 +529,16 @@ export function RankPicker({
   return (
     <div className="flex flex-wrap gap-2">
       {options.map((o) => {
-        const rank = values.indexOf(o);
+        const rank = values.indexOf(o.value);
         const on = rank >= 0;
         const full = !on && values.length >= max;
         return (
           <button
-            key={o}
+            key={o.value}
             type="button"
             disabled={full}
             aria-pressed={on}
-            onClick={() => onToggle(o)}
+            onClick={() => onToggle(o.value)}
             className={`inline-flex cursor-pointer items-center gap-2 rounded-lg border px-4 py-2 text-[0.8rem] transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40 ${
               on
                 ? "border-accent bg-white/[0.10] text-text-primary"
@@ -374,7 +550,7 @@ export function RankPicker({
                 {rank + 1}
               </span>
             )}
-            {o}
+            {o.label}
           </button>
         );
       })}

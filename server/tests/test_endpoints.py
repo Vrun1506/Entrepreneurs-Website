@@ -2,14 +2,15 @@
 
 Storage is stubbed — these cover the request path, not Azure. The point is
 that the wiring holds: an unauthorised request never reaches the decoder, an
-oversized body is cut off before it is buffered, and a rejected image never
-reaches storage.
+oversized body is cut off before it is buffered, and a rejected image or
+document never reaches storage.
 """
 
 from __future__ import annotations
 
 import io
 import time
+import zipfile
 
 import jwt
 import pytest
@@ -19,6 +20,7 @@ from PIL import Image
 SECRET = "test-secret-not-a-real-key-padded-to-length"
 SERVICE_TOKEN = "service-token-value-padded-to-length-here"
 KEY = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee.webp"
+CV_KEY = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee.cv"
 
 
 @pytest.fixture()
@@ -27,8 +29,11 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     monkeypatch.setenv("SERVICE_TOKEN", SERVICE_TOKEN)
     monkeypatch.setenv("AZURE_STORAGE_ACCOUNT", "teststorage")
     monkeypatch.setenv("AZURE_BLOB_CONTAINER", "post-images")
+    monkeypatch.setenv("AZURE_AVATAR_CONTAINER", "profile-pictures")
+    monkeypatch.setenv("AZURE_CV_CONTAINER", "member-cvs")
     monkeypatch.setenv("ALLOWED_ORIGINS", "https://example.test")
     monkeypatch.setenv("MAX_UPLOAD_BYTES", str(1024 * 1024))
+    monkeypatch.setenv("MAX_DOCUMENT_BYTES", str(1024 * 1024))
 
     from app import config
 
@@ -37,11 +42,21 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     from app import main
 
     # Azure is never contacted in tests. The writes are recorded so the
-    # assertions can check what would have been stored.
-    written: dict[str, bytes] = {}
-    deleted: list[str] = []
-    monkeypatch.setattr(main, "put_image", lambda key, data: written.__setitem__(key, data))
-    monkeypatch.setattr(main, "delete_image", lambda key: deleted.append(key) or True)
+    # assertions can check what would have been stored, and in which
+    # container — that distinction is the whole point of this generalising
+    # pass over the single-container original.
+    written: dict[tuple[str, str], bytes] = {}
+    deleted: list[tuple[str, str]] = []
+
+    def _put(container: str, key: str, data: bytes, **_kw: object) -> None:
+        written[(container, key)] = data
+
+    def _delete(container: str, key: str) -> bool:
+        deleted.append((container, key))
+        return True
+
+    monkeypatch.setattr(main, "put_blob", _put)
+    monkeypatch.setattr(main, "delete_blob", _delete)
 
     c = TestClient(main.app)
     c.written = written  # type: ignore[attr-defined]
@@ -67,6 +82,39 @@ def jpeg(size: tuple[int, int] = (400, 300)) -> bytes:
     return buf.getvalue()
 
 
+def real_docx() -> bytes:
+    """A minimal but structurally real .docx — a zip with word/document.xml."""
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr(
+            "word/document.xml",
+            "<w:document xmlns:w=\"x\"><w:body><w:p/></w:body></w:document>",
+        )
+        zf.writestr("[Content_Types].xml", "<Types/>")
+    return buf.getvalue()
+
+
+def docm_disguised_as_docx() -> bytes:
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("word/document.xml", "<w:document/>")
+        zf.writestr("word/vbaProject.bin", b"\x00" * 32)
+    return buf.getvalue()
+
+
+def zip_bomb_docx() -> bytes:
+    """One entry whose declared uncompressed size vastly exceeds compressed."""
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("word/document.xml", "<w:document/>")
+        zf.writestr("word/media/huge.bin", b"\x00" * (5 * 1024 * 1024))
+    return buf.getvalue()
+
+
+def real_pdf() -> bytes:
+    return b"%PDF-1.4\n" + b"x" * 300 + b"\n%%EOF"
+
+
 def test_health_needs_no_auth(client: TestClient) -> None:
     assert client.get("/health").json() == {"status": "ok"}
 
@@ -82,8 +130,25 @@ def test_uploads_and_stores_a_sanitised_image(client: TestClient) -> None:
     assert body["key"] == KEY
     assert (body["width"], body["height"]) == (400, 300)
 
-    # What reached storage is re-encoded WebP, not the bytes that arrived.
-    assert client.written[KEY][:4] == b"RIFF"  # type: ignore[attr-defined]
+    # What reached storage is re-encoded WebP, not the bytes that arrived,
+    # and it landed in the post-images container this ticket resolved to.
+    assert client.written[("post-images", KEY)][:4] == b"RIFF"  # type: ignore[attr-defined]
+
+
+def test_uploads_a_profile_picture_into_its_own_container_at_a_smaller_edge(
+    client: TestClient,
+) -> None:
+    avatar_key = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee.webp"
+    res = client.post(
+        "/v1/images",
+        headers={"Authorization": f"Bearer {ticket(purpose='profile_picture')}"},
+        files={"file": ("photo.jpg", jpeg((2000, 2000)), "image/jpeg")},
+    )
+    assert res.status_code == 200
+    body = res.json()
+    # Bounded to the avatar edge, not the feed's 1600px ceiling.
+    assert body["width"] <= 512 and body["height"] <= 512
+    assert ("profile-pictures", avatar_key) in client.written  # type: ignore[attr-defined]
 
 
 @pytest.mark.parametrize(
@@ -136,53 +201,217 @@ def test_rejects_an_empty_upload(client: TestClient) -> None:
     assert res.status_code == 400
 
 
+def test_images_endpoint_rejects_a_cv_ticket(client: TestClient) -> None:
+    """A ticket is purpose-specific — presenting a CV ticket at the image
+    endpoint (or vice versa, tested below) must not silently work."""
+    res = client.post(
+        "/v1/images",
+        headers={"Authorization": f"Bearer {ticket(purpose='cv', key=CV_KEY)}"},
+        files={"file": ("photo.jpg", jpeg(), "image/jpeg")},
+    )
+    assert res.status_code == 400
+    assert client.written == {}  # type: ignore[attr-defined]
+
+
+# ─── /v1/documents ───────────────────────────────────────────────────
+
+
+def cv_ticket(**overrides: object) -> str:
+    claims: dict[str, object] = {
+        "sub": "11111111-1111-1111-1111-111111111111",
+        "purpose": "cv",
+        "key": CV_KEY,
+        "max_bytes": 1024 * 1024,
+        "exp": int(time.time()) + 300,
+    }
+    claims.update(overrides)
+    return jwt.encode(claims, SECRET, algorithm="HS256")
+
+
+def test_uploads_a_pdf_cv_unmodified(client: TestClient) -> None:
+    pdf = real_pdf()
+    res = client.post(
+        "/v1/documents",
+        headers={"Authorization": f"Bearer {cv_ticket()}"},
+        files={"file": ("cv.pdf", pdf, "application/pdf")},
+    )
+    assert res.status_code == 200
+    assert res.json()["key"] == CV_KEY
+    # Stored verbatim — no re-encoding, unlike the image path.
+    assert client.written[("member-cvs", CV_KEY)] == pdf  # type: ignore[attr-defined]
+
+
+def test_uploads_a_docx_cv(client: TestClient) -> None:
+    res = client.post(
+        "/v1/documents",
+        headers={"Authorization": f"Bearer {cv_ticket()}"},
+        files={
+            "file": (
+                "cv.docx",
+                real_docx(),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        },
+    )
+    assert res.status_code == 200
+    assert ("member-cvs", CV_KEY) in client.written  # type: ignore[attr-defined]
+
+
+def test_rejects_a_password_protected_pdf(client: TestClient) -> None:
+    encrypted = b"%PDF-1.4\n" + b"/Encrypt 5 0 R\n" + b"x" * 300
+    res = client.post(
+        "/v1/documents",
+        headers={"Authorization": f"Bearer {cv_ticket()}"},
+        files={"file": ("cv.pdf", encrypted, "application/pdf")},
+    )
+    assert res.status_code == 415
+    assert client.written == {}  # type: ignore[attr-defined]
+
+
+def test_rejects_a_docm_disguised_as_docx(client: TestClient) -> None:
+    res = client.post(
+        "/v1/documents",
+        headers={"Authorization": f"Bearer {cv_ticket()}"},
+        files={
+            "file": (
+                "cv.docm",
+                docm_disguised_as_docx(),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        },
+    )
+    assert res.status_code == 415
+    assert client.written == {}  # type: ignore[attr-defined]
+
+
+def test_rejects_a_zip_bomb_docx(client: TestClient) -> None:
+    res = client.post(
+        "/v1/documents",
+        headers={"Authorization": f"Bearer {cv_ticket()}"},
+        files={
+            "file": (
+                "cv.docx",
+                zip_bomb_docx(),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        },
+    )
+    assert res.status_code == 415
+    assert client.written == {}  # type: ignore[attr-defined]
+
+
+def test_rejects_a_file_that_is_neither_pdf_nor_docx(client: TestClient) -> None:
+    res = client.post(
+        "/v1/documents",
+        headers={"Authorization": f"Bearer {cv_ticket()}"},
+        files={"file": ("cv.txt", b"just some text " * 30, "text/plain")},
+    )
+    assert res.status_code == 415
+    assert client.written == {}  # type: ignore[attr-defined]
+
+
+def test_documents_endpoint_rejects_a_post_image_ticket(client: TestClient) -> None:
+    """The exact reverse of test_images_endpoint_rejects_a_cv_ticket —
+    ticket-purpose confusion has to fail in both directions."""
+    res = client.post(
+        "/v1/documents",
+        headers={"Authorization": f"Bearer {ticket()}"},  # purpose=post_image
+        files={"file": ("cv.pdf", real_pdf(), "application/pdf")},
+    )
+    assert res.status_code == 400
+    assert client.written == {}  # type: ignore[attr-defined]
+
+
+def test_rejects_an_oversized_document(client: TestClient) -> None:
+    big = real_pdf() + b"\x00" * (2 * 1024 * 1024)
+    res = client.post(
+        "/v1/documents",
+        headers={"Authorization": f"Bearer {cv_ticket()}"},
+        files={"file": ("cv.pdf", big, "application/pdf")},
+    )
+    assert res.status_code == 413
+    assert client.written == {}  # type: ignore[attr-defined]
+
+
+# ─── /v1/blobs/delete ────────────────────────────────────────────────
+
+
 def test_delete_requires_the_service_token(client: TestClient) -> None:
-    res = client.post("/v1/blobs/delete", json={"keys": [KEY]})
+    res = client.post(
+        "/v1/blobs/delete", json={"items": [{"key": KEY, "container": "post-images"}]}
+    )
     assert res.status_code == 401
 
     res = client.post(
         "/v1/blobs/delete",
         headers={"Authorization": "Bearer wrong-token"},
-        json={"keys": [KEY]},
+        json={"items": [{"key": KEY, "container": "post-images"}]},
     )
     assert res.status_code == 401
     assert client.deleted == []  # type: ignore[attr-defined]
 
 
-def test_delete_removes_the_named_keys(client: TestClient) -> None:
+def test_delete_removes_items_from_their_own_containers(client: TestClient) -> None:
     res = client.post(
         "/v1/blobs/delete",
         headers={"Authorization": f"Bearer {SERVICE_TOKEN}"},
-        json={"keys": [KEY]},
+        json={
+            "items": [
+                {"key": KEY, "container": "post-images"},
+                {"key": CV_KEY, "container": "member-cvs"},
+            ]
+        },
     )
     assert res.status_code == 200
-    assert res.json()["deleted"] == 1
-    assert client.deleted == [KEY]  # type: ignore[attr-defined]
+    assert res.json()["deleted"] == 2
+    assert set(client.deleted) == {("post-images", KEY), ("member-cvs", CV_KEY)}  # type: ignore[attr-defined]
 
 
 def test_delete_rejects_a_malformed_or_oversized_payload(client: TestClient) -> None:
     auth = {"Authorization": f"Bearer {SERVICE_TOKEN}"}
-    assert client.post("/v1/blobs/delete", headers=auth, json={"keys": "nope"}).status_code == 400
+    assert client.post("/v1/blobs/delete", headers=auth, json={"items": "nope"}).status_code == 400
     assert client.post("/v1/blobs/delete", headers=auth, json={}).status_code == 400
     assert (
-        client.post("/v1/blobs/delete", headers=auth, json={"keys": [KEY] * 101}).status_code == 400
+        client.post(
+            "/v1/blobs/delete",
+            headers=auth,
+            json={"items": [{"key": KEY, "container": "post-images"}] * 101},
+        ).status_code
+        == 400
     )
 
 
-def test_delete_rejects_keys_that_are_not_post_image_keys(client: TestClient) -> None:
-    """Holding the service token authorises deleting post images, not naming
-    arbitrary objects. The key is a path component either way, so it is
-    checked on arrival rather than trusted because the caller authenticated."""
+def test_delete_rejects_an_unrecognised_container(client: TestClient) -> None:
     auth = {"Authorization": f"Bearer {SERVICE_TOKEN}"}
-    for bad in [
-        "../../etc/passwd",
-        "not-a-uuid.webp",
-        f"{KEY[:-5]}.png",
-        f"nested/path/{KEY}",
-        "",
-    ]:
-        res = client.post("/v1/blobs/delete", headers=auth, json={"keys": [bad]})
-        assert res.status_code == 400, f"accepted a bad key: {bad!r}"
+    res = client.post(
+        "/v1/blobs/delete",
+        headers=auth,
+        json={"items": [{"key": KEY, "container": "some-other-container"}]},
+    )
+    assert res.status_code == 400
+    assert client.deleted == []  # type: ignore[attr-defined]
+
+
+def test_delete_rejects_keys_that_do_not_match_their_containers_pattern(
+    client: TestClient,
+) -> None:
+    """Holding the service token authorises deleting blobs in these three
+    containers, not naming arbitrary objects. The key is a path component
+    either way, so it is checked on arrival rather than trusted because the
+    caller authenticated."""
+    auth = {"Authorization": f"Bearer {SERVICE_TOKEN}"}
+    bad_items = [
+        {"key": "../../etc/passwd", "container": "post-images"},
+        {"key": "not-a-uuid.webp", "container": "post-images"},
+        {"key": f"{KEY[:-5]}.png", "container": "post-images"},
+        {"key": f"nested/path/{KEY}", "container": "post-images"},
+        {"key": "", "container": "post-images"},
+        # A .webp key presented against the CV container's .cv pattern.
+        {"key": KEY, "container": "member-cvs"},
+    ]
+    for item in bad_items:
+        res = client.post("/v1/blobs/delete", headers=auth, json={"items": [item]})
+        assert res.status_code == 400, f"accepted a bad item: {item!r}"
 
     # And nothing reached storage.
     assert client.deleted == []  # type: ignore[attr-defined]

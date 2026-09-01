@@ -66,17 +66,32 @@ export function describeSupabaseError(err: AnyError): string {
     return "That value is already taken.";
   }
 
-  // Check constraint violations — these almost always indicate the
-  // schema rejected something the form's own validation missed.
+  // Check constraint violations — two different shapes arrive here, and
+  // they need opposite treatment.
+  //
+  // Postgres's own auto-generated wording is always
+  // `new row for relation "x" violates check constraint "y"` — that leaks
+  // a table/constraint name and is translated via the lookup table below,
+  // falling back to a generic string for anything not yet mapped.
+  //
+  // But `profile_interests_per_profile_cap` and `profile_skills_cap_core`
+  // (the per-profile caps on interests/hobbies and core skills) can't be
+  // real CHECK constraints — a CHECK can't count sibling rows — so they're
+  // enforced by a trigger that hand-raises errcode 23514 with a message
+  // already written for the user, exactly like the 42501 branch above.
+  // Verified live against PostgREST: `RAISE ... USING CONSTRAINT = 'x'`
+  // does not inject `constraint "x"` into the message text the way
+  // Postgres's own violations do, so the regex below never matches these,
+  // and passing them through — rather than routing every 23514 through the
+  // lookup-or-generic path — is what stops their message from being
+  // silently replaced by the generic fallback.
   if (code === "23514") {
-    // Try to extract the constraint name for a more helpful message.
-    const m = message.match(/constraint "([^"]+)"/);
-    const cname = m?.[1];
-    if (cname) {
-      const friendly = CHECK_CONSTRAINT_MESSAGES[cname];
-      if (friendly) return friendly;
+    const native = message.match(/violates check constraint "([^"]+)"/);
+    if (native) {
+      const friendly = CHECK_CONSTRAINT_MESSAGES[native[1]];
+      return friendly ?? "One of the values you entered was rejected by a validation rule.";
     }
-    return "One of the values you entered was rejected by a validation rule.";
+    return message || "One of the values you entered was rejected by a validation rule.";
   }
 
   // Foreign key violations — usually mean a stale ID was submitted.
@@ -142,4 +157,22 @@ const CHECK_CONSTRAINT_MESSAGES: Record<string, string> = {
   post_images_byte_size:                      "That image is too large — the limit is 8MB.",
   post_reports_reason_len:                    "Report reason must be between 1 and 1000 characters.",
   post_reports_category:                      "Choose one of the listed reasons.",
+  profiles_cv_path_len:                       "That CV reference is too long.",
+  profiles_cv_original_filename_len:          "That filename is too long — try renaming the file.",
+  profiles_preferred_name_len:                "That name must be between 1 and 50 characters.",
+  profiles_bio_focus_len:                     "Keep this to 500 characters or fewer.",
+  profiles_bio_hobbies_len:                   "Keep this to 500 characters or fewer.",
+  profiles_current_focus_check:               "Choose one of the listed options for what takes up most of your week.",
+  profiles_venture_stage_check:                "Choose one of the listed venture stages.",
+  profiles_venture_name_len:                  "Venture name must be between 1 and 200 characters.",
+  profiles_venture_url_format:                "Venture URL must start with http:// or https://.",
+  profiles_venture_url_len:                   "Venture URL must be 512 characters or fewer.",
+  profiles_venture_one_liner_len:             "Keep the one-liner to 140 characters or fewer.",
+  profiles_recruiting_status_check:           "Choose one of the listed recruiting options.",
+  profiles_intent_urgency_check:              "Choose one of the listed urgency options.",
+  profiles_availability_hours_check:          "Choose one of the listed time commitments.",
+  profile_interests_label_len:                "Keep each entry to 100 characters or fewer.",
+  profile_interests_kind_check:               "That isn't a recognised interest category.",
+  profile_interests_per_profile_cap:          "You can add up to 12 entries in this section.",
+  profile_intents_rank_range:                 "You can rank at most 3 choices.",
 };

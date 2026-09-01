@@ -1,35 +1,36 @@
 "use client";
 
-import { useId } from "react";
+import { useId, useRef, useState } from "react";
 import { inputCls } from "@/components/forms/styles";
 import { ChipGroup, type ChipItem } from "@/components/forms/ChipGroup";
-import { gradYearOptions } from "@/lib/gradYears";
-import {
-  AFFILIATIONS,
-  NO_GRAD_YEAR,
-  HAS_GRADUATED,
-  type Affiliation,
-} from "@/lib/intake/steps";
+import { AvatarCropper } from "@/components/media/AvatarCropper";
 import {
   MAX_CORE_SKILLS,
-  MAX_WANTS,
+  MAX_INTENTS,
   MIN_SKILLS,
+  CURRENT_FOCUS,
   VENTURE_STAGES,
-  URGENCIES,
-  HOURS,
-  WANTS,
+  VENTURE_STAGES_WITH_DETAIL,
+  RECRUITING_STATUSES,
+  INTENTS,
+  INTENT_URGENCIES,
+  AVAILABILITY_HOURS,
   addressAs,
   type IntakeState,
 } from "@/lib/intake/state";
-import { Field, ChoiceCards, PillChoice, TagInput, FilePicker, RankPicker } from "./controls";
+import { Field, ChoiceCards, PillChoice, TagInput, FilePicker, RankPicker, SkillPicker, type SkillOption } from "./controls";
 
 export type Patch = (p: Partial<IntakeState>) => void;
 
 export type ScreenProps = {
   s: IntakeState;
   patch: Patch;
-  skillSuggestions: string[];
+  firstName: string;
+  skillTaxonomy: SkillOption[];
   sectors: ChipItem[];
+  avatarUploading: boolean;
+  avatarError: string;
+  onCropAvatar: (blob: Blob) => Promise<void>;
 };
 
 /** Shared lead paragraph under a screen heading. */
@@ -49,175 +50,81 @@ function Aside({ title, children }: { title: string; children: React.ReactNode }
   );
 }
 
-// ─── 01 · Identity ───────────────────────────────────────────────────
+// ─── 01 · Face & bio ─────────────────────────────────────────────────
 
-export function IdentityScreen({ s, patch }: ScreenProps) {
+export function FaceScreen({ s, patch, firstName, avatarUploading, avatarError, onCropAvatar }: ScreenProps) {
   const nameId = useId();
-  const prefId = useId();
-  const courseId = useId();
-  const yearId = useId();
-
-  const aff = s.affiliation;
-  const showGradYear = aff !== null && !NO_GRAD_YEAR.includes(aff);
-  const graduated = aff !== null && HAS_GRADUATED.includes(aff);
+  const focusId = useId();
+  const hobbiesId = useId();
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const replaceRef = useRef<HTMLInputElement>(null);
 
   return (
     <div className="space-y-7">
       <Lead>
-        Membership is closed and every account is a checked Imperial affiliate. Six
-        questions here, then you are through.
+        A face and a couple of lines — genuinely optional, but a directory of
+        grey circles doesn&apos;t get anyone a reply. Skip anything here and
+        come back later from My Profile.
       </Lead>
 
-      {/* Affiliation is chosen at signup, written into profiles.role by
-          tg_handle_new_user, and locked by a trigger from that point on —
-          submit_onboarding takes no role argument, so a picker here would
-          take a change and silently drop it. Shown as a confirmation
-          instead. Making it editable needs a role parameter on the RPC
-          plus a re-run of the Imperial-domain check for 'student'. */}
-      {aff ? (
-        <Field
-          label="How you're connected to Imperial"
-          hint="Chosen when you signed up. Contact us if it's wrong — it decides whether an admin reviews your account, so it isn't self-service."
-        >
-          <div className="flex items-center gap-3 rounded-lg border border-border-strong bg-white/[0.06] px-4 py-3">
-            <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-signal" />
-            <span className="min-w-0">
-              <span className="block text-[0.85rem] font-medium text-text-primary">
-                {AFFILIATIONS.find((a) => a.value === aff)?.label}
-              </span>
-              <span className="mt-0.5 block text-[0.775rem] leading-[1.5] text-text-muted">
-                {AFFILIATIONS.find((a) => a.value === aff)?.blurb}
-              </span>
-            </span>
-          </div>
-        </Field>
-      ) : (
-        <Field
-          label="How are you connected to Imperial?"
-          hint="This decides what the directory shows about you, and whether an admin needs to check your account."
-        >
-          <ChoiceCards<Affiliation>
-            name="Affiliation"
-            options={AFFILIATIONS}
-            value={aff}
-            onChange={(v) =>
-              patch({ affiliation: v, gradYear: NO_GRAD_YEAR.includes(v) ? "" : s.gradYear })
-            }
-          />
-        </Field>
-      )}
-
-      <Field label="Email" hint="Verified at sign-in. Change it from settings, not here.">
+      <Field label="What should we call you?" htmlFor={nameId}>
         <input
-          type="email"
-          value={s.email}
-          readOnly
-          aria-readonly
-          className={`${inputCls} cursor-not-allowed text-text-secondary`}
-        />
-      </Field>
-
-      <div className="grid gap-5 sm:grid-cols-2">
-        <Field label="Full name" htmlFor={nameId}>
-          <input
-            id={nameId}
-            type="text"
-            value={s.fullName}
-            onChange={(e) => patch({ fullName: e.target.value })}
-            placeholder="Full name"
-            className={inputCls}
-          />
-        </Field>
-        <Field label="What people call you" htmlFor={prefId}>
-          <input
-            id={prefId}
-            type="text"
-            value={s.preferredName}
-            onChange={(e) => patch({ preferredName: e.target.value })}
-            placeholder="Preferred name"
-            className={inputCls}
-          />
-        </Field>
-      </div>
-
-      <Field
-        label="Course"
-        htmlFor={courseId}
-        hint="Whatever you'd tell someone at a party — we don't need the catalogue code."
-      >
-        <input
-          id={courseId}
+          id={nameId}
           type="text"
-          value={s.course}
-          onChange={(e) => patch({ course: e.target.value })}
-          placeholder="MEng Computing"
+          value={s.preferredName}
+          onChange={(e) => patch({ preferredName: e.target.value })}
+          maxLength={50}
+          placeholder={firstName}
           className={inputCls}
         />
       </Field>
 
-      {showGradYear && (
-        <Field
-          label={graduated ? "Graduation year" : "Expected graduation year"}
-          htmlFor={yearId}
-        >
-          <select
-            id={yearId}
-            value={s.gradYear}
-            onChange={(e) => patch({ gradYear: e.target.value })}
-            className={inputCls}
-          >
-            <option value="">Select a year</option>
-            {gradYearOptions(graduated ? "alum" : "student").map((y) => (
-              <option key={y} value={y}>
-                {y}
-              </option>
-            ))}
-          </select>
-        </Field>
-      )}
-    </div>
-  );
-}
-
-// ─── 02 · Face & bio ─────────────────────────────────────────────────
-
-export function FaceScreen({ s, patch }: ScreenProps) {
-  const focusId = useId();
-  const hobbiesId = useId();
-  const name = addressAs(s);
-
-  return (
-    <div className="space-y-7">
-      <Lead>
-        Nearly there, {name}. Two boxes and a photo, and the gate is behind you.
-        {s.course.trim() && (
-          <>
-            {" "}
-            We&apos;ll show <span className="text-text-primary">{s.course.trim()}</span> on your
-            card so people know where you came from.
-          </>
+      <Field label="Your photo" hint="Optional. You'll be able to pick exactly which part of it shows.">
+        {pendingFile ? (
+          <AvatarCropper
+            file={pendingFile}
+            onCropped={async (blob) => {
+              await onCropAvatar(blob);
+              setPendingFile(null);
+            }}
+            onCancel={() => setPendingFile(null)}
+          />
+        ) : s.photoPreview ? (
+          <div className="flex items-center gap-4 rounded-lg border border-border-strong bg-white/[0.04] p-4">
+            {/* eslint-disable-next-line @next/next/no-img-element -- object URL, not a remote asset */}
+            <img src={s.photoPreview} alt="" className="h-16 w-16 shrink-0 rounded-full object-cover" />
+            <span className="min-w-0 flex-1 text-[0.85rem] text-text-primary">Looking good.</span>
+            <button
+              type="button"
+              onClick={() => replaceRef.current?.click()}
+              className="shrink-0 cursor-pointer rounded-lg border border-border-strong bg-white/[0.04] px-3 py-2 text-[0.775rem] text-text-secondary transition-colors duration-150 hover:border-accent hover:text-text-primary"
+            >
+              Replace
+            </button>
+            <input
+              ref={replaceRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="sr-only"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) setPendingFile(f);
+                e.target.value = "";
+              }}
+            />
+          </div>
+        ) : (
+          <FilePicker
+            accept="image/jpeg,image/png,image/webp"
+            label="Add a photo"
+            hint="JPG, PNG or WebP"
+            file={null}
+            onPick={setPendingFile}
+            onClear={() => {}}
+          />
         )}
-      </Lead>
-
-      <Field
-        label="Your photo"
-        hint="Required, not optional. A directory of grey circles doesn't get anyone a reply."
-      >
-        <FilePicker
-          accept="image/jpeg,image/png,image/webp"
-          label="Add a photo"
-          hint="JPG, PNG or WebP · this is what everyone sees first"
-          file={s.photo}
-          preview={s.photoPreview}
-          onPick={(f) => {
-            if (s.photoPreview) URL.revokeObjectURL(s.photoPreview);
-            patch({ photo: f, photoPreview: URL.createObjectURL(f) });
-          }}
-          onClear={() => {
-            if (s.photoPreview) URL.revokeObjectURL(s.photoPreview);
-            patch({ photo: null, photoPreview: null });
-          }}
-        />
+        {avatarUploading && <p className="mt-2 text-[0.775rem] text-text-muted">Uploading…</p>}
+        {avatarError && <p className="mt-2 text-[0.775rem] text-[#ff8080]">{avatarError}</p>}
       </Field>
 
       <Field
@@ -228,6 +135,7 @@ export function FaceScreen({ s, patch }: ScreenProps) {
         <textarea
           id={focusId}
           rows={3}
+          maxLength={500}
           value={s.bioFocus}
           onChange={(e) => patch({ bioFocus: e.target.value })}
           placeholder="Building a computer-vision tool for surgical training. Interested in medical devices, regulation, and anything that gets research out of the lab."
@@ -243,6 +151,7 @@ export function FaceScreen({ s, patch }: ScreenProps) {
         <textarea
           id={hobbiesId}
           rows={2}
+          maxLength={500}
           value={s.bioHobbies}
           onChange={(e) => patch({ bioHobbies: e.target.value })}
           placeholder="Long-distance running, cooking for too many people, and losing at chess."
@@ -268,8 +177,8 @@ export type Match = {
   because: string;
 };
 
-export function YoureInScreen({ s, matches }: ScreenProps & { matches: Match[] }) {
-  const name = addressAs(s);
+export function YoureInScreen({ s, firstName, matches }: ScreenProps & { matches: Match[] }) {
+  const name = addressAs(s.preferredName, firstName);
   return (
     <div className="text-center">
       <span
@@ -277,13 +186,14 @@ export function YoureInScreen({ s, matches }: ScreenProps & { matches: Match[] }
         className="mx-auto mb-6 block h-3 w-3 rotate-45 rounded-[1px] bg-signal"
       />
       <p className="mb-2 text-[0.75rem] font-medium uppercase tracking-[0.14em] text-signal">
-        Gate complete · 40%
+        Welcome
       </p>
       <h2 className="mb-4 font-display text-[clamp(1.75rem,3.5vw,2.5rem)] leading-[1.1] tracking-tight text-text-primary">
-        You&apos;re in, {name}.
+        Good to have you, {name}.
       </h2>
       <p className="mx-auto mb-9 max-w-[46ch] text-[0.95rem] leading-[1.65] text-text-secondary">
-        Nine fields, about a minute. Here is what that already bought you.
+        A few more optional questions, and you&apos;re genuinely findable —
+        not just a name in a list.
       </p>
 
       {matches.length > 0 ? (
@@ -307,9 +217,9 @@ export function YoureInScreen({ s, matches }: ScreenProps & { matches: Match[] }
       ) : (
         <div className="rounded-lg border border-border bg-white/[0.03] p-6 text-left">
           <p className="text-[0.875rem] leading-[1.65] text-text-secondary">
-            No matches to show yet — you are early, and the directory is still filling
-            up. Adding your skills and interests on the next three screens is what
-            makes you findable when the next person joins.
+            No one to show yet — you are early, and the directory is still
+            filling up. Adding your skills and interests on the next screens
+            is what makes you findable when the next person joins.
           </p>
         </div>
       )}
@@ -317,30 +227,43 @@ export function YoureInScreen({ s, matches }: ScreenProps & { matches: Match[] }
   );
 }
 
-// ─── 03 · CV ─────────────────────────────────────────────────────────
+// ─── 02 · CV ─────────────────────────────────────────────────────────
 
 export function CvScreen({ s, patch }: ScreenProps) {
   const linkedinId = useId();
+  const consentId = useId();
   return (
     <div className="space-y-7">
-      <Lead>
-        First thing inside, and entirely optional. You are already through the door,
-        so none of this costs you a signup.
-      </Lead>
+      <Lead>Entirely optional, and it costs you nothing you haven&apos;t already got.</Lead>
 
-      <Field
-        label="Your CV"
-        hint="Stored for you and for admins reviewing accounts. Nothing is read from it automatically yet, so it won't fill in the screens ahead."
-      >
+      <Field label="Your CV" hint="PDF or DOCX · 8 MB maximum.">
         <FilePicker
           accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
           label="Drop a PDF or DOCX"
-          hint="or click to browse · 4 MB maximum"
+          hint="or click to browse · 8 MB maximum"
           file={s.cvFile}
-          onPick={(f) => patch({ cvFile: f })}
-          onClear={() => patch({ cvFile: null })}
+          onPick={(f) => patch({ cvFile: f, cvUploadedKey: null })}
+          onClear={() => patch({ cvFile: null, cvUploadedKey: null })}
         />
       </Field>
+
+      {s.cvFile && (
+        <label htmlFor={consentId} className="flex cursor-pointer items-start gap-3 rounded-lg border border-border-strong bg-white/[0.03] p-4">
+          <input
+            id={consentId}
+            type="checkbox"
+            checked={s.cvConsent}
+            onChange={(e) => patch({ cvConsent: e.target.checked })}
+            className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-[var(--color-accent)]"
+          />
+          <span className="text-[0.8rem] leading-[1.6] text-text-secondary">
+            Read the skills section of my CV once, to suggest skills to add on
+            the next screen. We never add anything without you confirming it,
+            and the text itself is never stored — only the matched skills. You
+            can leave this unticked and add skills yourself instead.
+          </span>
+        </label>
+      )}
 
       <Field label="Or just a link" htmlFor={linkedinId} hint="A LinkedIn profile does most of the same work.">
         <input
@@ -356,82 +279,54 @@ export function CvScreen({ s, patch }: ScreenProps) {
   );
 }
 
-// ─── 04 · Skills ─────────────────────────────────────────────────────
+// ─── 03 · Skills ─────────────────────────────────────────────────────
 
-export function SkillsScreen({ s, patch, skillSuggestions }: ScreenProps) {
-  const coreCount = s.skills.filter((k) => k.core).length;
-  const names = s.skills.map((k) => k.name);
+export function SkillsScreen({ s, patch, skillTaxonomy }: ScreenProps) {
+  const suggested = s.suggestedSkillIds
+    .filter((id) => !s.skillIds.includes(id))
+    .map((id) => skillTaxonomy.find((t) => t.id === id))
+    .filter((t): t is SkillOption => !!t);
 
-  const add = (name: string) =>
+  const add = (id: number) => patch({ skillIds: [...s.skillIds, id] });
+  const remove = (id: number) =>
+    patch({ skillIds: s.skillIds.filter((x) => x !== id), coreSkillIds: s.coreSkillIds.filter((x) => x !== id) });
+  const toggleCore = (id: number) =>
     patch({
-      skills: [...s.skills, { name, core: false, known: skillSuggestions.includes(name) }],
-    });
-  const remove = (name: string) => patch({ skills: s.skills.filter((k) => k.name !== name) });
-  const toggleCore = (name: string) =>
-    patch({
-      skills: s.skills.map((k) =>
-        k.name === name
-          ? { ...k, core: !k.core && coreCount >= MAX_CORE_SKILLS ? k.core : !k.core }
-          : k,
-      ),
+      coreSkillIds: s.coreSkillIds.includes(id)
+        ? s.coreSkillIds.filter((x) => x !== id)
+        : s.coreSkillIds.length < MAX_CORE_SKILLS
+          ? [...s.coreSkillIds, id]
+          : s.coreSkillIds,
     });
 
   return (
     <div className="space-y-7">
       <Lead>
-        Type anything. The suggestions are a shortcut, not a list you have to pick
-        from — if we have never heard of it, it still counts.
+        Picked from a curated list, not typed freehand — that&apos;s what
+        keeps &quot;ML&quot;, &quot;machine learning&quot; and &quot;AI&quot;
+        from being three different things in search.
       </Lead>
 
       <Field
         label="Your skills"
-        hint={`At least ${MIN_SKILLS}. Star up to ${MAX_CORE_SKILLS} as core; the rest read as familiar.`}
+        hint={`At least ${MIN_SKILLS} to continue from this screen — or skip the whole thing for now and come back later. Star up to ${MAX_CORE_SKILLS} as core.`}
       >
-        <TagInput
-          placeholder="Start typing a skill…"
-          suggestions={skillSuggestions}
-          values={names}
+        <SkillPicker
+          taxonomy={skillTaxonomy}
+          selectedIds={s.skillIds}
+          coreIds={s.coreSkillIds}
+          suggested={suggested}
           onAdd={add}
           onRemove={remove}
+          onToggleCore={toggleCore}
+          maxCore={MAX_CORE_SKILLS}
         />
       </Field>
-
-      {s.skills.length > 0 && (
-        <Field
-          label={`Core skills — ${coreCount} of ${MAX_CORE_SKILLS}`}
-          hint="The two or three you'd actually want to be found for."
-        >
-          <div className="flex flex-wrap gap-2">
-            {s.skills.map((k) => {
-              const locked = !k.core && coreCount >= MAX_CORE_SKILLS;
-              return (
-                <button
-                  key={k.name}
-                  type="button"
-                  disabled={locked}
-                  aria-pressed={k.core}
-                  onClick={() => toggleCore(k.name)}
-                  className={`inline-flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-1.5 text-[0.775rem] transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40 ${
-                    k.core
-                      ? "border-signal/50 bg-signal-muted text-text-primary"
-                      : "border-border-strong bg-white/[0.03] text-text-secondary hover:border-accent hover:text-text-primary"
-                  }`}
-                >
-                  <span aria-hidden className={k.core ? "text-signal" : "text-text-muted"}>
-                    ★
-                  </span>
-                  {k.name}
-                </button>
-              );
-            })}
-          </div>
-        </Field>
-      )}
     </div>
   );
 }
 
-// ─── 05 · Interests ──────────────────────────────────────────────────
+// ─── 04 · Interests ──────────────────────────────────────────────────
 
 export function InterestsScreen({ s, patch, sectors }: ScreenProps) {
   const toggleSector = (id: number) =>
@@ -443,9 +338,7 @@ export function InterestsScreen({ s, patch, sectors }: ScreenProps) {
 
   return (
     <div className="space-y-7">
-      <Lead>
-        Three fields, and the third one is the one that gets you invited to things.
-      </Lead>
+      <Lead>Three fields, and the third one is the one that gets you invited to things.</Lead>
 
       <ChipGroup
         label="Sectors you'd build in"
@@ -461,31 +354,22 @@ export function InterestsScreen({ s, patch, sectors }: ScreenProps) {
         <TagInput
           placeholder="Add an interest…"
           suggestions={[
-            "Computer vision",
-            "Medical devices",
-            "Climate",
-            "Robotics",
-            "Fintech",
-            "Policy",
-            "Semiconductors",
-            "Synthetic biology",
-            "Space",
-            "Developer tools",
+            "Computer vision", "Medical devices", "Climate", "Robotics", "Fintech",
+            "Policy", "Semiconductors", "Synthetic biology", "Space", "Developer tools",
           ]}
-          values={s.interests}
-          onAdd={(v) => patch({ interests: [...s.interests, v] })}
-          onRemove={(v) => patch({ interests: s.interests.filter((x) => x !== v) })}
+          values={s.academicInterests}
+          max={12}
+          onAdd={(v) => patch({ academicInterests: [...s.academicInterests, v] })}
+          onRemove={(v) => patch({ academicInterests: s.academicInterests.filter((x) => x !== v) })}
         />
       </Field>
 
-      <Field
-        label="Hobbies"
-        hint="The half of the profile that turns a match into a coffee."
-      >
+      <Field label="Hobbies" hint="The half of the profile that turns a match into a coffee.">
         <TagInput
           placeholder="Add a hobby…"
           suggestions={["Running", "Climbing", "Chess", "Cooking", "Football", "Photography", "Cycling", "Reading"]}
           values={s.hobbies}
+          max={12}
           onAdd={(v) => patch({ hobbies: [...s.hobbies, v] })}
           onRemove={(v) => patch({ hobbies: s.hobbies.filter((x) => x !== v) })}
         />
@@ -494,35 +378,70 @@ export function InterestsScreen({ s, patch, sectors }: ScreenProps) {
   );
 }
 
-// ─── 06 · Where you're at ────────────────────────────────────────────
+// ─── 05 · Where you're at ────────────────────────────────────────────
 
 export function WhereScreen({ s, patch }: ScreenProps) {
-  const lineId = useId();
+  const nameId = useId();
+  const urlId = useId();
+  const showDetail = VENTURE_STAGES_WITH_DETAIL.has(s.ventureStage);
+
   return (
     <div className="space-y-7">
-      <Lead>
-        This one changes most often, so it is the one we&apos;ll ask you to confirm each
-        term. Skip anything that doesn&apos;t apply.
-      </Lead>
+      <Lead>This changes most often — update it whenever it stops being true.</Lead>
+
+      <Field label="What's your situation right now?">
+        <ChoiceCards
+          name="Current focus"
+          columns={2}
+          options={CURRENT_FOCUS}
+          value={s.currentFocus || null}
+          onChange={(v) => patch({ currentFocus: v })}
+        />
+      </Field>
 
       <Field label="Where's your venture at?">
         <ChoiceCards
           name="Venture stage"
           columns={2}
-          options={VENTURE_STAGES.map((v) => ({ value: v, label: v }))}
+          options={VENTURE_STAGES}
           value={s.ventureStage || null}
           onChange={(v) => patch({ ventureStage: v })}
         />
       </Field>
 
-      {s.ventureStage && s.ventureStage !== "Not building anything right now" && (
+      {showDetail && (
         <>
-          <Field label="One line on what it does" htmlFor={lineId}>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Field label="Venture name" htmlFor={nameId}>
+              <input
+                id={nameId}
+                type="text"
+                maxLength={200}
+                value={s.ventureName}
+                onChange={(e) => patch({ ventureName: e.target.value })}
+                placeholder="Whatever you call it"
+                className={inputCls}
+              />
+            </Field>
+            <Field label="Website" htmlFor={urlId}>
+              <input
+                id={urlId}
+                type="url"
+                maxLength={512}
+                value={s.ventureUrl}
+                onChange={(e) => patch({ ventureUrl: e.target.value })}
+                placeholder="https://…"
+                className={inputCls}
+              />
+            </Field>
+          </div>
+
+          <Field label="One line on what it does">
             <input
-              id={lineId}
               type="text"
-              value={s.ventureOneLine}
-              onChange={(e) => patch({ ventureOneLine: e.target.value })}
+              maxLength={140}
+              value={s.ventureOneLiner}
+              onChange={(e) => patch({ ventureOneLiner: e.target.value })}
               placeholder="Computer vision that scores surgical technique from theatre footage."
               className={inputCls}
             />
@@ -531,9 +450,9 @@ export function WhereScreen({ s, patch }: ScreenProps) {
           <Field label="Recruiting?">
             <PillChoice
               name="Recruiting"
-              options={["Not right now", "Co-founder", "First hires", "Interns"] as const}
-              value={s.recruiting as "" | "Not right now"}
-              onChange={(v) => patch({ recruiting: v })}
+              options={RECRUITING_STATUSES}
+              value={s.recruitingStatus}
+              onChange={(v) => patch({ recruitingStatus: v })}
             />
           </Field>
         </>
@@ -542,104 +461,45 @@ export function WhereScreen({ s, patch }: ScreenProps) {
   );
 }
 
-// ─── 07 · What you want ──────────────────────────────────────────────
+// ─── 06 · What you want ──────────────────────────────────────────────
 
 export function WantScreen({ s, patch }: ScreenProps) {
   const toggle = (v: string) =>
     patch({
-      wants: s.wants.includes(v)
-        ? s.wants.filter((x) => x !== v)
-        : s.wants.length < MAX_WANTS
-          ? [...s.wants, v]
-          : s.wants,
+      intents: s.intents.includes(v)
+        ? s.intents.filter((x) => x !== v)
+        : s.intents.length < MAX_INTENTS
+          ? [...s.intents, v]
+          : s.intents,
     });
 
   return (
     <div className="space-y-7">
       <Lead>
-        Pick up to {MAX_WANTS}, in order. This is what the directory sorts on when
-        someone goes looking for a person like you.
+        Pick up to {MAX_INTENTS}, in order. This is what the directory sorts
+        on when someone goes looking for a person like you.
       </Lead>
 
-      <Field label={`Pick up to ${MAX_WANTS}, in order`}>
-        <RankPicker options={WANTS} values={s.wants} onToggle={toggle} max={MAX_WANTS} />
+      <Field label={`Pick up to ${MAX_INTENTS}, in order`}>
+        <RankPicker options={INTENTS} values={s.intents} onToggle={toggle} max={MAX_INTENTS} />
       </Field>
 
       <Field label="How urgent?">
         <PillChoice
           name="Urgency"
-          options={URGENCIES}
-          value={s.urgency as "" | (typeof URGENCIES)[number]}
-          onChange={(v) => patch({ urgency: v })}
+          options={INTENT_URGENCIES}
+          value={s.intentUrgency}
+          onChange={(v) => patch({ intentUrgency: v })}
         />
       </Field>
 
       <Field label="Hours a week for something new">
         <PillChoice
           name="Hours a week"
-          options={HOURS}
-          value={s.hoursPerWeek as "" | (typeof HOURS)[number]}
-          onChange={(v) => patch({ hoursPerWeek: v })}
+          options={AVAILABILITY_HOURS}
+          value={s.availabilityHours}
+          onChange={(v) => patch({ availabilityHours: v })}
         />
-      </Field>
-    </div>
-  );
-}
-
-// ─── 08 · Termly refresh ─────────────────────────────────────────────
-
-export function RefreshScreen({ s, patch }: ScreenProps) {
-  const name = addressAs(s);
-  return (
-    <div className="space-y-7">
-      <Lead>
-        Once a term, {name}, we&apos;ll show you this and ask one question. It takes a
-        few seconds and it is the only thing keeping the directory from rotting.
-      </Lead>
-
-      <div className="rounded-lg border border-border bg-white/[0.03] p-5">
-        <dl className="space-y-3 text-[0.85rem]">
-          {[
-            ["Course", s.course],
-            ["Working on", s.bioFocus],
-            ["Venture stage", s.ventureStage],
-            ["Looking for", s.wants.join(", ")],
-          ].map(([k, v]) => (
-            <div key={k} className="grid grid-cols-[9rem_1fr] gap-3">
-              <dt className="text-[0.75rem] font-medium uppercase tracking-[0.14em] text-text-muted">
-                {k}
-              </dt>
-              <dd className="text-text-secondary">
-                {v?.toString().trim() || <span className="text-text-muted">— not set</span>}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </div>
-
-      <Field label="Still accurate?">
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            aria-pressed={s.refreshConfirmed}
-            onClick={() => patch({ refreshConfirmed: true })}
-            className={`cursor-pointer rounded-lg border px-4 py-2 text-[0.8rem] transition-colors duration-150 ${
-              s.refreshConfirmed
-                ? "border-accent bg-accent font-medium text-bg-primary"
-                : "border-border-strong bg-white/[0.03] text-text-secondary hover:border-accent hover:text-text-primary"
-            }`}
-          >
-            All still accurate
-          </button>
-          <button
-            type="button"
-            aria-pressed={!s.refreshConfirmed && s.refreshConfirmed !== null}
-            onClick={() => patch({ refreshConfirmed: false })}
-            className="cursor-pointer rounded-lg border border-border-strong bg-white/[0.03] px-4 py-2 text-[0.8rem] text-text-secondary transition-colors duration-150 hover:border-accent hover:text-text-primary"
-          >
-            Something&apos;s changed
-          </button>
-        </div>
       </Field>
     </div>
   );

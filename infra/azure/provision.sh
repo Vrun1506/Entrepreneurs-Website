@@ -2,9 +2,10 @@
 #
 # Foundry · Azure provisioning for the upload gateway
 #
-# Creates: resource group, storage account, private container, the VM, its
-# network rules, the managed identity's RBAC, and the read-only service
-# principal Vercel uses to sign image URLs.
+# Creates: resource group, storage account, three private containers
+# (post-images, profile-pictures, member-cvs), the VM, its network rules,
+# the managed identity's RBAC on each container, and the read-only service
+# principal Vercel uses to sign image and CV read URLs.
 #
 # SAFE TO RE-RUN. Every step checks for what it is about to create, so a
 # half-finished run can be resumed by running it again. Nothing here deletes
@@ -23,6 +24,16 @@ set -euo pipefail
 RG="${RG:-foundry-rg}"
 LOC="${LOC:-uksouth}"
 CONTAINER="${CONTAINER:-post-images}"
+# Two more containers for the profile-photo and CV upload features, each
+# provisioned and RBAC'd exactly like $CONTAINER — separate containers,
+# not a shared one, so a compromise or a misconfigured read principal on
+# one cannot reach the others. The literal names here must match the
+# blob_deletion_queue.container CHECK constraint in
+# 20260901000002_blob_deletion_container.sql and the Ticket.container
+# resolution in server/app/auth.py — all three read the same three strings.
+AVATAR_CONTAINER="${AVATAR_CONTAINER:-profile-pictures}"
+CV_CONTAINER="${CV_CONTAINER:-member-cvs}"
+CONTAINERS=("$CONTAINER" "$AVATAR_CONTAINER" "$CV_CONTAINER")
 VM="${VM:-foundry-gateway}"
 # Every B-series option is blocked on this subscription in uksouth: the
 # original generation (B1s, B2s, ...) is capacity-restricted
@@ -130,12 +141,19 @@ SCOPE="/subscriptions/$SUB_ID/resourceGroups/$RG/providers/Microsoft.Storage/sto
 # section below for why this matters.
 ACCOUNT_SCOPE="/subscriptions/$SUB_ID/resourceGroups/$RG/providers/Microsoft.Storage/storageAccounts/$SA"
 
+# Per-container scope, for the two loops below (VM Contributor, Vercel
+# Reader) that must run once per container — unlike the Delegator grant,
+# which is account-scoped and already covers all three.
+container_scope() {
+  printf '%s/blobServices/default/containers/%s' "$ACCOUNT_SCOPE" "$1"
+}
+
 if [[ "$PRINT_ONLY" == true ]]; then
   say "Values (nothing created)"
-  printf '    AZURE_STORAGE_ACCOUNT = %s\n    AZURE_BLOB_CONTAINER  = %s\n    AZURE_TENANT_ID       = %s\n' \
-    "$SA" "$CONTAINER" "$TENANT"
+  printf '    AZURE_STORAGE_ACCOUNT  = %s\n    AZURE_BLOB_CONTAINER   = %s\n    AZURE_AVATAR_CONTAINER = %s\n    AZURE_CV_CONTAINER     = %s\n    AZURE_TENANT_ID        = %s\n' \
+    "$SA" "$CONTAINER" "$AVATAR_CONTAINER" "$CV_CONTAINER" "$TENANT"
   VM_IP=$(az vm show -d -g "$RG" -n "$VM" --query publicIps -o tsv 2>/dev/null || echo "not created")
-  printf '    VM public IP          = %s\n' "$VM_IP"
+  printf '    VM public IP           = %s\n' "$VM_IP"
   exit 0
 fi
 
@@ -176,14 +194,16 @@ else
   ok "created $SA"
 fi
 
-say "Container"
-if az storage container show --name "$CONTAINER" --account-name "$SA" --auth-mode login -o none 2>/dev/null; then
-  skip "$CONTAINER already exists"
-else
-  az storage container create --name "$CONTAINER" --account-name "$SA" \
-    --auth-mode login --public-access off -o none
-  ok "created $CONTAINER"
-fi
+say "Containers"
+for c in "${CONTAINERS[@]}"; do
+  if az storage container show --name "$c" --account-name "$SA" --auth-mode login -o none 2>/dev/null; then
+    skip "$c already exists"
+  else
+    az storage container create --name "$c" --account-name "$SA" \
+      --auth-mode login --public-access off -o none
+    ok "created $c"
+  fi
+done
 
 # ─── 3. Soft-delete and versioning OFF ──────────────────────────────
 # COMPLIANCE-CRITICAL. Azure turns both on by default and both RETAIN
@@ -208,13 +228,20 @@ ok "delete-retention, container-retention and versioning all off"
 
 # ─── 4. Lifecycle backstop ──────────────────────────────────────────
 # Posts die at 7 days, so anything older than 30 is definitionally orphaned.
-# A net beneath the deletion queue, not the mechanism.
+# A net beneath the deletion queue, not the mechanism — this rule is what
+# catches bytes left behind if the drain (app/api/cron/drain-blob-deletions)
+# stops running, for all three containers alike. Avatars and CVs are
+# single-slot (one per member, replaced or removed, never versioned), so
+# the same 30-days-since-last-write logic that already runs for posts is
+# correct for them too — a live avatar or CV is, by definition, written
+# again well within 30 days of any change, and an orphan is exactly what
+# this backstop exists to catch.
 say "Lifecycle rule (30-day orphan sweep)"
 POLICY=$(mktemp)
-cat > "$POLICY" <<'JSON'
+cat > "$POLICY" <<JSON
 {"rules":[{"enabled":true,"name":"purge-orphans","type":"Lifecycle",
 "definition":{"actions":{"baseBlob":{"delete":{"daysAfterModificationGreaterThan":30}}},
-"filters":{"blobTypes":["blockBlob"],"prefixMatch":["post-images/"]}}}]}
+"filters":{"blobTypes":["blockBlob"],"prefixMatch":["$CONTAINER/","$AVATAR_CONTAINER/","$CV_CONTAINER/"]}}}]}
 JSON
 az storage account management-policy create --account-name "$SA" -g "$RG" --policy @"$POLICY" -o none 2>/dev/null \
   || az storage account management-policy update --account-name "$SA" -g "$RG" --set "policy=@$POLICY" -o none
@@ -278,18 +305,25 @@ az network nsg rule create -g "$RG" --nsg-name "$NSG" -n allow-https-cloudflare 
 ok "HTTPS from Cloudflare ranges only"
 
 # ─── 7. Managed identity → Blob ─────────────────────────────────────
+# One Contributor assignment per container — Data Reader/Contributor are
+# container-scoped (unlike Delegator below), so each of the three needs
+# its own grant. Miss one here and writes to that container 403 with no
+# hint beyond the gateway's own logs.
 say "Managed identity RBAC"
 PRINCIPAL=$(az vm identity show -g "$RG" -n "$VM" --query principalId -o tsv)
 [[ -n "$PRINCIPAL" ]] || die "VM has no system-assigned identity."
 
-if az role assignment list --assignee "$PRINCIPAL" --scope "$SCOPE" \
-     --query "[?roleDefinitionName=='Storage Blob Data Contributor']" -o tsv | grep -q .; then
-  skip "already has Storage Blob Data Contributor"
-else
-  az role assignment create --assignee "$PRINCIPAL" \
-    --role "Storage Blob Data Contributor" --scope "$SCOPE" -o none
-  ok "VM can write and delete inside $CONTAINER, and nowhere else"
-fi
+for c in "${CONTAINERS[@]}"; do
+  cscope=$(container_scope "$c")
+  if az role assignment list --assignee "$PRINCIPAL" --scope "$cscope" \
+       --query "[?roleDefinitionName=='Storage Blob Data Contributor']" -o tsv | grep -q .; then
+    skip "already has Storage Blob Data Contributor on $c"
+  else
+    az role assignment create --assignee "$PRINCIPAL" \
+      --role "Storage Blob Data Contributor" --scope "$cscope" -o none
+    ok "VM can write and delete inside $c, and nowhere else"
+  fi
+done
 
 # ─── 8. Service principal for Vercel ────────────────────────────────
 say "Vercel service principal (read-only)"
@@ -307,6 +341,27 @@ else
   ok "created $SP_NAME"
 fi
 
+# create-for-rbac's --scopes only covers $CONTAINER (post-images), the
+# original single-container flow. The other two need the same Reader role
+# granted explicitly — Data Reader is container-scoped, so this cannot be
+# done once at the account level the way Delegator below is.
+SP_OBJECT_ID=$(az ad sp show --id "$SP_APP_ID" --query id -o tsv)
+for c in "$AVATAR_CONTAINER" "$CV_CONTAINER"; do
+  cscope=$(container_scope "$c")
+  # Same CLI quirk as the Delegator check below: --assignee can report a
+  # real assignment as missing for this kind of principal, so filter
+  # client-side on --scope instead.
+  if az role assignment list --scope "$cscope" \
+       --query "[?principalId=='$SP_OBJECT_ID' && roleDefinitionName=='Storage Blob Data Reader']" \
+       -o tsv | grep -q .; then
+    skip "$SP_NAME already has Storage Blob Data Reader on $c"
+  else
+    az role assignment create --assignee "$SP_OBJECT_ID" \
+      --role "Storage Blob Data Reader" --scope "$cscope" -o none
+    ok "$SP_NAME can now read $c"
+  fi
+done
+
 # Storage Blob Data Reader alone cannot mint the user-delegation SAS
 # blobRead.ts signs image reads with — that needs the separate
 # Storage Blob Delegator role (generateUserDelegationKey is not in Data
@@ -318,7 +373,9 @@ fi
 # so this doesn't widen what the app can actually do — Azure just
 # requires the grant at the account level because the operation itself
 # is account-level, not container-level.
-SP_OBJECT_ID=$(az ad sp show --id "$SP_APP_ID" --query id -o tsv)
+#
+# SP_OBJECT_ID was already resolved above, for the per-container Reader
+# loop — reused here rather than re-fetched.
 # `--assignee` for the check (rather than --scope + client-side filter) is
 # deliberately avoided here: confirmed 2026-08-31 that `az role assignment
 # list --assignee <object-id>` returns empty for this exact kind of
@@ -403,6 +460,8 @@ Vercel environment variables (Production, Preview, Development):
 
   AZURE_STORAGE_ACCOUNT  $SA
   AZURE_BLOB_CONTAINER   $CONTAINER
+  AZURE_AVATAR_CONTAINER $AVATAR_CONTAINER
+  AZURE_CV_CONTAINER     $CV_CONTAINER
   AZURE_TENANT_ID        $TENANT
   AZURE_CLIENT_ID        $SP_APP_ID
   AZURE_CLIENT_SECRET    $SP_PASSWORD

@@ -114,7 +114,13 @@ export default function PostCard({
                 width={image.width}
                 height={image.height}
                 loading="lazy"
-                className="w-full aspect-[4/3] rounded-lg border border-border-subtle object-cover"
+                // object-contain, not object-cover: a post image can be any
+                // aspect ratio (a photo, a screenshot, a logo), and cover
+                // fills the fixed 4:3 box by cropping whatever doesn't fit —
+                // for anything not already 4:3 that silently cuts off edges
+                // and looks nothing like what was uploaded. contain scales
+                // to fit inside the box instead, letterboxed on the bg fill.
+                className="w-full aspect-[4/3] rounded-lg border border-border-subtle bg-white/[0.02] object-contain"
               />
             ) : (
               <div

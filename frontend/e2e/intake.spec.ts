@@ -1,51 +1,95 @@
 import { test, expect } from "@playwright/test";
+import { createClient } from "@supabase/supabase-js";
+import { USERS, storageStatePath } from "./fixtures";
 
 // ════════════════════════════════════════════════════════════════════
-// Foundry · Rebuilt intake (preview route)
+// Foundry · Post-approval intake (/intake)
 //
-// /onboarding/preview is admin-only and submits nothing — several of its
-// fields have no column yet. These tests cover the two things that would
-// otherwise only be caught by eye: that the nine screens are reachable in
-// order, and that the gate actually gates.
+// Replaces the old /onboarding/preview coverage now that the rebuilt
+// intake is live and wired to submit_intake/defer_intake — see
+// 20260901000006's header comment for the identity/intake split this
+// route depends on.
+//
+// The seeded student is approved with intake_deferred_at already set
+// (global-setup.ts), so every other spec's `/home` navigation is never
+// bounced here. This file borrows that user and clears the deferral for
+// its own duration, restoring it in afterAll — playwright.config.ts runs
+// with workers: 1 / fullyParallel: false, so spec files never run
+// concurrently, but they do run in sequence against the same seeded DB.
 // ════════════════════════════════════════════════════════════════════
 
-test.describe("intake preview", () => {
-  test("gate refuses to advance without its required fields", async ({ page }) => {
-    await page.goto("/onboarding/preview");
+function adminClient() {
+  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
 
-    await expect(page.getByRole("heading", { name: "Who let you in?" })).toBeVisible();
-    await expect(page.getByText("Screen 1 / 9")).toBeVisible();
+test.describe("post-approval intake", () => {
+  test.use({ storageState: storageStatePath("student") });
 
-    // Affiliation arrives already decided — it is set at signup and locked —
-    // so the first thing that can fail here is the empty course.
-    await page.getByRole("button", { name: /Continue/ }).click();
-    await expect(page.getByText("Course is required.")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Who let you in?" })).toBeVisible();
+  let studentId: string;
 
-    await page.getByPlaceholder("MEng Computing").fill("MEng Computing");
-    await page.getByLabel(/graduation year/i).selectOption({ index: 1 });
-    await page.getByRole("button", { name: /Continue/ }).click();
+  test.beforeAll(async () => {
+    const db = adminClient();
+    const { data: list } = await db.auth.admin.listUsers({ page: 1, perPage: 200 });
+    const found = list.users.find((u) => u.email?.toLowerCase() === USERS.student.email.toLowerCase());
+    if (!found) throw new Error("seeded student not found");
+    studentId = found.id;
 
-    await expect(page.getByRole("heading", { name: "Put a face to it" })).toBeVisible();
-    await expect(page.getByText("Screen 2 / 9")).toBeVisible();
+    await db
+      .from("profiles")
+      .update({ intake_deferred_at: null, profile_version: 1 })
+      .eq("id", studentId);
   });
 
-  test("photo is a hard requirement at the gate", async ({ page }) => {
-    await page.goto("/onboarding/preview");
+  test.afterAll(async () => {
+    const db = adminClient();
+    await db
+      .from("profiles")
+      .update({ intake_deferred_at: new Date().toISOString(), profile_version: 1 })
+      .eq("id", studentId);
+  });
 
-    await page.getByPlaceholder("MEng Computing").fill("MEng Computing");
-    await page.getByLabel(/graduation year/i).selectOption({ index: 1 });
+  test("an approved member who has never seen it is bounced from /home to /intake", async ({ page }) => {
+    await page.goto("/home");
+    await expect(page).toHaveURL(/\/intake$/);
+    await expect(page.getByRole("heading", { name: "Put a face to it" })).toBeVisible();
+  });
+
+  test("Continue with nothing filled in still advances — every field here is optional", async ({ page }) => {
+    await page.goto("/intake");
     await page.getByRole("button", { name: /Continue/ }).click();
-
-    await page.getByRole("button", { name: /Finish the gate/ }).click();
-    await expect(page.getByText("A photo is required to finish the gate.")).toBeVisible();
+    await expect(page.getByText(/Good to have you,/)).toBeVisible();
   });
 
   test("the rail lets you back to a visited screen but not ahead", async ({ page }) => {
-    await page.goto("/onboarding/preview");
+    await page.goto("/intake");
 
-    // "Skills" is four screens ahead and must not be reachable yet.
     const rail = page.getByRole("navigation", { name: "Intake progress" });
+    // "Skills" is two screens ahead and must not be reachable yet.
     await expect(rail.getByRole("button", { name: /Skills/ })).toHaveCount(0);
+  });
+
+  test("Skip for now defers intake and lands on /home without bouncing back", async ({ page }) => {
+    await page.goto("/intake");
+    await page.getByRole("button", { name: "Skip for now" }).click();
+    await expect(page).toHaveURL(/\/home$/);
+
+    // The deferral must persist, not just last for the one navigation.
+    await page.goto("/home");
+    await expect(page).toHaveURL(/\/home$/);
+    await expect(page.getByText(/finishes your profile/i)).toBeVisible();
+
+    // Put it back to "never seen" for the remaining tests in this file.
+    const db = adminClient();
+    await db.from("profiles").update({ intake_deferred_at: null }).eq("id", studentId);
+  });
+
+  test("an admin previewing /intake is never bounced there from /home", async ({ browser }) => {
+    const context = await browser.newContext({ storageState: storageStatePath("admin") });
+    const page = await context.newPage();
+    await page.goto("/home");
+    await expect(page).toHaveURL(/\/home$/);
+    await context.close();
   });
 });

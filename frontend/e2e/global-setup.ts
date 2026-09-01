@@ -202,7 +202,18 @@ async function seedUser(admin: SupabaseClient, user: SeedUser): Promise<string> 
 
   const { error: pErr } = await admin
     .from("profiles")
-    .update({ status: "approved", course: "MEng Computing", grad_year: 2027 })
+    // intake_deferred_at mirrors the 20260901000004 backfill for members
+    // approved before /intake existed: without it, every seeded user is
+    // profile_version 1 with no deferral on record, and requireApprovedUser's
+    // bounceToIntake would redirect every `page.goto("/home")` in the suite
+    // straight to /intake instead. Specs that actually want to exercise
+    // /intake clear this column back to null for their own seeded user.
+    .update({
+      status: "approved",
+      course: "MEng Computing",
+      grad_year: 2027,
+      intake_deferred_at: new Date().toISOString(),
+    })
     .eq("id", userId);
   if (pErr) throw new Error(`approve profile ${user.email}: ${pErr.message}`);
 

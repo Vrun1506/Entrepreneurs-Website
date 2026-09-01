@@ -6,6 +6,7 @@ import SocialLinks from "@/components/SocialLinks";
 import { Dialog, closeDialog } from "@/components/ui/Dialog";
 import { browserClient } from "@/lib/supabase/browser";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { MemberAvatar } from "./MemberAvatar";
 import type { DirectoryMember } from "@/lib/data/directory";
 
 // ════════════════════════════════════════════════════════════════════
@@ -22,8 +23,8 @@ const MAX_LOOKING_FOR = 3;
 
 // The fields the list deliberately doesn't carry.
 type FullProfile = {
-  bio: string | null;
-  working_on: string | null;
+  bio_focus: string | null;
+  bio_hobbies: string | null;
   linkedin_url: string | null;
   github_url: string | null;
   portfolio_url: string | null;
@@ -40,7 +41,7 @@ export function MemberDialog({ member: m, onClose }: { member: DirectoryMember; 
     let cancelled = false;
     browserClient()
       .from("profiles")
-      .select("bio, working_on, linkedin_url, github_url, portfolio_url")
+      .select("bio_focus, bio_hobbies, linkedin_url, github_url, portfolio_url")
       .eq("id", m.id)
       .maybeSingle()
       .then(({ data, error }) => {
@@ -62,14 +63,17 @@ export function MemberDialog({ member: m, onClose }: { member: DirectoryMember; 
       className="w-full max-w-[600px] rounded-2xl bg-bg-card border border-border shadow-2xl my-auto"
     >
       <header className="flex items-start justify-between gap-4 px-7 pt-6 pb-4 border-b border-border-subtle">
-        <div className="min-w-0 flex-1">
-          <h2 className="font-display text-[1.4rem] text-text-primary tracking-tight truncate">
-            {m.firstName} {m.surname}
-          </h2>
-          <div className="text-[0.75rem] text-text-muted mt-1">{memberSubtitle(m)}</div>
-          {m.course && (
-            <div className="text-[0.8rem] text-text-secondary mt-1">{m.course}</div>
-          )}
+        <div className="flex min-w-0 flex-1 items-start gap-3.5">
+          <MemberAvatar member={m} size="lg" />
+          <div className="min-w-0">
+            <h2 className="font-display text-[1.4rem] text-text-primary tracking-tight truncate">
+              {m.firstName} {m.surname}
+            </h2>
+            <div className="text-[0.75rem] text-text-muted mt-1">{memberSubtitle(m)}</div>
+            {m.course && (
+              <div className="text-[0.8rem] text-text-secondary mt-1">{m.course}</div>
+            )}
+          </div>
         </div>
         <button
           type="button"
@@ -87,21 +91,21 @@ export function MemberDialog({ member: m, onClose }: { member: DirectoryMember; 
         {/* While the full text loads, show the preview the card already has
             rather than an empty box — the dialog opens with content, and the
             untruncated version replaces it in place. */}
-        {(full?.bio ?? m.bioPreview) && (
+        {(full?.bio_focus ?? m.bioPreview) && (
           <section>
-            <div className="text-[0.7rem] text-text-muted uppercase tracking-wider mb-1.5">Bio</div>
+            <div className="text-[0.7rem] text-text-muted uppercase tracking-wider mb-1.5">Working on</div>
             <p className="text-[0.85rem] text-text-secondary leading-relaxed whitespace-pre-wrap">
-              {full?.bio ?? m.bioPreview}
+              {full?.bio_focus ?? m.bioPreview}
             </p>
             {!full && !loadFailed && <Skeleton className="h-3 w-2/3 mt-2" />}
           </section>
         )}
 
-        {(full?.working_on ?? m.workingOnPreview) && (
+        {(full?.bio_hobbies ?? m.hobbiesPreview) && (
           <section>
-            <div className="text-[0.7rem] text-text-muted uppercase tracking-wider mb-1.5">Working on</div>
+            <div className="text-[0.7rem] text-text-muted uppercase tracking-wider mb-1.5">Outside of that</div>
             <p className="text-[0.85rem] text-text-secondary leading-relaxed whitespace-pre-wrap">
-              {full?.working_on ?? m.workingOnPreview}
+              {full?.bio_hobbies ?? m.hobbiesPreview}
             </p>
           </section>
         )}
@@ -162,7 +166,7 @@ export function MemberDialog({ member: m, onClose }: { member: DirectoryMember; 
 
         {/* Only claim the profile is empty once we know: the links and the
             full text arrive after the dialog opens. */}
-        {full && !full.bio && !full.working_on && m.sectors.length === 0 && m.skills.length === 0
+        {full && !full.bio_focus && !full.bio_hobbies && m.sectors.length === 0 && m.skills.length === 0
           && m.lookingFor.length === 0 && !full.linkedin_url && !full.github_url && !full.portfolio_url && (
           <p className="text-[0.85rem] text-text-muted italic">
             No additional details on this profile yet.

@@ -41,7 +41,10 @@ export async function approveUser(userId: string): Promise<Result> {
 
   // Build the email link from trusted config, NOT request headers
   // (x-forwarded-host is attacker-controllable → email-link poisoning).
-  const appUrl = `${emailBaseUrl()}/home`;
+  // Deep-links to /intake, not /home — see renderAcceptanceEmail's own
+  // comment for why this email is the one thing that gets an approved
+  // alum to their first visit there.
+  const appUrl = `${emailBaseUrl()}/intake`;
 
   try {
     await sendAcceptanceEmail({
@@ -113,7 +116,7 @@ export async function bulkApproveUsers(ids: string[]): Promise<BulkResult> {
   if (!auth.ok) return { ok: false, error: auth.error };
   const { supabase } = auth;
 
-  const appUrl = `${emailBaseUrl()}/home`;
+  const appUrl = `${emailBaseUrl()}/intake`;
 
   return runBulk(ids, {
     one: async (id) => {

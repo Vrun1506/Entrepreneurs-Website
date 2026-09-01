@@ -21,7 +21,10 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest==9.1.1",
-    "httpx==0.28.1",
+    # starlette.testclient tries `import httpx2 as httpx` first and only
+    # falls back to plain httpx with a deprecation warning — httpx2 is a
+    # drop-in for this use, so there's no reason to carry the deprecated one.
+    "httpx2==2.12.0",
 ]
 
 [build-system]

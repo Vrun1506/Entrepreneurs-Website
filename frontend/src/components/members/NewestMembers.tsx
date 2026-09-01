@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { MemberDialog, memberSubtitle } from "./MemberDialog";
+import { MemberAvatar } from "./MemberAvatar";
 import type { DirectoryMember } from "@/lib/data/directory";
 
 // ════════════════════════════════════════════════════════════════════
@@ -46,11 +47,16 @@ function NewestCard({ member: m, onClick }: { member: DirectoryMember; onClick: 
       onClick={onClick}
       className="text-left p-4 rounded-2xl bg-accent-muted/30 border border-accent/20 hover:border-accent hover:bg-accent-muted/40 transition-colors duration-150 cursor-pointer"
     >
-      <div className="text-[0.875rem] font-medium text-text-primary truncate">
-        {m.firstName} {m.surname}
-      </div>
-      <div className="text-[0.7rem] text-text-muted mt-0.5 truncate">
-        {memberSubtitle(m)}
+      <div className="flex items-center gap-2.5">
+        <MemberAvatar member={m} size="sm" />
+        <div className="min-w-0">
+          <div className="text-[0.875rem] font-medium text-text-primary truncate">
+            {m.firstName} {m.surname}
+          </div>
+          <div className="text-[0.7rem] text-text-muted mt-0.5 truncate">
+            {memberSubtitle(m)}
+          </div>
+        </div>
       </div>
       {m.course && (
         <div className="mt-2 line-clamp-2 break-words text-[0.7rem] text-text-secondary">{m.course}</div>

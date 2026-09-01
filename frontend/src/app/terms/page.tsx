@@ -9,7 +9,7 @@ export const metadata = {
   title: "Terms & Conditions · Foundry",
 };
 
-const LAST_UPDATED = "29 August 2026";
+const LAST_UPDATED = "1 September 2026";
 
 export default function TermsPage() {
   return (
@@ -70,11 +70,13 @@ export default function TermsPage() {
 
           <Section title="4. Content you post">
             <p>
-              You retain ownership of the content you submit. By posting it, you grant us a non-exclusive,
-              royalty-free licence to host, store, and display that content to other approved members for the
-              purpose of operating Foundry. You confirm that you have the right to post it and that it does not
-              breach these terms or anyone&rsquo;s rights. When you delete a listing or your account, we remove that
-              content from our live systems as described in the{" "}
+              You retain ownership of the content you submit — including a profile photo or CV you upload. By
+              posting it, you grant us a non-exclusive, royalty-free licence to host, store, and display that
+              content for the purpose of operating Foundry: your profile photo and profile details to other
+              approved members in the directory, and your CV to yourself and to our admins only. You confirm that
+              you have the right to post it, that a profile photo is of you, and that it does not breach these
+              terms or anyone&rsquo;s rights. When you delete a listing, your CV, your photo, or your account, we
+              remove that content from our live systems as described in the{" "}
               <Link href="/privacy" className="text-accent hover:text-accent-light no-underline">Privacy Policy</Link>.
             </p>
             <p className="mt-3">

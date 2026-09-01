@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.overrides";
 import type { UserStatus } from "@/lib/database.overrides";
-import { destinationForStatus } from "@/lib/auth/status";
+import { destinationForStatus, postApprovalDestination } from "@/lib/auth/status";
 
 // Auth + onboarding-status gating used by every authenticated page.
 // Centralised so swapping Supabase for a different backend later (e.g.
@@ -22,6 +22,16 @@ export type GateOptions = {
    * preview user-facing UIs for diagnostics).
    */
   passthrough?: boolean;
+  /**
+   * If true, also bounce an approved-but-not-yet-intaken member to
+   * /intake — see postApprovalDestination. Only /home passes this: it
+   * is the one page whose whole job is "where you land after signing
+   * in", so it is the one place a first-time invitation belongs. Every
+   * other approved page (settings, members, opportunities…) must stay
+   * reachable regardless, or a member who deep-links in gets bounced
+   * somewhere they didn't ask to go.
+   */
+  bounceToIntake?: boolean;
 };
 
 export type GateResult = {
@@ -48,7 +58,11 @@ export async function requireApprovedUser(opts: GateOptions = {}): Promise<GateR
 
   const [{ data: isAdminData }, { data: profile }] = await Promise.all([
     supabase.rpc("is_admin"),
-    supabase.from("profiles").select("status").eq("id", user.id).single(),
+    supabase
+      .from("profiles")
+      .select("status, profile_version, intake_deferred_at")
+      .eq("id", user.id)
+      .single(),
   ]);
 
   const isAdmin = !!isAdminData;
@@ -57,6 +71,15 @@ export async function requireApprovedUser(opts: GateOptions = {}): Promise<GateR
 
   if (!opts.passthrough && !isAdmin && profile.status !== "approved") {
     redirect(destinationForStatus(profile.status));
+  }
+
+  if (opts.bounceToIntake && profile.status === "approved") {
+    const dest = postApprovalDestination({
+      profileVersion: profile.profile_version,
+      intakeDeferredAt: profile.intake_deferred_at,
+      isAdmin,
+    });
+    if (dest) redirect(dest);
   }
 
   return {

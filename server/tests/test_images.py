@@ -11,7 +11,7 @@ import io
 import zipfile
 
 import pytest
-from PIL import Image
+from PIL import Image, ImageDraw
 
 from app.images import MAX_EDGE, RejectedImage, sanitise, sniff_format
 
@@ -150,6 +150,51 @@ def test_handles_palette_images() -> None:
     buf = io.BytesIO()
     Image.new("P", (100, 100)).save(buf, format="PNG")
     assert sanitise(buf.getvalue()).width == 100
+
+
+# ─── Lossless vs. lossy: logos and screenshots vs. photographs ──────
+
+
+def test_a_flat_graphic_round_trips_exactly() -> None:
+    """A logo (few colours, sharp edges) is re-encoded losslessly.
+
+    Lossy WEBP_QUALITY puts visible ringing around the sharp edges a flat
+    graphic is made of — the exact failure mode a member reported after
+    uploading the org's own logo. Below LOSSLESS_COLOR_THRESHOLD, the
+    output must decode back to pixel-identical data.
+    """
+    buf = io.BytesIO()
+    img = Image.new("RGB", (300, 300), (255, 255, 255))
+    draw = ImageDraw.Draw(img)
+    draw.ellipse((40, 40, 260, 260), outline=(0, 0, 0), width=20)
+    draw.rectangle((130, 40, 170, 260), fill=(0, 0, 0))
+    img.save(buf, format="PNG")
+
+    result = sanitise(buf.getvalue())
+    with Image.open(io.BytesIO(result.data)) as out:
+        assert list(out.convert("RGB").get_flattened_data()) == list(img.convert("RGB").get_flattened_data())
+
+
+def test_a_photograph_still_encodes_lossy() -> None:
+    """Photographic noise (thousands of colours) stays on the lossy path.
+
+    Lossless WebP on real photo entropy would balloon file size for a
+    quality gain nobody can see — the threshold exists to avoid paying
+    that cost on the common case.
+    """
+    import random
+
+    rng = random.Random(0)
+    img = Image.new("RGB", (300, 300))
+    img.putdata([(rng.randrange(256), rng.randrange(256), rng.randrange(256)) for _ in range(300 * 300)])
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+
+    result = sanitise(buf.getvalue())
+    with Image.open(io.BytesIO(result.data)) as out:
+        # Lossy: some pixels differ, but dimensions and format are intact.
+        assert list(out.convert("RGB").get_flattened_data()) != list(img.convert("RGB").get_flattened_data())
+        assert (out.width, out.height) == (300, 300)
 
 
 # ─── Resource-exhaustion defences ───────────────────────────────────

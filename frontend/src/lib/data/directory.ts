@@ -1,6 +1,7 @@
 import "server-only";
 import { rows, type Db } from "./query";
 import { cached } from "@/lib/cache";
+import { signedImageUrls } from "@/lib/storage/blobRead";
 import type { Affiliation } from "@/lib/intake/steps";
 
 // ════════════════════════════════════════════════════════════════════
@@ -108,10 +109,14 @@ export async function adminFacets(db: Db): Promise<Facets> {
 // The public directory
 // ────────────────────────────────────────────────────────────────────
 
-// bio and working_on are previews truncated by the RPC, not the full
-// text — the dialog reads those directly when it opens. course, grad_year
-// and the two preview columns are nullable in the table and non-null in
-// the generated Returns, so they are widened back here.
+// bio_focus and bio_hobbies are previews truncated by the RPC, not the
+// full text — the dialog reads those directly when it opens. course,
+// grad_year and the two preview columns are nullable in the table and
+// non-null in the generated Returns, so they are widened back here.
+//
+// Renamed from bio/working_on (20260901000007) when the rebuilt intake's
+// columns replaced them: bio_focus is "what you're working on, or into"
+// and bio_hobbies is genuinely new, with no legacy equivalent.
 type CardRow = {
   id: string;
   first_name: string;
@@ -119,8 +124,9 @@ type CardRow = {
   role: Affiliation;
   course: string | null;
   grad_year: number | null;
-  bio: string | null;
-  working_on: string | null;
+  avatar_path: string | null;
+  bio_focus: string | null;
+  bio_hobbies: string | null;
   created_at: string;
   skill_names: string[] | null;
   sector_names: string[] | null;
@@ -135,15 +141,38 @@ export function toDirectoryMember(r: CardRow, lookingFor: { id: string; role: st
     role: r.role,
     course: r.course,
     gradYear: r.grad_year,
-    bioPreview: r.bio,
-    workingOnPreview: r.working_on,
+    avatarPath: r.avatar_path,
+    bioPreview: r.bio_focus,
+    hobbiesPreview: r.bio_hobbies,
     skills:  r.skill_names  ?? [],
     sectors: r.sector_names ?? [],
     lookingFor,
   };
 }
 
-export type DirectoryMember = ReturnType<typeof toDirectoryMember>;
+type DirectoryMemberBase = ReturnType<typeof toDirectoryMember>;
+
+export type DirectoryMember = DirectoryMemberBase & { avatarUrl: string | null };
+
+/**
+ * Mints a read URL for every member with an avatar, one signing round
+ * rather than one per card. Members without a photo get `avatarUrl: null`
+ * directly — no point asking the signer for a key it doesn't have.
+ */
+async function withAvatarUrls<T extends DirectoryMemberBase>(
+  members: T[],
+): Promise<(T & { avatarUrl: string | null })[]> {
+  const withPath = members
+    .map((m, i) => ({ i, path: m.avatarPath }))
+    .filter((x): x is { i: number; path: string } => x.path != null);
+
+  const urls = withPath.length
+    ? await signedImageUrls(withPath.map((x) => x.path), "profile_picture")
+    : [];
+  const urlByIndex = new Map(withPath.map((x, j) => [x.i, urls[j] ?? null]));
+
+  return members.map((m, i) => ({ ...m, avatarUrl: urlByIndex.get(i) ?? null }));
+}
 
 export type DirectoryPage = {
   members: DirectoryMember[];
@@ -190,7 +219,7 @@ export async function newestMembers(db: Db, limit = 5): Promise<DirectoryMember[
   const cards = await rows("list_directory_cards (newest)", () =>
     db.rpc("list_directory_cards", { p_limit: limit, p_sort: "recent" }));
   const lookingFor = await openRolesByPoster(db, cards.map((r) => r.id));
-  return cards.map((r) => toDirectoryMember(r, lookingFor.get(r.id) ?? []));
+  return withAvatarUrls(cards.map((r) => toDirectoryMember(r, lookingFor.get(r.id) ?? [])));
 }
 
 /**
@@ -221,7 +250,7 @@ export async function directoryPage(
   const lookingFor = await openRolesByPoster(db, cards.map((r) => r.id));
 
   return {
-    members: cards.map((r) => toDirectoryMember(r, lookingFor.get(r.id) ?? [])),
+    members: await withAvatarUrls(cards.map((r) => toDirectoryMember(r, lookingFor.get(r.id) ?? []))),
     facets,
     // total_count rides on every row via a window function, so it is
     // absent exactly when the page is empty.

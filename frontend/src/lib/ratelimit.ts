@@ -30,7 +30,9 @@ export type RateBucket =
   | "submit"
   | "communityPost"
   | "communityUpload"
-  | "postReport";
+  | "postReport"
+  | "avatarUpload"
+  | "cvUpload";
 
 // Factory per bucket. slidingWindow chosen for smooth limiting; analytics
 // off to keep the command count (and cost) down.
@@ -80,6 +82,22 @@ const BUCKETS: Record<RateBucket, () => Ratelimit> = {
   // still `communityPost`.
   communityUpload: () =>
     new Ratelimit({ redis: redis!, limiter: Ratelimit.slidingWindow(40, "24 h"), prefix: "rl:upl", analytics: false }),
+  // Avatar and CV uploads each get their own allowance rather than sharing
+  // communityUpload — posting pictures to the feed and setting a profile
+  // photo are unrelated activities, and lumping them would let a member
+  // who posts a lot of images burn through their own avatar quota. 10/day
+  // covers re-cropping and changing your mind several times over; the
+  // abuse case either bucket guards against is a script, which 10/day
+  // stops just as dead as 40/day does. No new database backstop is
+  // needed alongside these — issue_upload_ticket's existing cap is 60
+  // *outstanding* (unconsumed) tickets, global per member, and a normal
+  // member never holds more than one unconsumed avatar ticket and one CV
+  // ticket at a time, so it cannot be approached by traffic through
+  // these two buckets alone.
+  avatarUpload: () =>
+    new Ratelimit({ redis: redis!, limiter: Ratelimit.slidingWindow(10, "24 h"), prefix: "rl:ava", analytics: false }),
+  cvUpload: () =>
+    new Ratelimit({ redis: redis!, limiter: Ratelimit.slidingWindow(10, "24 h"), prefix: "rl:cv", analytics: false }),
 };
 
 const instances = new Map<RateBucket, Ratelimit>();
@@ -105,7 +123,9 @@ function instance(bucket: RateBucket): Ratelimit | null {
 // a Redis outage becoming an unlimited-posting window is the one outcome
 // worth refusing traffic to avoid. NOTE: this is a list, not a default —
 // a new bucket added without being named here silently fails OPEN.
-const FAIL_CLOSED: readonly RateBucket[] = ["submit", "communityPost", "communityUpload", "postReport"];
+const FAIL_CLOSED: readonly RateBucket[] = [
+  "submit", "communityPost", "communityUpload", "postReport", "avatarUpload", "cvUpload",
+];
 
 export function failOpen(bucket: RateBucket): boolean {
   return !FAIL_CLOSED.includes(bucket);

@@ -23,6 +23,8 @@ def _env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SERVICE_TOKEN", "service-token-value")
     monkeypatch.setenv("AZURE_STORAGE_ACCOUNT", "teststorage")
     monkeypatch.setenv("AZURE_BLOB_CONTAINER", "post-images")
+    monkeypatch.setenv("AZURE_AVATAR_CONTAINER", "profile-pictures")
+    monkeypatch.setenv("AZURE_CV_CONTAINER", "member-cvs")
     monkeypatch.setenv("ALLOWED_ORIGINS", "https://example.test")
     from app.config import settings
 
@@ -122,11 +124,49 @@ def test_rejects_a_ticket_naming_an_unacceptable_key(bad_key: str) -> None:
         verify_ticket(f"Bearer {make_ticket(key=bad_key)}")
 
 
-def test_rejects_a_ticket_for_another_purpose() -> None:
+def test_rejects_a_ticket_for_an_unrecognised_purpose() -> None:
     from app.auth import InvalidTicket, verify_ticket
 
     with pytest.raises(InvalidTicket):
-        verify_ticket(f"Bearer {make_ticket(purpose='cv')}")
+        verify_ticket(f"Bearer {make_ticket(purpose='something_else')}")
+
+
+def test_rejects_a_purpose_and_key_extension_mismatch() -> None:
+    """A cv-purpose ticket naming a .webp key (or vice versa) is exactly
+    the shape a compromised signing key would produce to smuggle a CV
+    into the image container, or an image into the CV container."""
+    from app.auth import InvalidTicket, verify_ticket
+
+    with pytest.raises(InvalidTicket):
+        verify_ticket(f"Bearer {make_ticket(purpose='cv', key=KEY)}")  # KEY ends .webp
+
+    cv_key = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee.cv"
+    with pytest.raises(InvalidTicket):
+        verify_ticket(f"Bearer {make_ticket(purpose='post_image', key=cv_key)}")
+
+
+def test_accepts_a_profile_picture_ticket() -> None:
+    from app.auth import verify_ticket
+
+    ticket = verify_ticket(f"Bearer {make_ticket(purpose='profile_picture')}")
+    assert ticket.purpose == "profile_picture"
+    assert ticket.container == "profile-pictures"
+
+
+def test_accepts_a_cv_ticket_and_resolves_its_own_container() -> None:
+    from app.auth import verify_ticket
+
+    cv_key = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee.cv"
+    ticket = verify_ticket(f"Bearer {make_ticket(purpose='cv', key=cv_key)}")
+    assert ticket.purpose == "cv"
+    assert ticket.container == "member-cvs"
+
+
+def test_post_image_ticket_resolves_its_own_container() -> None:
+    from app.auth import verify_ticket
+
+    ticket = verify_ticket(f"Bearer {make_ticket()}")
+    assert ticket.container == "post-images"
 
 
 def test_a_ticket_cannot_raise_the_server_size_ceiling() -> None:
