@@ -4,9 +4,13 @@
 // Identity (affiliation, name, course, grad year) is collected earlier,
 // at /onboarding, and feeds the admin review queue before this flow
 // ever runs — see 20260901000006's header comment for why the split
-// happened. Everything here runs only once a member is approved, is
-// entirely optional (every screen has a Skip), and writes through
-// submit_intake once, then update_profile from then on.
+// happened. Everything here runs only once a member is approved, and
+// writes through submit_intake once, then update_profile from then on.
+//
+// Most of it is skippable, but the CV screen isn't unconditionally so:
+// a student must provide a CV and everyone must provide LinkedIn before
+// "Skip for now" (or Finish) becomes available at all — see
+// 20260901000013's header comment. Every other screen stays optional.
 //
 // "You're in" is a result screen, not a question — it carries no field
 // and does not advance completeness. Termly refresh (screen 08 of the
@@ -89,7 +93,7 @@ export const STEPS: Record<StepId, Step> = {
 
 export const GROUPS: Group[] = [
   { label: "Who you are", note: "A face and a couple of lines.", steps: ["face", "youre-in"] },
-  { label: "Unlock your matches", note: "Costs you nothing. Skip any of it.", steps: ["cv", "skills", "interests"] },
+  { label: "Unlock your matches", note: "Skip the whole thing if you're not ready yet.", steps: ["cv", "skills", "interests"] },
   { label: "Where you're at", note: "Changes often — you can always update it.", steps: ["where", "want"] },
 ];
 

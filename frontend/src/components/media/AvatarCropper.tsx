@@ -26,6 +26,15 @@ const MIN_ZOOM = 1;
 const MAX_ZOOM = 3;
 const NUDGE = 12;
 
+// A pure "cover" fit at zoom 1 makes the image's shorter axis land
+// exactly on BOX, which forces clamp()'s minX/minY to 0 on that axis —
+// drag has zero range until the member manually zooms in, and for a
+// square-ish photo (the common case for a re-uploaded avatar) both
+// axes lock at once, so drag looks completely dead. This overscan
+// guarantees real pan room on both axes from the start, at every zoom
+// level, regardless of the source photo's aspect ratio.
+const OVERSCAN = 1.15;
+
 type Offset = { x: number; y: number };
 
 export function AvatarCropper({
@@ -66,7 +75,7 @@ export function AvatarCropper({
         // Centre immediately, computed from this bitmap and zoom=1 — not a
         // separate effect reacting to `bitmap`, which would show one frame
         // clamped to a corner before re-centring.
-        const s = BOX / Math.min(bmp.width, bmp.height);
+        const s = (BOX / Math.min(bmp.width, bmp.height)) * OVERSCAN;
         setOffset({ x: (BOX - bmp.width * s) / 2, y: (BOX - bmp.height * s) / 2 });
       })
       .catch(() => {
@@ -78,8 +87,9 @@ export function AvatarCropper({
   }, [file]);
 
   // Scale that makes the image cover the crop box at zoom = 1, like
-  // object-fit: cover — then zoom multiplies on top of that.
-  const baseScale = bitmap ? BOX / Math.min(bitmap.width, bitmap.height) : 1;
+  // object-fit: cover, plus OVERSCAN so there's already pan room at
+  // zoom = 1 — then zoom multiplies on top of that.
+  const baseScale = bitmap ? (BOX / Math.min(bitmap.width, bitmap.height)) * OVERSCAN : 1;
   const scale = baseScale * zoom;
   const dw = bitmap ? bitmap.width * scale : 0;
   const dh = bitmap ? bitmap.height * scale : 0;
@@ -98,7 +108,7 @@ export function AvatarCropper({
   const applyZoom = (z: number) => {
     setZoom(z);
     if (!bitmap) return;
-    const s = (BOX / Math.min(bitmap.width, bitmap.height)) * z;
+    const s = (BOX / Math.min(bitmap.width, bitmap.height)) * OVERSCAN * z;
     setOffset((prev) => clamp(prev, bitmap.width * s, bitmap.height * s));
   };
 

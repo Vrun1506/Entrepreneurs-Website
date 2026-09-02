@@ -24,6 +24,7 @@ import {
   TOTAL_SCREENS,
   completeness,
   indexOf,
+  type Affiliation,
   type StepId,
 } from "@/lib/intake/steps";
 import { MIN_SKILLS, initialState, type IntakeState } from "@/lib/intake/state";
@@ -46,9 +47,15 @@ import {
 //
 // Runs once, after admission — identity was already collected at
 // /onboarding and fed the admin review queue before this ever mounts.
-// Every screen is skippable via the button in the header, which calls
-// defer_intake() and lands on /home; nothing here blocks getting into
-// the product.
+//
+// Most screens are skippable via the button in the header, which calls
+// defer_intake() and lands on /home — but CV (for a student) and
+// LinkedIn (for everyone) are compulsory, and "Skip for now" is hidden
+// entirely until both are already saved on the profile row. See
+// compulsoryDone below and 20260901000013's header comment for the
+// server-side half of this — defer_intake and submit_intake both raise
+// if a compulsory item is missing, so the client hiding the button is
+// UX only, not the actual enforcement.
 //
 // Avatar and CV each own a real round trip to the upload gateway,
 // centralised here rather than inside the screens: screens.tsx stays
@@ -56,6 +63,9 @@ import {
 // browser" moment lives in one file. The avatar uploads the moment a
 // crop is confirmed (screen 01); the CV uploads when the member
 // continues past screen 02 — see uploadCv below for why that one waits.
+// LinkedIn is saved (via set_my_linkedin) at that same moment, for the
+// same reason: "already saved" needs to be a real, server-checkable
+// fact as soon as it's true, not only after Finish.
 // ════════════════════════════════════════════════════════════════════
 
 export default function IntakeFlow({
@@ -65,6 +75,8 @@ export default function IntakeFlow({
   sectors,
   matches,
   existingAvatarUrl,
+  role,
+  existingLinkedin,
   existingCv,
 }: {
   memberId: string;
@@ -73,6 +85,8 @@ export default function IntakeFlow({
   sectors: ChipItem[];
   matches: DirectoryMember[];
   existingAvatarUrl: string | null;
+  role: Affiliation;
+  existingLinkedin: string | null;
   existingCv: ExistingCv | null;
 }) {
   const router = useRouter();
@@ -83,6 +97,7 @@ export default function IntakeFlow({
     photoPreview: existingAvatarUrl,
     cvUploadedKey: existingCv?.blobKey ?? null,
     cvOriginalFilename: existingCv?.filename ?? null,
+    linkedin: existingLinkedin,
   }));
   const clearDraft = useIntakeDraft(memberId, s, setS);
   const [step, setStep] = useState<StepId>("face");
@@ -94,6 +109,19 @@ export default function IntakeFlow({
 
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarError, setAvatarError] = useState("");
+
+  // Whether LinkedIn is actually persisted server-side, not just typed
+  // into the field — seeded from the server prop, then flipped true by
+  // saveLinkedin() below. Deliberately NOT derived from s.linkedin: a
+  // localStorage draft can rehydrate typed-but-never-sent text, and
+  // that must not unlock Skip on its own (see the user correction this
+  // whole gate exists for — 20260901000013's header comment).
+  const [linkedinSaved, setLinkedinSaved] = useState(!!existingLinkedin);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+
+  /** Every compulsory item for this role is already saved on the profile
+   *  row — the gate for showing "Skip for now" at all. */
+  const compulsoryDone = (role !== "student" || !!s.cvUploadedKey) && linkedinSaved;
 
   const patch = (p: Partial<IntakeState>) => setS((prev) => ({ ...prev, ...p }));
 
@@ -110,26 +138,53 @@ export default function IntakeFlow({
 
   /**
    * confirmCvUpload's background extraction (see mediaActions.ts) usually
-   * finishes well before the member reaches this screen — there are two
-   * more screens in between — so a single fetch on arrival is enough;
-   * no polling UI. Skipped once suggestions are already loaded so
-   * revisiting the screen via Back/Continue doesn't re-fetch.
+   * finishes well before the member reaches this screen, but not always
+   * — there's no completion signal to wait on, only a column to poll.
+   * Bounded so a slow or failed extraction doesn't spin forever: up to
+   * 6 tries, 1.5s apart (~9s), with a loading state so the screen shows
+   * "reading your CV" instead of looking blank while it waits.
+   *
+   * suggestionsLoading is set to true in next()'s cv-branch, right after
+   * a successful upload/save — not synchronously in this effect, which
+   * is the react-hooks/set-state-in-effect trap this codebase already
+   * hit once (see AvatarCropper's history). This effect only polls and
+   * turns it back off; the guard below just means "a poll is needed and
+   * hasn't finished yet" — it also naturally resumes if the member
+   * leaves "skills" mid-poll and comes back (the effect re-runs on the
+   * step change, and suggestionsLoading is still true from before).
    */
   useEffect(() => {
-    if (step !== "skills" || !s.cvConsent || !s.cvUploadedKey || s.suggestedSkillIds.length > 0) return;
+    if (step !== "skills" || !suggestionsLoading) return;
     let cancelled = false;
-    (async () => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const MAX_ATTEMPTS = 6;
+    const INTERVAL_MS = 1500;
+    let attempts = 0;
+
+    const poll = async () => {
+      attempts += 1;
       const { data } = await supabase.rpc("get_my_cv_info").maybeSingle();
+      if (cancelled) return;
       const ids = data?.cv_suggested_skill_ids;
-      if (!cancelled && ids && ids.length > 0) {
+      if (ids && ids.length > 0) {
         patch({ suggestedSkillIds: ids });
+        setSuggestionsLoading(false);
+        return;
       }
-    })();
+      if (attempts >= MAX_ATTEMPTS) {
+        setSuggestionsLoading(false);
+        return;
+      }
+      timer = setTimeout(poll, INTERVAL_MS);
+    };
+    poll();
+
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetch once per arrival at "skills", guarded by suggestedSkillIds.length above
-  }, [step]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- poll while go() has flagged loading for this arrival at "skills"
+  }, [step, suggestionsLoading]);
 
   const onCropAvatar = async (blob: Blob) => {
     setAvatarError("");
@@ -204,13 +259,32 @@ export default function IntakeFlow({
     return null;
   };
 
+  /**
+   * Persists LinkedIn the moment the member continues past the CV
+   * screen — not bundled into Finish — so compulsoryDone reflects a
+   * real, server-checked fact as soon as it's true. Always calls
+   * through rather than diffing against existingLinkedin: the RPC is a
+   * cheap single-column write, and this only runs once per Continue.
+   */
+  const saveLinkedin = async (): Promise<string | null> => {
+    const { error: rpcError } = await supabase.rpc("set_my_linkedin", {
+      p_linkedin_url: s.linkedin.trim(),
+    });
+    if (rpcError) return describeSupabaseError(rpcError);
+    setLinkedinSaved(true);
+    return null;
+  };
+
   const validate = (id: StepId): string | null => {
     if (id === "cv") {
-      if (!s.cvFile && !s.cvUploadedKey) {
+      if (role === "student" && !s.cvFile && !s.cvUploadedKey) {
         return "Add your CV to continue — it's what powers your matches with recruiters.";
       }
       const lk = s.linkedin.trim();
-      if (lk && !/^https?:\/\/([a-z0-9-]+\.)*linkedin\.com\//i.test(lk)) {
+      if (!lk) {
+        return "Add your LinkedIn profile to continue.";
+      }
+      if (!/^https?:\/\/([a-z0-9-]+\.)*linkedin\.com\//i.test(lk)) {
         return "That doesn't look like a LinkedIn URL.";
       }
     }
@@ -265,8 +339,19 @@ export default function IntakeFlow({
     if (step === "cv") {
       setBusy(true);
       const uploadError = await uploadCv();
+      if (uploadError) { setBusy(false); setError(uploadError); return; }
+      const linkedinError = await saveLinkedin();
       setBusy(false);
-      if (uploadError) { setError(uploadError); return; }
+      if (linkedinError) { setError(linkedinError); return; }
+      // Triggered here, not read back from s.cvUploadedKey in go() — that
+      // field is set by uploadCv()'s own patch() call above, which hasn't
+      // flowed through a re-render yet, so this closure's s.cvUploadedKey
+      // would still read stale (null) for a fresh upload. s.cvFile is the
+      // reliable "there is a CV to show suggestions for" signal instead:
+      // it was set by an earlier, already-committed render, not this call.
+      if (s.cvConsent && (s.cvFile || s.cvUploadedKey) && s.suggestedSkillIds.length === 0) {
+        setSuggestionsLoading(true);
+      }
     }
 
     if (isLast) {
@@ -282,7 +367,13 @@ export default function IntakeFlow({
 
   const skip = async () => {
     setBusy(true);
-    await supabase.rpc("defer_intake");
+    const { error: rpcError } = await supabase.rpc("defer_intake");
+    setBusy(false);
+    // defer_intake itself enforces compulsoryDone server-side (see
+    // 20260901000013) — this error path is the real backstop, not just
+    // defensive styling, in case the button was ever shown when it
+    // shouldn't have been.
+    if (rpcError) { setError(describeSupabaseError(rpcError)); return; }
     clearDraft();
     router.push("/home");
   };
@@ -292,6 +383,7 @@ export default function IntakeFlow({
   const screenProps: ScreenProps = {
     s, patch, firstName, skillTaxonomy, sectors,
     avatarUploading, avatarError, onCropAvatar, existingCv,
+    role, existingLinkedin, suggestionsLoading,
   };
 
   const body = (() => {
@@ -320,7 +412,7 @@ export default function IntakeFlow({
           <Link href="/" className="no-underline">
             <BrandLogo size="sm" />
           </Link>
-          {!done && (
+          {!done && compulsoryDone && (
             <Button type="button" variant="ghost" size="sm" onClick={skip} disabled={busy}>
               Skip for now
             </Button>
@@ -378,7 +470,12 @@ export default function IntakeFlow({
                 </p>
                 {step !== "youre-in" && (
                   <h1 className="mb-5 font-display text-[clamp(1.75rem,3.5vw,2.5rem)] leading-[1.1] tracking-tight text-text-primary">
-                    {meta.title}
+                    {/* STEPS.cv.title is static and reads "if you have one" —
+                        wrong for a student, for whom the paragraph right
+                        below it says the opposite. Only this one screen's
+                        heading needs to be role-aware; everything else can
+                        keep reading straight from steps.ts. */}
+                    {step === "cv" ? (role === "student" ? "Your CV" : "Your CV, if you have one") : meta.title}
                   </h1>
                 )}
 

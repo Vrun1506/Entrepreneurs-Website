@@ -6,7 +6,7 @@ import SocialLinks from "@/components/SocialLinks";
 import { Dialog, closeDialog } from "@/components/ui/Dialog";
 import { browserClient } from "@/lib/supabase/browser";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { MemberAvatar } from "./MemberAvatar";
+import { MemberPhoto } from "./MemberPhoto";
 import type { DirectoryMember } from "@/lib/data/directory";
 
 // ════════════════════════════════════════════════════════════════════
@@ -60,31 +60,30 @@ export function MemberDialog({ member: m, onClose }: { member: DirectoryMember; 
     <Dialog
       onClose={onClose}
       label={`Profile of ${m.firstName} ${m.surname}`}
-      className="w-full max-w-[600px] rounded-2xl bg-bg-card border border-border shadow-2xl my-auto"
+      className="w-full max-w-[600px] overflow-hidden rounded-2xl bg-bg-card border border-border shadow-2xl my-auto"
     >
-      <header className="flex items-start justify-between gap-4 px-7 pt-6 pb-4 border-b border-border-subtle">
-        <div className="flex min-w-0 flex-1 items-start gap-3.5">
-          <MemberAvatar member={m} size="lg" />
-          <div className="min-w-0">
-            <h2 className="font-display text-[1.4rem] text-text-primary tracking-tight truncate">
-              {m.firstName} {m.surname}
-            </h2>
-            <div className="text-[0.75rem] text-text-muted mt-1">{memberSubtitle(m)}</div>
-            {m.course && (
-              <div className="text-[0.8rem] text-text-secondary mt-1">{m.course}</div>
-            )}
-          </div>
-        </div>
+      <div className="relative">
+        <MemberPhoto member={m} aspect="aspect-[2.4/1]" />
         <button
           type="button"
           onClick={closeDialog}
           aria-label="Close"
-          className="shrink-0 w-8 h-8 rounded-full bg-white/[0.04] hover:bg-white/[0.08] text-text-secondary hover:text-text-primary flex items-center justify-center transition-colors cursor-pointer border-0"
+          className="absolute top-3 right-3 shrink-0 w-8 h-8 rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70 text-white flex items-center justify-center transition-colors cursor-pointer border-0"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <path d="M18 6L6 18M6 6l12 12" />
           </svg>
         </button>
+      </div>
+
+      <header className="px-7 pt-5 pb-4 border-b border-border-subtle">
+        <h2 className="font-display text-[1.4rem] text-text-primary tracking-tight truncate">
+          {m.firstName} {m.surname}
+        </h2>
+        <div className="text-[0.75rem] text-text-muted mt-1">{memberSubtitle(m)}</div>
+        {m.course && (
+          <div className="text-[0.8rem] text-text-secondary mt-1">{m.course}</div>
+        )}
       </header>
 
       <div className="px-7 py-5 space-y-5">
