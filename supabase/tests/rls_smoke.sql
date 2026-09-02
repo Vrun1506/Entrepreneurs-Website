@@ -714,6 +714,10 @@ declare
     'set_cv_suggested_skills',
     -- profile intake (user), added by 20260901000006 (submit_intake.sql)
     'submit_intake','defer_intake',
+    -- LinkedIn setter (user), added by 20260901000013 — writes only the
+    -- caller's own linkedin_url, same auth.uid() trust boundary as the
+    -- other profile-media RPCs above.
+    'set_my_linkedin',
     -- profile media (admin) — moderation + access logging, added by
     -- 20260901000003. Both self-defend on is_admin().
     'admin_clear_avatar','admin_log_cv_access','admin_get_cv_info',

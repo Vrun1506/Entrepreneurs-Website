@@ -170,8 +170,8 @@ export default function ProfileForm(props: Props) {
       setError(gradYearErr);
       return;
     }
-    if (props.role === "alum" && !linkedin.trim()) {
-      setError("LinkedIn URL is required for alumni.");
+    if (props.role !== "student" && !linkedin.trim()) {
+      setError("A LinkedIn URL is required for accounts without an Imperial email address.");
       return;
     }
     if (linkedin.trim() && !LINKEDIN_RE.test(linkedin.trim())) {
@@ -300,7 +300,7 @@ export default function ProfileForm(props: Props) {
             LinkedIn URL{" "}
             {props.role === "student" && <span className="text-text-muted/70 ml-1">— optional</span>}
           </label>
-          <input id="linkedin" type="url" value={linkedin} onChange={(e) => setLinkedin(e.target.value)} className={inputCls} maxLength={512} required={props.role === "alum"} />
+          <input id="linkedin" type="url" value={linkedin} onChange={(e) => setLinkedin(e.target.value)} className={inputCls} maxLength={512} required={props.role !== "student"} />
         </div>
 
         <div>

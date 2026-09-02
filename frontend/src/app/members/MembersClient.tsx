@@ -1,13 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import SearchableMultiSelect from "@/components/forms/SearchableMultiSelect";
 import { useUrlFilters, useSearchDraft } from "@/lib/filters/useUrlFilters";
 import { SearchInput, FilterPanel, ChipGroup, RangeFilter } from "@/components/filters/FilterBar";
 import { Pager } from "@/components/ui/Pager";
-import { MemberDialog, memberSubtitle } from "@/components/members/MemberDialog";
-import { MemberAvatar } from "@/components/members/MemberAvatar";
+import { MemberDialog } from "@/components/members/MemberDialog";
+import { MemberCard } from "@/components/members/MemberCard";
 // Type-only, so the server-only module is erased rather than imported.
 // bioPreview and hobbiesPreview are truncated by list_directory_cards to
 // what the card renders; the full text and the profile links are fetched
@@ -18,8 +17,6 @@ import type {
   Facets,
   MemberFilters,
 } from "@/lib/data/directory";
-
-const MAX_LOOKING_FOR = 3;
 
 // ════════════════════════════════════════════════════════════════════
 // Filtering and paging happen on the server; this component's job is to
@@ -168,71 +165,5 @@ export default function MembersClient({
         <MemberDialog member={openMember} onClose={() => setOpenMember(null)} />
       )}
     </>
-  );
-}
-
-
-function MemberCard({ member: m, onClick }: { member: DirectoryMember; onClick: () => void }) {
-  // role="button" (not a real <button>) so the clickable "Looking for" links
-  // below can be nested without invalid interactive-in-button HTML. Mirrors
-  // the OpportunityCard pattern.
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={onClick}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); }
-      }}
-      className="text-left w-full p-5 rounded-2xl bg-bg-card border border-border hover:border-accent hover:bg-bg-card/80 transition-colors duration-150 cursor-pointer group"
-    >
-      <header className="mb-2">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex min-w-0 flex-1 items-start gap-3">
-            <MemberAvatar member={m} size="sm" />
-            <div className="min-w-0">
-              <div className="text-[0.95rem] font-medium text-text-primary truncate">
-                {m.firstName} {m.surname}
-              </div>
-              <div className="text-[0.725rem] text-text-muted mt-0.5">
-                {memberSubtitle(m)}
-              </div>
-              {m.course && (
-                <div className="text-[0.725rem] text-text-secondary mt-1 truncate">{m.course}</div>
-              )}
-            </div>
-          </div>
-          <span className="mt-1 shrink-0 text-text-muted transition-colors group-hover:text-text-primary"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="transition-transform duration-150 group-hover:translate-x-0.5"><line x1="4" y1="12" x2="19" y2="12" /><polyline points="13 6 19 12 13 18" /></svg></span>
-        </div>
-      </header>
-
-      {m.bioPreview && (
-        <p className="mt-3 line-clamp-2 break-words text-[0.8rem] leading-relaxed text-text-secondary">
-          {m.bioPreview}
-        </p>
-      )}
-
-      {m.hobbiesPreview && (
-        <div className="mt-2 line-clamp-1 break-all text-[0.75rem] leading-relaxed text-text-muted">
-          <span className="label-wide text-text-muted">Outside of that:</span> {m.hobbiesPreview}
-        </div>
-      )}
-
-      {m.lookingFor.length > 0 && (
-        <div className="flex items-center flex-wrap gap-1.5 mt-3 text-[0.7rem] text-text-muted">
-          <span>Looking for</span>
-          {m.lookingFor.slice(0, MAX_LOOKING_FOR).map((lf) => (
-            <Link
-              key={lf.id}
-              href={`/opportunities/${lf.id}`}
-              onClick={(e) => e.stopPropagation()}
-              className="rounded-lg border border-border-strong px-2 py-0.5 text-[0.7rem] text-text-primary no-underline transition-colors hover:border-accent hover:bg-white/[0.06]"
-            >
-              {lf.role}
-            </Link>
-          ))}
-        </div>
-      )}
-    </div>
   );
 }

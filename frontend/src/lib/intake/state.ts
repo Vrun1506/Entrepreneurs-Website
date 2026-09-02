@@ -62,6 +62,8 @@ export function initialState(seed: {
   /** A previously-confirmed CV — its blob key and display filename. */
   cvUploadedKey?: string | null;
   cvOriginalFilename?: string | null;
+  /** LinkedIn already on file (non-students give this at /onboarding). */
+  linkedin?: string | null;
 }): IntakeState {
   return {
     preferredName: seed.preferredName,
@@ -74,7 +76,7 @@ export function initialState(seed: {
     cvUploadedKey: seed.cvUploadedKey ?? null,
     cvOriginalFilename: seed.cvOriginalFilename ?? null,
     cvConsent: false,
-    linkedin: "",
+    linkedin: seed.linkedin ?? "",
 
     skillIds: [],
     coreSkillIds: [],

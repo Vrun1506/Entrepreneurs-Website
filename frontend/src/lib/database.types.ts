@@ -1727,6 +1727,7 @@ export type Database = {
         Args: { p_role: Database["public"]["Enums"]["user_role"] }
         Returns: undefined
       }
+      set_my_linkedin: { Args: { p_linkedin_url: string }; Returns: undefined }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       submit_event: {

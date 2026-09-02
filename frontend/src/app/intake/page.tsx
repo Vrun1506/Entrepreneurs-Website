@@ -33,7 +33,7 @@ export default async function IntakePage() {
   const [profileRes, isAdminRes, cvInfoRes] = await Promise.all([
     supabase
       .from("profiles")
-      .select("status, profile_version, first_name, avatar_path")
+      .select("status, profile_version, first_name, avatar_path, role, linkedin_url")
       .eq("id", user.id)
       .single(),
     supabase.rpc("is_admin"),
@@ -74,6 +74,8 @@ export default async function IntakePage() {
       sectors={sectors}
       matches={matches}
       existingAvatarUrl={existingAvatarUrl}
+      role={profile.role}
+      existingLinkedin={profile.linkedin_url}
       existingCv={
         cvInfo?.cv_path
           ? { blobKey: cvInfo.cv_path, filename: cvInfo.cv_original_filename ?? "Your CV", downloadUrl: existingCvUrl }

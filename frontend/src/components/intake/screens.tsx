@@ -21,6 +21,7 @@ import {
   type IntakeState,
 } from "@/lib/intake/state";
 import { Field, ChoiceCards, PillChoice, TagInput, FilePicker, RankPicker, SkillPicker, type SkillOption } from "./controls";
+import type { Affiliation } from "@/lib/intake/steps";
 
 export type Patch = (p: Partial<IntakeState>) => void;
 
@@ -34,6 +35,9 @@ export type ScreenProps = {
   avatarError: string;
   onCropAvatar: (blob: Blob) => Promise<void>;
   existingCv: ExistingCv | null;
+  role: Affiliation;
+  existingLinkedin: string | null;
+  suggestionsLoading: boolean;
 };
 
 /** A previously-confirmed CV: its blob key (so a Back→Continue doesn't
@@ -247,20 +251,22 @@ export function YoureInScreen({ s, firstName, matches }: ScreenProps & { matches
 
 // ─── 02 · CV ─────────────────────────────────────────────────────────
 
-export function CvScreen({ s, patch, existingCv }: ScreenProps) {
+export function CvScreen({ s, patch, existingCv, role, existingLinkedin }: ScreenProps) {
   const linkedinId = useId();
   const consentId = useId();
   const alreadyUploaded = !s.cvFile && s.cvUploadedKey && s.cvOriginalFilename;
+  const cvRequired = role === "student";
+  const linkedinPrefilled = role !== "student" && !!existingLinkedin;
 
   return (
     <div className="space-y-7">
       <Lead>
-        We use your CV to suggest you to recruiters for relevant
-        opportunities, based on your skills and experience — the more
-        members with a CV on file, the better those matches get for everyone.
+        {cvRequired
+          ? "We use your CV to match you with recruiters for relevant opportunities — it's required to finish setting up your profile."
+          : "We use your CV to suggest you to recruiters for relevant opportunities, based on your skills and experience — the more members with a CV on file, the better those matches get for everyone."}
       </Lead>
 
-      <Field label="Your CV" hint="PDF or DOCX · 8 MB maximum.">
+      <Field label={cvRequired ? "Your CV" : "Your CV, if you have one"} hint="PDF or DOCX · 8 MB maximum.">
         {alreadyUploaded ? (
           <div className="flex items-center gap-4 rounded-lg border border-border-strong bg-white/[0.04] p-4">
             <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-border bg-white/[0.03] font-mono text-[0.65rem] text-text-secondary">
@@ -318,7 +324,15 @@ export function CvScreen({ s, patch, existingCv }: ScreenProps) {
         </label>
       )}
 
-      <Field label="Or just a link" htmlFor={linkedinId} hint="A LinkedIn profile does most of the same work.">
+      <Field
+        label={linkedinPrefilled ? "Confirm your LinkedIn" : "Your LinkedIn profile"}
+        htmlFor={linkedinId}
+        hint={
+          linkedinPrefilled
+            ? "This is what you gave us when you joined — update it if it's changed."
+            : "Recruiters and mentors use this to find you."
+        }
+      >
         <input
           id={linkedinId}
           type="url"
@@ -334,7 +348,7 @@ export function CvScreen({ s, patch, existingCv }: ScreenProps) {
 
 // ─── 03 · Skills ─────────────────────────────────────────────────────
 
-export function SkillsScreen({ s, patch, skillTaxonomy }: ScreenProps) {
+export function SkillsScreen({ s, patch, skillTaxonomy, suggestionsLoading }: ScreenProps) {
   const suggested = s.suggestedSkillIds
     .filter((id) => !s.skillIds.includes(id))
     .map((id) => skillTaxonomy.find((t) => t.id === id))
@@ -358,6 +372,18 @@ export function SkillsScreen({ s, patch, skillTaxonomy }: ScreenProps) {
         label="Your skills"
         hint={`At least ${MIN_SKILLS} to continue from this screen — or skip the whole thing for now and come back later. Star up to ${MAX_CORE_SKILLS} as core.`}
       >
+        {suggestionsLoading && suggested.length === 0 && (
+          <div className="mb-4 rounded-lg border border-dashed border-signal/50 bg-signal-muted/40 p-3">
+            <p className="mb-2 text-[0.7rem] font-medium uppercase tracking-[0.14em] text-signal">
+              Reading your CV for skill matches…
+            </p>
+            <div className="flex flex-wrap gap-2" aria-hidden>
+              <span className="h-7 w-24 animate-pulse rounded-lg bg-white/[0.08]" />
+              <span className="h-7 w-32 animate-pulse rounded-lg bg-white/[0.08]" />
+              <span className="h-7 w-20 animate-pulse rounded-lg bg-white/[0.08]" />
+            </div>
+          </div>
+        )}
         <SkillPicker
           taxonomy={skillTaxonomy}
           selectedIds={s.skillIds}

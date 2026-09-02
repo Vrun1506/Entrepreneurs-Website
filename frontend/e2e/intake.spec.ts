@@ -70,7 +70,21 @@ test.describe("post-approval intake", () => {
     await expect(rail.getByRole("button", { name: /Skills/ })).toHaveCount(0);
   });
 
-  test("Skip for now defers intake and lands on /home without bouncing back", async ({ page }) => {
+  // A student's CV and LinkedIn are compulsory (20260901000013) — "Skip for
+  // now" must not be a way around that, so it's hidden until both are
+  // already saved on the profile row, not just until the member types them.
+  test("Skip for now is hidden until the compulsory CV and LinkedIn are on file", async ({ page }) => {
+    await page.goto("/intake");
+    await expect(page.getByRole("button", { name: "Skip for now" })).toHaveCount(0);
+  });
+
+  test("Skip for now defers intake once CV/LinkedIn are on file, and lands on /home without bouncing back", async ({ page }) => {
+    // Seeded directly rather than walked through the real upload UI — this
+    // test is about defer_intake's gate, not the CV/LinkedIn screens
+    // themselves, which have their own coverage.
+    const db = adminClient();
+    await db.from("profiles").update({ cv_path: "seed/cv.pdf", linkedin_url: "https://linkedin.com/in/seed" }).eq("id", studentId);
+
     await page.goto("/intake");
     await page.getByRole("button", { name: "Skip for now" }).click();
     await expect(page).toHaveURL(/\/home$/);
@@ -80,9 +94,8 @@ test.describe("post-approval intake", () => {
     await expect(page).toHaveURL(/\/home$/);
     await expect(page.getByText(/finishes your profile/i)).toBeVisible();
 
-    // Put it back to "never seen" for the remaining tests in this file.
-    const db = adminClient();
-    await db.from("profiles").update({ intake_deferred_at: null }).eq("id", studentId);
+    // Put it back to "never seen, nothing on file" for the remaining tests.
+    await db.from("profiles").update({ intake_deferred_at: null, cv_path: null, linkedin_url: null }).eq("id", studentId);
   });
 
   test("an admin previewing /intake is never bounced there from /home", async ({ browser }) => {
