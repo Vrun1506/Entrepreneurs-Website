@@ -470,7 +470,12 @@ export default function IntakeFlow({
                 </p>
                 {step !== "youre-in" && (
                   <h1 className="mb-5 font-display text-[clamp(1.75rem,3.5vw,2.5rem)] leading-[1.1] tracking-tight text-text-primary">
-                    {meta.title}
+                    {/* STEPS.cv.title is static and reads "if you have one" —
+                        wrong for a student, for whom the paragraph right
+                        below it says the opposite. Only this one screen's
+                        heading needs to be role-aware; everything else can
+                        keep reading straight from steps.ts. */}
+                    {step === "cv" ? (role === "student" ? "Your CV" : "Your CV, if you have one") : meta.title}
                   </h1>
                 )}
 
