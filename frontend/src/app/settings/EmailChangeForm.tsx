@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
 import { isImperialEmail } from "@/lib/auth/imperialEmail";
+import { checkOtpVerifyRateLimit } from "@/lib/auth/verifyOtpGate";
+import { ErrorBanner } from "@/components/forms/Banners";
 import type { Affiliation } from "@/lib/intake/steps";
 
 // ════════════════════════════════════════════════════════════════════
@@ -144,6 +146,11 @@ export default function EmailChangeForm({
 
     try {
       if (!currentConfirmed) {
+        const gate = await checkOtpVerifyRateLimit(currentEmail);
+        if (!gate.ok) {
+          setError(gate.error);
+          return;
+        }
         // Addressed to the CURRENT address: GoTrue finds this token by
         // auth.users.email.
         const { data, error: err } = await supabase.auth.verifyOtp({
@@ -168,6 +175,11 @@ export default function EmailChangeForm({
 
       // Addressed to the NEW address: GoTrue finds this token by
       // auth.users.email_change, so the current address will not match it.
+      const newGate = await checkOtpVerifyRateLimit(pending);
+      if (!newGate.ok) {
+        setError(newGate.error);
+        return;
+      }
       const { data, error: err } = await supabase.auth.verifyOtp({
         email: pending,
         token: codeNew.trim(),
@@ -218,11 +230,7 @@ export default function EmailChangeForm({
         </p>
       </div>
 
-      {error && (
-        <div className="px-4 py-3 rounded-lg bg-[#ff4d4d]/8 border border-[#ff4d4d]/20 text-[0.8rem] text-[#ff6b6b] leading-relaxed">
-          {error}
-        </div>
-      )}
+      {error && <ErrorBanner>{error}</ErrorBanner>}
 
       {stage === "idle" ? (
         <div>

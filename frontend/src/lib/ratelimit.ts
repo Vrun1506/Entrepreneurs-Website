@@ -33,7 +33,8 @@ export type RateBucket =
   | "communityUpload"
   | "postReport"
   | "avatarUpload"
-  | "cvUpload";
+  | "cvUpload"
+  | "otpVerify";
 
 // Factory per bucket. slidingWindow chosen for smooth limiting; analytics
 // off to keep the command count (and cost) down.
@@ -99,6 +100,16 @@ const BUCKETS: Record<RateBucket, () => Ratelimit> = {
     new Ratelimit({ redis: redis!, limiter: Ratelimit.slidingWindow(10, "24 h"), prefix: "rl:ava", analytics: false }),
   cvUpload: () =>
     new Ratelimit({ redis: redis!, limiter: Ratelimit.slidingWindow(10, "24 h"), prefix: "rl:cv", analytics: false }),
+  // verifyOtp (student/alum login-signup codes, email-change confirmation)
+  // runs on the browser Supabase client, straight to Supabase's REST
+  // endpoint — it never passes through proxy.ts's `mutations` backstop and,
+  // unlike every other auth call in this app, carries no captchaToken. This
+  // is the only app-level throttle standing between a guessed target email
+  // and unlimited 6-digit-code guesses. Keyed on the email being verified
+  // (see verifyOtpGate.ts), not the caller, and generous enough for a
+  // typo-prone human: 10 tries in 10 minutes.
+  otpVerify: () =>
+    new Ratelimit({ redis: redis!, limiter: Ratelimit.slidingWindow(10, "10 m"), prefix: "rl:otp", analytics: false }),
 };
 
 const instances = new Map<RateBucket, Ratelimit>();
@@ -125,7 +136,7 @@ function instance(bucket: RateBucket): Ratelimit | null {
 // worth refusing traffic to avoid. NOTE: this is a list, not a default —
 // a new bucket added without being named here silently fails OPEN.
 const FAIL_CLOSED: readonly RateBucket[] = [
-  "submit", "communityPost", "communityUpload", "postReport", "avatarUpload", "cvUpload",
+  "submit", "communityPost", "communityUpload", "postReport", "avatarUpload", "cvUpload", "otpVerify",
 ];
 
 export function failOpen(bucket: RateBucket): boolean {

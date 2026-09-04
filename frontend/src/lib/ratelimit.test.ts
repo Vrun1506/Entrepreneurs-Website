@@ -63,6 +63,10 @@ describe("failOpen (behaviour when the limiter backend is unreachable)", () => {
   it("fails CLOSED for the security-sensitive submit bucket", () => {
     expect(failOpen("submit")).toBe(false);
   });
+
+  it("fails CLOSED for otpVerify — an outage must not become a way to brute-force a code", () => {
+    expect(failOpen("otpVerify")).toBe(false);
+  });
 });
 
 describe("check", () => {
