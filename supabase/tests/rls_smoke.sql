@@ -2207,6 +2207,72 @@ begin
 end;
 $$;
 
+-- 25. admin_set_committee grants admin access on an is_committee transition
+--     to true and revokes it on a transition to false (20260904000004) —
+--     the business rule is "on committee ⇒ admin", enforced inside the RPC
+--     rather than as a second manual step an admin could forget.
+do $$
+declare
+  v_a     uuid := (select v from _test_ctx where k='user_a');
+  v_b     uuid := (select v from _test_ctx where k='user_b');
+  v_admin uuid := (select v from _test_ctx where k='admin');
+  v_ok    boolean := false;
+begin
+  -- 25a. Only an admin may call it.
+  perform _set_caller(v_b);
+  begin
+    perform public.admin_set_committee(v_a, true, 'Committee member');
+    raise exception 'FAIL: a non-admin called admin_set_committee';
+  exception when sqlstate '42501' then v_ok := true;
+  end;
+  if not v_ok then
+    raise exception 'FAIL: admin_set_committee did not reject a non-admin caller';
+  end if;
+
+  -- 25b. Granting committee membership grants admin, and logs it.
+  perform _set_caller(v_admin);
+  perform public.admin_set_committee(v_a, true, 'Committee member');
+
+  if not exists (select 1 from public.admins where user_id = v_a) then
+    raise exception 'FAIL: admin_set_committee(true) did not grant an admins row';
+  end if;
+  if not exists (
+    select 1 from public.admin_actions
+     where admin_id = v_admin and action = 'grant_committee_admin' and target_id = v_a
+  ) then
+    raise exception 'FAIL: admin_set_committee(true) did not log grant_committee_admin';
+  end if;
+
+  -- 25c. A repeat call with the same flag is a true no-op: no duplicate
+  --      audit log entry (a duplicate admins row would violate its own
+  --      primary key, so that half is enforced by the schema itself).
+  perform public.admin_set_committee(v_a, true, 'Committee member');
+  if (select count(*) from public.admin_actions
+       where admin_id = v_admin and action = 'grant_committee_admin' and target_id = v_a) <> 1 then
+    raise exception 'FAIL: an idempotent admin_set_committee(true) call logged a duplicate grant';
+  end if;
+
+  -- 25d. Revoking committee membership revokes admin, and logs it.
+  perform public.admin_set_committee(v_a, false, null);
+  if exists (select 1 from public.admins where user_id = v_a) then
+    raise exception 'FAIL: admin_set_committee(false) did not revoke the admins row';
+  end if;
+  if not exists (
+    select 1 from public.admin_actions
+     where admin_id = v_admin and action = 'revoke_committee_admin' and target_id = v_a
+  ) then
+    raise exception 'FAIL: admin_set_committee(false) did not log revoke_committee_admin';
+  end if;
+
+  -- 25e. Revoking never touches an admin who got there some other way —
+  --      the fixture admin (v_admin) is never a committee member in this
+  --      test and must still be admin throughout.
+  if not exists (select 1 from public.admins where user_id = v_admin) then
+    raise exception 'FAIL: an unrelated admin lost admin access during this test';
+  end if;
+end;
+$$;
+
 -- ─── Cleanup ────────────────────────────────────────────────────────
 -- The test blocks leak the transaction-local 'authenticated' role (see note
 -- above), so reset to the owner role before dropping the helper function.
