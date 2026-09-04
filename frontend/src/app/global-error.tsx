@@ -68,7 +68,7 @@ export default function GlobalError({
             Reload home
           </a>
           {error.digest && (
-            <p style={{ marginTop: "2rem", fontSize: "0.7rem", color: "#7a7a82" }}>
+            <p style={{ marginTop: "2rem", fontSize: "0.7rem", color: "#808088" }}>
               Error ID: <span style={{ fontFamily: "ui-monospace, monospace" }}>{error.digest}</span>
             </p>
           )}
