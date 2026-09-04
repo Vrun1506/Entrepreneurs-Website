@@ -10,7 +10,7 @@ export default async function CommitteePage() {
   return (
     <AppShell active="committee" name={displayName} isAdmin={isAdmin}>
       <div className="px-6 sm:px-8 py-12">
-        <div className="max-w-[1040px] mx-auto">
+        <div className="max-w-[1100px] mx-auto">
           <div className="mb-8 rule-draw pt-4 max-w-[820px]">
             <p className="label-wide text-text-muted mb-6">Meet the Committee</p>
             <h1 className="font-display text-text-primary leading-[1.1] tracking-tight text-[clamp(1.75rem,3vw,2.5rem)]">
