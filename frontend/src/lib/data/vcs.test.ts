@@ -10,12 +10,15 @@ const row = {
   amount: "£25k",
   deadline: "2026-10-01",
   stage: "pre-seed",
-  posted_by: "u1",
-  created_at: "2026-08-01T00:00:00Z",
-  profiles: { first_name: "Ada", surname: "Lovelace" },
+  poster_first_name: "Ada",
+  poster_surname: "Lovelace",
 };
 
 describe("toVc", () => {
+  // list_approved_vcs_grants inner-joins profiles (posted_by is `not null
+  // references profiles(id) on delete restrict`), so unlike the old
+  // embedded-relation select this row shape has no "poster missing" case
+  // to survive — a row simply can't come back without one.
   it("renames every field to camelCase and flattens the poster", () => {
     expect(toVc(row)).toEqual({
       id: "v1",
@@ -28,12 +31,5 @@ describe("toVc", () => {
       stage: "pre-seed",
       postedBy: { firstName: "Ada", surname: "Lovelace" },
     });
-  });
-
-  // posted_by is a FK to profiles, and the embedded row comes back null if
-  // the poster's profile is gone. Optional-chaining plus `?? ""` is what
-  // stops that rendering as "undefined undefined" on the card.
-  it("survives a poster whose profile row is missing", () => {
-    expect(toVc({ ...row, profiles: null }).postedBy).toEqual({ firstName: "", surname: "" });
   });
 });

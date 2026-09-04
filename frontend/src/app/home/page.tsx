@@ -8,7 +8,7 @@ import { requireApprovedUser } from "@/lib/auth/guard";
 import { newestMembers } from "@/lib/data/directory";
 import { listApprovedEvents } from "@/lib/data/events";
 import { listApprovedOpportunities } from "@/lib/data/opportunities";
-import { listApprovedVcs } from "@/lib/data/vcs";
+import { newestVcs } from "@/lib/data/vcs";
 import { formatDate, formatDateTime } from "@/lib/dates";
 
 // ════════════════════════════════════════════════════════════════════
@@ -45,7 +45,7 @@ function newestFirst<T extends { createdAt: string }>(items: T[], n: number): T[
 }
 
 export default async function HomePage() {
-  const { supabase, user, isAdmin } = await requireApprovedUser({ bounceToIntake: true });
+  const { supabase, user } = await requireApprovedUser({ bounceToIntake: true });
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -67,7 +67,7 @@ export default async function HomePage() {
   const members = newestMembers(supabase);
   const events = listApprovedEvents(supabase);
   const opps = listApprovedOpportunities(supabase);
-  const vcs = listApprovedVcs(supabase, isAdmin);
+  const vcs = newestVcs(supabase);
 
   return (
     <AppShell active="home" name={fullName || name}>
@@ -251,11 +251,8 @@ async function Opportunities({ data }: { data: ReturnType<typeof listApprovedOpp
   );
 }
 
-// listApprovedVcs already returns created_at descending, so this is a
-// slice rather than a re-sort — and Vc deliberately does not carry
-// createdAt to the client, so there is nothing here to sort on anyway.
-async function Vcs({ data }: { data: ReturnType<typeof listApprovedVcs> }) {
-  const latest = (await data).slice(0, 3);
+async function Vcs({ data }: { data: ReturnType<typeof newestVcs> }) {
+  const latest = await data;
   if (latest.length === 0) {
     return <Empty>No VCs or grants listed yet. Suggest one from the Grants &amp; VCs page.</Empty>;
   }

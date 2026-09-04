@@ -1,5 +1,4 @@
 import "server-only";
-import { cached } from "@/lib/cache";
 import { rows, maybeRow, type Db } from "./query";
 
 export type Vc = {
@@ -14,31 +13,32 @@ export type Vc = {
   postedBy: { firstName: string; surname: string };
 };
 
-// The double-cast in the loader below survives on purpose. supabase-js
-// infers an embedded relation as an array, but PostgREST returns a single
-// object for a many-to-one FK like posted_by — and the multi-line select
-// string also defeats its type-level parser, degrading every scalar to
-// `any`. The real fix is a flat RPC, as list_approved_opportunities and
-// list_approved_events already use.
-//
-// It stays at the call site rather than inside rows() so it is visible:
-// this is the one read in the app whose row type is not checked against
-// the generated schema.
-type RawRow = {
-  id: string;
-  kind: "vc" | "grant";
-  name: string;
-  description: string;
-  link: string;
-  amount: string | null;
-  deadline: string | null;
-  stage: string | null;
-  posted_by: string;
-  created_at: string;
-  profiles: { first_name: string; surname: string } | null;
+/** One screen of cards — same size class as the directory's page. */
+export const VC_PAGE_SIZE = 24;
+
+/** The filter state /vcs parses out of the URL. */
+export type VcFilters = {
+  q: string;
+  kind: "all" | "vc" | "grant";
+  from: string;
+  to: string;
+  page: number;
 };
 
-export function toVc(r: RawRow): Vc {
+function vcFilterArgs(f: VcFilters) {
+  return {
+    p_query: f.q || undefined,
+    p_kind:  f.kind === "all" ? undefined : f.kind,
+    p_from:  f.from || undefined,
+    p_to:    f.to || undefined,
+  };
+}
+
+export function toVc(r: {
+  id: string; kind: "vc" | "grant"; name: string; description: string; link: string;
+  amount: string | null; deadline: string | null; stage: string | null;
+  poster_first_name: string; poster_surname: string;
+}): Vc {
   return {
     id: r.id,
     kind: r.kind,
@@ -48,56 +48,94 @@ export function toVc(r: RawRow): Vc {
     amount: r.amount,
     deadline: r.deadline,
     stage: r.stage,
-    postedBy: {
-      firstName: r.profiles?.first_name ?? "",
-      surname:   r.profiles?.surname    ?? "",
-    },
+    postedBy: { firstName: r.poster_first_name, surname: r.poster_surname },
+  };
+}
+
+export type VcsPage = {
+  items: Vc[];
+  /** VCs/grants matching the current filters, not the approved total. */
+  matching: number;
+};
+
+/**
+ * One page of approved VC/grant listings, filtered and searched in
+ * Postgres.
+ *
+ * Was a single `.limit(1000)` read, cached whole and filtered in the
+ * browser — silently truncated past 1,000 rows exactly like the member
+ * directory did before migration 20260826000003, just never actually hit
+ * at this list's current scale. See 20260904000002 for the RPC.
+ */
+export async function listApprovedVcs(db: Db, filters: VcFilters): Promise<VcsPage> {
+  const data = await rows("list_approved_vcs_grants", () =>
+    db.rpc("list_approved_vcs_grants", {
+      ...vcFilterArgs(filters),
+      p_limit:  VC_PAGE_SIZE,
+      p_offset: (filters.page - 1) * VC_PAGE_SIZE,
+    }));
+
+  return {
+    items: data.map(toVc),
+    // total_count rides on every row via a window function, so it is
+    // absent exactly when the page is empty.
+    matching: data[0]?.total_count ?? 0,
   };
 }
 
 /**
- * Approved VC/grant listings.
- *
- * Only these rows are cached. They are identical for every approved member
- * — vcs_grants carries no per-caller masking, unlike opportunities and
- * events, whose contact_email depends on who is asking and which is why
- * those two lists are not cached at all.
- *
- * @param isAdmin Admins skip the cache so an approval shows immediately.
+ * The most recently approved VCs/grants, ignoring every filter — /home's
+ * strip. Same RPC as the paged list, unfiltered and capped small.
  */
-export async function listApprovedVcs(db: Db, isAdmin: boolean): Promise<Vc[]> {
-  return cached(
-    "vcs",
-    async () => {
-      const data = await rows("vcs_grants (approved)", () =>
-        db
-          .from("vcs_grants")
-          .select(`
-            id, kind, name, description, link,
-            amount, deadline, stage,
-            posted_by, created_at,
-            profiles:posted_by ( first_name, surname )
-          `)
-          .eq("status", "approved")
-          .order("created_at", { ascending: false })
-          .limit(1000),
-      );
-      return (data as unknown as RawRow[]).map(toVc);
-    },
-    // Don't cache an empty result: the loader falls back to [] on a
-    // Supabase error, and pinning that would blank the page for the TTL.
-    { skip: isAdmin, isCacheable: (r) => r.length > 0 },
-  );
+export async function newestVcs(db: Db, limit = 3): Promise<Vc[]> {
+  const data = await rows("list_approved_vcs_grants (newest)", () =>
+    db.rpc("list_approved_vcs_grants", { p_limit: limit, p_offset: 0 }));
+  return data.map(toVc);
+}
+
+/**
+ * One approved VC/grant, or null.
+ *
+ * A table read rather than an RPC: the `vcs_grants_select_approved` RLS
+ * policy already lets any approved member read any approved row directly,
+ * same as `vcForEdit` below does for the poster's own row. Two queries
+ * rather than an embedded-relation select — see the note that used to
+ * live on RawRow in this file — so the FK relation is never asked to type
+ * itself through supabase-js's select-string parser.
+ */
+export async function approvedVc(db: Db, id: string): Promise<Vc | null> {
+  const row = await maybeRow("vcs_grants (single)", () =>
+    db
+      .from("vcs_grants")
+      .select("id, kind, name, description, link, amount, deadline, stage, posted_by")
+      .eq("id", id)
+      .eq("status", "approved")
+      .maybeSingle());
+  if (!row) return null;
+
+  const poster = await maybeRow("profiles (vc poster)", () =>
+    db.from("profiles").select("first_name, surname").eq("id", row.posted_by).maybeSingle());
+
+  return {
+    id: row.id,
+    kind: row.kind,
+    name: row.name,
+    description: row.description,
+    link: row.link,
+    amount: row.amount,
+    deadline: row.deadline,
+    stage: row.stage,
+    postedBy: { firstName: poster?.first_name ?? "", surname: poster?.surname ?? "" },
+  };
 }
 
 /**
  * The one VC/grant the poster is editing, or null.
  *
- * A table read rather than an RPC, so unlike the other two this does not
- * check the poster — it returns posted_by and the caller compares. RLS
- * lets a member read approved rows and their own, so that comparison is
- * what stops someone opening the edit form for a listing they did not
- * post.
+ * Unlike approvedVc this does not check the poster — it returns posted_by
+ * and the caller compares. RLS lets a member read approved rows and their
+ * own, so that comparison is what stops someone opening the edit form for
+ * a listing they did not post.
  */
 export async function vcForEdit(db: Db, id: string) {
   return maybeRow("vcs_grants (for edit)", () =>
@@ -106,16 +144,4 @@ export async function vcForEdit(db: Db, id: string) {
       .select("posted_by, status, kind, name, description, link, amount, deadline, stage")
       .eq("id", id)
       .single());
-}
-
-/**
- * One approved VC/grant, or null.
- *
- * Reads the same cached list /vcs renders, so a detail view costs nothing
- * extra once the list is warm. `isAdmin` skips the cache for the same
- * reason it does there — an admin should see an approval immediately.
- */
-export async function approvedVc(db: Db, id: string, isAdmin: boolean): Promise<Vc | null> {
-  const items = await listApprovedVcs(db, isAdmin);
-  return items.find((v) => v.id === id) ?? null;
 }

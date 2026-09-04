@@ -740,6 +740,7 @@ declare
     'admin_list_profiles','admin_profile_facets','admin_list_pending_profiles',
     -- public / member reads
     'list_approved_opportunities','list_approved_events',
+    'list_approved_vcs_grants',
     'list_directory_cards','list_directory_facets',
     'list_my_bookmarked_opportunities',
     'get_my_activity','get_my_listing_actions','get_my_listing_stats',

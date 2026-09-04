@@ -4,14 +4,30 @@ import ListingPageShell from "@/components/ListingPageShell";
 import { Skeleton, FilterBarSkeleton, RowListSkeleton } from "@/components/ui/Skeleton";
 import { requireApprovedUser } from "@/lib/auth/guard";
 import { markedIds } from "@/lib/data/activity";
-import { listApprovedVcs, type Vc } from "@/lib/data/vcs";
+import { listApprovedVcs, VC_PAGE_SIZE, type Vc, type VcFilters } from "@/lib/data/vcs";
 import type { Db } from "@/lib/data/query";
 import VcsClient from "./VcsClient";
+
+type SearchParams = {
+  submitted?: string; v?: string;
+  q?: string; kind?: string; from?: string; to?: string; page?: string;
+};
+
+function parseFilters(sp: SearchParams): VcFilters {
+  const page = Number.parseInt(sp.page ?? "1", 10);
+  return {
+    q: sp.q ?? "",
+    kind: sp.kind === "vc" || sp.kind === "grant" ? sp.kind : "all",
+    from: sp.from ?? "",
+    to: sp.to ?? "",
+    page: Number.isFinite(page) && page > 0 ? page : 1,
+  };
+}
 
 export default async function VcsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ submitted?: string; v?: string }>;
+  searchParams: Promise<SearchParams>;
 }) {
   const { supabase, isAdmin } = await requireApprovedUser();
   const sp = await searchParams;
@@ -25,13 +41,14 @@ export default async function VcsPage({
   if (sp?.v) redirect(`/vcs/${encodeURIComponent(sp.v)}`);
 
   const justSubmitted = sp?.submitted === "1";
+  const filters = parseFilters(sp);
 
   // Started here but deliberately not awaited: the page returns immediately
   // so the nav and page header reach the browser while the query is still
   // running. Both consumers below await the *same* promise, so it stays one
   // query, and they resolve in the same tick — the count and the list swap
   // in together rather than flickering one after the other.
-  const data = loadVcs(supabase, isAdmin);
+  const data = loadVcs(supabase, filters);
 
   return (
     <ListingPageShell
@@ -56,7 +73,7 @@ export default async function VcsPage({
           </>
         }
       >
-        <VcList data={data} />
+        <VcList data={data} filters={filters} />
       </Suspense>
     </ListingPageShell>
   );
@@ -64,25 +81,34 @@ export default async function VcsPage({
 
 type VcsData = {
   items: Vc[];
+  matching: number;
   appliedIds: string[];
 };
 
-async function loadVcs(supabase: Db, isAdmin: boolean): Promise<VcsData> {
-  // The listing rows are cached; get_my_listing_actions is per-user by
-  // definition and is always read live. See lib/data/vcs.ts.
-  const [items, appliedIds] = await Promise.all([
-    listApprovedVcs(supabase, isAdmin),
+async function loadVcs(supabase: Db, filters: VcFilters): Promise<VcsData> {
+  // The listing rows are filtered/paged live; get_my_listing_actions is
+  // per-user by definition and is always read live too. See lib/data/vcs.ts.
+  const [{ items, matching }, appliedIds] = await Promise.all([
+    listApprovedVcs(supabase, filters),
     markedIds(supabase, "vc_grant", "applied"),
   ]);
-  return { items, appliedIds };
+  return { items, matching, appliedIds };
 }
 
 async function VcCount({ data }: { data: Promise<VcsData> }) {
-  const { items } = await data;
-  return <>{items.length} active listing{items.length === 1 ? "" : "s"}.</>;
+  const { matching } = await data;
+  return <>{matching} active listing{matching === 1 ? "" : "s"}.</>;
 }
 
-async function VcList({ data }: { data: Promise<VcsData> }) {
-  const { items, appliedIds } = await data;
-  return <VcsClient items={items} appliedIds={appliedIds} />;
+async function VcList({ data, filters }: { data: Promise<VcsData>; filters: VcFilters }) {
+  const { items, matching, appliedIds } = await data;
+  return (
+    <VcsClient
+      items={items}
+      matching={matching}
+      filters={filters}
+      pageSize={VC_PAGE_SIZE}
+      appliedIds={appliedIds}
+    />
+  );
 }
