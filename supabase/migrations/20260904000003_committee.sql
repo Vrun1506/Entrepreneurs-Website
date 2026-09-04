@@ -362,6 +362,15 @@ begin
 end;
 $$;
 
+-- A drop + create is a fresh function (new oid), so Supabase's default
+-- privileges hand anon a new EXECUTE grant on it regardless of what
+-- 20260827000001's loop revoked from the previous oid — that migration
+-- can't reach back and cover a function created after it ran. Restating
+-- the same revoke/grant pair here is what rls_smoke.sql's admin-anon
+-- assertion (added alongside 20260827000001) exists to catch.
+revoke execute on function public.admin_list_profiles(
+  text, text[], text[], text[], text[], text[], int, int, int, int
+) from public, anon;
 grant execute on function public.admin_list_profiles(
   text, text[], text[], text[], text[], text[], int, int, int, int
-) to authenticated;
+) to authenticated, service_role;
