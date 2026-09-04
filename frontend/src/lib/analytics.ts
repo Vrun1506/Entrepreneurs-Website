@@ -1,4 +1,5 @@
 import { browserClient } from "@/lib/supabase/browser";
+import { track } from "@/components/analytics/PostHogProvider";
 
 // ════════════════════════════════════════════════════════════════════
 // Foundry · Lightweight engagement tracking
@@ -27,6 +28,11 @@ export function recordListingEvent(
   id:        string,
   eventType: ListingEventType,
 ): void {
+  // PostHog gets the same event, kind-scoped, so listing interaction shows
+  // up in product analytics alongside signup/submission funnels — not just
+  // in the poster-facing /my-submissions stats the RPC below feeds.
+  track(`listing_${eventType}`, { kind, id });
+
   // Don't await — tracking failure must not affect UX. The RPC is
   // SECURITY DEFINER so it bypasses RLS but still requires an
   // authenticated session.

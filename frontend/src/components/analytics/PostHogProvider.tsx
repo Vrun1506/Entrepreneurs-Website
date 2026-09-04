@@ -20,6 +20,14 @@ const HOST = process.env.NEXT_PUBLIC_POSTHOG_HOST ?? "https://eu.i.posthog.com";
 
 export const analyticsEnabled = Boolean(KEY);
 
+// Thin capture wrapper so call sites don't each have to re-check
+// analyticsEnabled — a no-op with no PostHog traffic when the key is unset,
+// same inert-by-default stance as the rest of this file.
+export function track(event: string, properties?: Record<string, unknown>): void {
+  if (!analyticsEnabled) return;
+  posthog.capture(event, properties);
+}
+
 export function PostHogProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!KEY) return;

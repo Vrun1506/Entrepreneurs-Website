@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const securityHeaders = [
   {
@@ -60,4 +61,17 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// Uploads source maps to Sentry at build time so production stack traces
+// resolve to real source instead of minified bundles. Skips the upload (and
+// stays silent about it) when SENTRY_AUTH_TOKEN isn't set — same
+// inert-unless-configured stance as the Sentry.init() calls themselves, so a
+// local build or a fork's CI run never needs Sentry credentials.
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: true,
+  widenClientFileUpload: true,
+  disableLogger: true,
+  automaticVercelMonitors: true,
+});
