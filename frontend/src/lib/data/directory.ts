@@ -159,7 +159,7 @@ export type DirectoryMember = DirectoryMemberBase & { avatarUrl: string | null }
  * rather than one per card. Members without a photo get `avatarUrl: null`
  * directly — no point asking the signer for a key it doesn't have.
  */
-async function withAvatarUrls<T extends DirectoryMemberBase>(
+export async function withAvatarUrls<T extends DirectoryMemberBase>(
   members: T[],
 ): Promise<(T & { avatarUrl: string | null })[]> {
   const withPath = members

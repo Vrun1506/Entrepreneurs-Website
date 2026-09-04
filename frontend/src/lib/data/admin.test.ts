@@ -52,6 +52,8 @@ const adminRow = {
   course: null,
   grad_year: null,
   email: "grace@ic.ac.uk",
+  is_committee: false,
+  committee_role: null,
   created_at: "2026-02-01T00:00:00Z",
   skill_names: null,
   sector_names: ["Fintech"],
@@ -67,6 +69,8 @@ describe("toAdminMember", () => {
     expect(m.gradYear).toBeNull();
     expect(m.skills).toEqual([]);
     expect(m.sectors).toEqual(["Fintech"]);
+    expect(m.isCommittee).toBe(false);
+    expect(m.committeeRole).toBeNull();
   });
 
   // Unlike the review card, this one does render the email — the admin

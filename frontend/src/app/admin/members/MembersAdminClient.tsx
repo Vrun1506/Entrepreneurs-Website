@@ -6,7 +6,7 @@ import SearchableMultiSelect from "@/components/forms/SearchableMultiSelect";
 import { useUrlFilters, useSearchDraft } from "@/lib/filters/useUrlFilters";
 import { SearchInput, FilterPanel, ChipGroup, RangeFilter } from "@/components/filters/FilterBar";
 import { Pager } from "@/components/ui/Pager";
-import { adminDeleteUser } from "./actions";
+import { adminDeleteUser, adminSetCommittee } from "./actions";
 import { ErrorBanner } from "@/components/forms/Banners";
 import type { UserStatus } from "@/lib/database.overrides";
 // Type-only, so the server-only module is erased rather than imported.
@@ -43,6 +43,7 @@ export default function MembersAdminClient({
   const url = useUrlFilters({ navigate: "server", resetKey: "page" });
   const [query, setQuery] = useSearchDraft(url);
   const [selected, setSelected] = useState<AdminMember | null>(null);
+  const [committeeTarget, setCommitteeTarget] = useState<AdminMember | null>(null);
 
   const selectedRoles    = new Set(filters.roles);
   const selectedStatuses = new Set(filters.statuses);
@@ -167,6 +168,7 @@ export default function MembersAdminClient({
                   <th className="text-left px-4 py-3 font-normal">Status</th>
                   <th className="text-left px-4 py-3 font-normal">Course</th>
                   <th className="text-left px-4 py-3 font-normal">Year</th>
+                  <th className="text-left px-4 py-3 font-normal">Committee</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
@@ -179,14 +181,32 @@ export default function MembersAdminClient({
                     <td className="px-4 py-3 text-text-muted">{STATUS_LABEL[m.status]}</td>
                     <td className="px-4 py-3 text-text-muted truncate max-w-[200px]">{m.course ?? "—"}</td>
                     <td className="px-4 py-3 text-text-muted">{m.gradYear ?? "—"}</td>
+                    <td className="px-4 py-3">
+                      {m.isCommittee ? (
+                        <span className="rounded-lg border border-signal/40 bg-signal-muted px-2 py-1 text-[0.7rem] font-medium text-signal">
+                          {m.committeeRole}
+                        </span>
+                      ) : (
+                        <span className="text-text-muted">—</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-right">
-                      <button
-                        type="button"
-                        onClick={() => setSelected(m)}
-                        className="px-3 py-1.5 rounded-lg bg-transparent border border-[#ff4d4d]/30 text-[#ff6b6b] text-[0.75rem] cursor-pointer transition-colors hover:bg-[#ff4d4d]/10"
-                      >
-                        Delete
-                      </button>
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setCommitteeTarget(m)}
+                          className="px-3 py-1.5 rounded-lg bg-transparent border border-border-strong text-text-secondary text-[0.75rem] cursor-pointer transition-colors hover:border-accent hover:text-text-primary"
+                        >
+                          {m.isCommittee ? "Edit committee" : "Add to committee"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSelected(m)}
+                          className="px-3 py-1.5 rounded-lg bg-transparent border border-[#ff4d4d]/30 text-[#ff6b6b] text-[0.75rem] cursor-pointer transition-colors hover:bg-[#ff4d4d]/10"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -207,7 +227,102 @@ export default function MembersAdminClient({
       {selected && (
         <DeleteUserModal member={selected} onClose={() => setSelected(null)} />
       )}
+
+      {committeeTarget && (
+        <CommitteeModal member={committeeTarget} onClose={() => setCommitteeTarget(null)} />
+      )}
     </>
+  );
+}
+
+function CommitteeModal({ member, onClose }: { member: AdminMember; onClose: () => void }) {
+  const router = useRouter();
+  const [role, setRole] = useState(member.committeeRole ?? "");
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState("");
+
+  const save = () => {
+    setError("");
+    if (!role.trim()) { setError("A committee role is required — e.g. \"President\"."); return; }
+    startTransition(async () => {
+      const res = await adminSetCommittee(member.id, true, role);
+      if (!res.ok) { setError(res.error); return; }
+      onClose();
+      router.refresh();
+    });
+  };
+
+  const remove = () => {
+    setError("");
+    startTransition(async () => {
+      const res = await adminSetCommittee(member.id, false, "");
+      if (!res.ok) { setError(res.error); return; }
+      onClose();
+      router.refresh();
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+      <div className="w-full max-w-[480px] rounded-2xl bg-bg-card border border-border-strong p-6">
+        <p className="label-wide text-signal mb-3">Committee</p>
+        <h2 className="font-display text-[1.25rem] text-text-primary mb-2">
+          {member.isCommittee ? "Edit" : "Add"} {member.firstName} {member.surname}
+        </h2>
+        <p className="text-[0.825rem] text-text-secondary leading-relaxed mb-5">
+          Shows a gold banner with this role on their photo everywhere it appears, and moves
+          them from the member directory to the Meet the Committee page.
+        </p>
+
+        {error && <div className="mb-4"><ErrorBanner>{error}</ErrorBanner></div>}
+
+        <label htmlFor="committee-role" className="block text-[0.75rem] text-text-muted mb-1.5">
+          Role
+        </label>
+        <input
+          id="committee-role"
+          type="text"
+          value={role}
+          onChange={(e) => setRole(e.target.value)}
+          placeholder="e.g. President"
+          maxLength={60}
+          className="w-full px-3 py-2 bg-white/[0.03] border border-border rounded-lg text-[0.85rem] text-text-primary placeholder:text-text-muted focus:border-accent/50 mb-5"
+        />
+
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            {member.isCommittee && (
+              <button
+                type="button"
+                onClick={remove}
+                disabled={pending}
+                className="px-4 py-2 rounded-lg bg-transparent border border-[#ff4d4d]/30 text-[#ff6b6b] text-[0.85rem] cursor-pointer transition-colors hover:bg-[#ff4d4d]/10 disabled:opacity-50"
+              >
+                Remove from committee
+              </button>
+            )}
+          </div>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={pending}
+              className="px-4 py-2 rounded-lg bg-white/[0.05] border border-border-strong text-text-primary text-[0.85rem] cursor-pointer transition-colors hover:bg-white/[0.10] disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={save}
+              disabled={pending || !role.trim()}
+              className="px-4 py-2 rounded-lg bg-signal-muted border border-signal/40 text-signal text-[0.85rem] font-medium cursor-pointer transition-colors hover:bg-signal/20 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {pending ? "Saving…" : "Save"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 

@@ -50,3 +50,39 @@ export async function adminDeleteUser(userId: string, reason: string): Promise<R
   revalidatePath("/admin/members");
   return { ok: true };
 }
+
+/**
+ * Escalate, edit, or revert a member's committee status.
+ *
+ * Setting isCommittee false always clears the role with it, mirroring
+ * admin_set_committee's own guard — a later re-escalation should never
+ * resurrect a title nobody re-entered.
+ *
+ * Committee members are excluded from list_directory_cards, so both the
+ * directory cache and /members itself go stale here, same as /committee.
+ */
+export async function adminSetCommittee(
+  memberId: string,
+  isCommittee: boolean,
+  committeeRole: string,
+): Promise<Result> {
+  if (isCommittee && !committeeRole.trim()) {
+    return { ok: false, error: "A committee role is required." };
+  }
+
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth;
+  const { supabase } = auth;
+  const { error } = await supabase.rpc("admin_set_committee", {
+    p_member_id: memberId,
+    p_is_committee: isCommittee,
+    p_committee_role: isCommittee ? committeeRole.trim() : undefined,
+  });
+  if (error) return { ok: false, error: describeSupabaseError(error) };
+
+  await invalidate("directoryFacets");
+  revalidatePath("/admin/members");
+  revalidatePath("/members");
+  revalidatePath("/committee");
+  return { ok: true };
+}

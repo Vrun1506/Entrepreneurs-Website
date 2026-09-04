@@ -177,6 +177,7 @@ function Icon({ d }: { d: React.ReactNode }) {
 const PRIMARY: Item[] = [
   { key: "home", href: "/home", label: "Home", icon: <Icon d={I.home} /> },
   { key: "community", href: "/community", label: "Community", icon: <Icon d={I.community} /> },
+  { key: "committee", href: "/committee", label: "Meet the Committee", icon: <Icon d={I.committee} /> },
   { key: "members", href: "/members", label: "Members", icon: <Icon d={I.members} /> },
   { key: "foundryAi", href: "/foundry-ai", label: "Foundry AI", icon: <Icon d={I.foundryAi} /> },
   { key: "connections", href: "/connections", label: "Connections", icon: <Icon d={I.connections} /> },
@@ -196,7 +197,6 @@ const IN_REVIEW: Item[] = [
 ];
 
 const SECONDARY: Item[] = [
-  { key: "committee", href: "/committee", label: "Meet the Committee", icon: <Icon d={I.committee} /> },
   { key: "calendar", href: "/calendar", label: "Calendar", icon: <Icon d={I.calendar} /> },
   { key: "activity", href: "/my-activity", label: "My activity", icon: <Icon d={I.activity} /> },
   { key: "submissions", href: "/my-submissions", label: "My submissions", icon: <Icon d={I.submissions} /> },

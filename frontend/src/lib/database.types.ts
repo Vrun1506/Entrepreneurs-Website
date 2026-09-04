@@ -804,6 +804,7 @@ export type Database = {
           bio: string | null
           bio_focus: string | null
           bio_hobbies: string | null
+          committee_role: string | null
           course: string | null
           created_at: string
           current_focus: string | null
@@ -820,6 +821,7 @@ export type Database = {
           intake_completed_at: string | null
           intake_deferred_at: string | null
           intent_urgency: string | null
+          is_committee: boolean
           linkedin_url: string | null
           portfolio_url: string | null
           preferred_name: string | null
@@ -841,6 +843,7 @@ export type Database = {
           bio?: string | null
           bio_focus?: string | null
           bio_hobbies?: string | null
+          committee_role?: string | null
           course?: string | null
           created_at?: string
           current_focus?: string | null
@@ -857,6 +860,7 @@ export type Database = {
           intake_completed_at?: string | null
           intake_deferred_at?: string | null
           intent_urgency?: string | null
+          is_committee?: boolean
           linkedin_url?: string | null
           portfolio_url?: string | null
           preferred_name?: string | null
@@ -878,6 +882,7 @@ export type Database = {
           bio?: string | null
           bio_focus?: string | null
           bio_hobbies?: string | null
+          committee_role?: string | null
           course?: string | null
           created_at?: string
           current_focus?: string | null
@@ -894,6 +899,7 @@ export type Database = {
           intake_completed_at?: string | null
           intake_deferred_at?: string | null
           intent_urgency?: string | null
+          is_committee?: boolean
           linkedin_url?: string | null
           portfolio_url?: string | null
           preferred_name?: string | null
@@ -1233,12 +1239,14 @@ export type Database = {
           p_statuses?: string[]
         }
         Returns: {
+          committee_role: string
           course: string
           created_at: string
           email: string
           first_name: string
           grad_year: number
           id: string
+          is_committee: boolean
           role: Database["public"]["Enums"]["user_role"]
           sector_names: string[]
           skill_names: string[]
@@ -1278,6 +1286,14 @@ export type Database = {
           first_name: string
           post_title: string
         }[]
+      }
+      admin_set_committee: {
+        Args: {
+          p_committee_role?: string
+          p_is_committee: boolean
+          p_member_id: string
+        }
+        Returns: undefined
       }
       approve_event: {
         Args: { p_event_id: string; p_notes?: string }
@@ -1529,6 +1545,23 @@ export type Database = {
           poster_surname: string
           stage: string
           total_count: number
+        }[]
+      }
+      list_committee_cards: {
+        Args: never
+        Returns: {
+          avatar_path: string
+          bio_focus: string
+          bio_hobbies: string
+          committee_role: string
+          course: string
+          first_name: string
+          grad_year: number
+          id: string
+          role: Database["public"]["Enums"]["user_role"]
+          sector_names: string[]
+          skill_names: string[]
+          surname: string
         }[]
       }
       list_community_feed: {
