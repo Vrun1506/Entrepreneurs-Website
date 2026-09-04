@@ -4,39 +4,21 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { cleanName, isValidName } from "@/lib/text";
+import { MAX_NAME_LENGTH } from "@/lib/text";
 import { SignupDisclosures } from "@/components/forms/SignupDisclosures";
 import { TurnstileWidget, turnstileConfigured } from "@/components/forms/TurnstileWidget";
-import { isImperialEmail } from "@/lib/auth/imperialEmail";
 import { BrandLogo } from "@/components/BrandLogo";
 import Starfield from "@/components/Starfield";
 import { destinationForStatus } from "@/lib/auth/status";
 import { Button } from "@/components/ui/Button";
+import { ErrorBanner } from "@/components/forms/Banners";
 import { AFFILIATIONS, NON_STUDENT_AFFILIATIONS, type Affiliation } from "@/lib/intake/steps";
-
-// Auth error text reaches us partly via ?error= in the URL, which is
-// attacker-controllable — rendering it verbatim is a phishing/content-spoof
-// vector. Map the cases users actually hit to fixed friendly copy and fall
-// back to a generic line, so raw URL input is never shown as page content.
-function friendlyAuthError(raw: string): string {
-  const e = raw.toLowerCase();
-  if (e.includes("not confirmed")) return "Please confirm your email first — check your inbox for the verification code.";
-  if (e.includes("expired") || e.includes("invalid") || e.includes("missing_token") || e.includes("missing_code")) return "That link is invalid or has expired. Please request a new one.";
-  if (e.includes("code verifier") || e.includes("both auth code")) return "Please open the link in the same browser you started in, or try signing in again.";
-  if (e.includes("access_denied") || e.includes("cancel")) return "Sign-in was cancelled.";
-  if (e.includes("rate") || e.includes("too many")) return "Too many attempts. Please wait a moment and try again.";
-  return "Something went wrong during sign-in. Please try again.";
-}
-
-// Friendly copy for verifyOtp failures (wrong/expired code). Distinct from
-// friendlyAuthError so we say "code" not "link".
-function friendlyVerifyError(raw: string): string {
-  const e = raw.toLowerCase();
-  if (e.includes("expired")) return "That code has expired. Request a new one below.";
-  if (e.includes("invalid") || e.includes("token")) return "That code is incorrect. Check it and try again.";
-  if (e.includes("rate") || e.includes("too many")) return "Too many attempts. Please wait a moment and try again.";
-  return "We couldn't verify that code. Please try again.";
-}
+import { friendlyAuthError } from "@/lib/auth/hooks/authErrorText";
+import { useStudentAuth } from "@/lib/auth/hooks/useStudentAuth";
+import { useAlumAuth } from "@/lib/auth/hooks/useAlumAuth";
+import { useGoogleAuth } from "@/lib/auth/hooks/useGoogleAuth";
+import { usePasswordRecovery } from "@/lib/auth/hooks/usePasswordRecovery";
+import type { Mode, Role, Track } from "@/lib/auth/hooks/loginTypes";
 
 /* ── Decorative background ────────────────────────────────────────── */
 // The auth pages used to sit on two gold radial-gradient glows and a 64px
@@ -70,27 +52,8 @@ function GoogleIcon() {
 }
 
 /* ── Page ─────────────────────────────────────────────────────────── */
-type Mode = "signin" | "signup";
-// Six values since 20260828000001. The split that matters on this page is
-// not student-vs-alum but *which auth mechanic applies*: a student proves
-// themselves with an Imperial address and an OTP code, and everybody else
-// signs up with a password and waits for an admin. So the five non-student
-// roles all ride the existing password flow, differing only in the `role`
-// written into signup metadata.
-type Role = Affiliation | null;
-
-// Which of the two flows the reader is in — the chooser's actual question.
-// It is deliberately not the same thing as `role`: the chooser used to set
-// role directly, which forced it to offer all six affiliations as equal
-// cards just to reach two code paths. Now the door and the declaration are
-// separate, so the door has two options and the declaration is a field.
-//
-// Staff and faculty are in "other" despite holding Imperial addresses. The
-// address is not what separates the flows — admin review is. Only 'student'
-// maps to 'approved' without a human (migration 20260603000001, asserted by
-// supabase/tests/admission_roles.sql), so a "student or staff" door would
-// promise instant access the database then refuses to give.
-type Track = "student" | "other";
+// Mode/Role/Track live in lib/auth/hooks/loginTypes.ts, shared with the
+// four auth-flow hooks below.
 
 export default function LoginPage() {
   const router = useRouter();
@@ -229,346 +192,35 @@ export default function LoginPage() {
     resetForm();
   };
 
-  // Imperial students verify via emailed link. We validate the domain
-  // client-side and the DB trigger re-checks (defence in depth — see
-  // migration 20260529000001).
-  const sendStudentVerificationEmail = async (): Promise<string | null> => {
-    const trimmedEmail = email.trim().toLowerCase();
-    if (!trimmedEmail || !isImperialEmail(trimmedEmail)) {
-      return "Please use your Imperial email address (@imperial.ac.uk or @ic.ac.uk).";
-    }
-
-    let signupData: Record<string, string> | undefined;
-    if (mode === "signup") {
-      const trimmedFirst = cleanName(firstName);
-      const trimmedSurname = cleanName(surname);
-      if (!trimmedFirst || !trimmedSurname) {
-        return "First name and surname are required.";
-      }
-      if (trimmedFirst.length > 50 || trimmedSurname.length > 50) {
-        return "First name and surname must be 50 characters or fewer.";
-      }
-      if (!isValidName(trimmedFirst) || !isValidName(trimmedSurname)) {
-        return "Names can only contain letters, spaces, hyphens, apostrophes and periods.";
-      }
-      if (!tcAgreed) {
-        return "Please agree to the Terms & Conditions and Privacy Policy to continue.";
-      }
-      signupData = {
-        role: "student",
-        first_name: trimmedFirst,
-        surname: trimmedSurname,
-      };
-    }
-
-    if (turnstileConfigured && !turnstileToken) {
-      return "Please complete the verification challenge below.";
-    }
-
-    const { error: otpError } = await supabase.auth.signInWithOtp({
-      email: trimmedEmail,
-      options: {
-        shouldCreateUser: mode === "signup",
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-        data: signupData,
-        captchaToken: turnstileToken || undefined,
-      },
-    });
-    return otpError ? otpError.message : null;
+  // Each flow's send/verify/resend handlers live in their own hook —
+  // lib/auth/hooks/use{Student,Alum,Google}Auth.ts and usePasswordRecovery —
+  // split out of this component so the ~450-line handler section that used
+  // to live here reads (and changes) by flow instead of as one block. State
+  // stays here, since mode/track/role switching has to coordinate resets
+  // across all four flows at once.
+  const sharedHandlerState = {
+    supabase,
+    isLoading, resendCooldown, turnstileToken,
+    setError, setIsLoading, setEmailSent, setResendCooldown,
+    setVerifying, setVerifyError, refreshTurnstile, routeAfterSignIn,
   };
 
-  const handleStudentSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    setIsLoading(true);
-    const err = await sendStudentVerificationEmail();
-    setIsLoading(false);
-    refreshTurnstile();
-    if (err) {
-      setError(err);
-      return;
-    }
-    setEmailSent(true);
-    setResendCooldown(60);
-  };
+  const { handleStudentSubmit, handleStudentResend, handleStudentVerify } = useStudentAuth({
+    ...sharedHandlerState,
+    mode, email, firstName, surname, tcAgreed, code,
+  });
 
-  const handleStudentResend = async () => {
-    if (resendCooldown > 0 || isLoading) return;
-    setError("");
-    setIsLoading(true);
-    const err = await sendStudentVerificationEmail();
-    setIsLoading(false);
-    refreshTurnstile();
-    if (err) {
-      setError(err);
-      return;
-    }
-    setResendCooldown(60);
-  };
+  const { handleAlumResend, handleAlumVerify, handleAlumSubmit } = useAlumAuth({
+    ...sharedHandlerState,
+    mode, role, firstName, surname, email, password, repeatPassword, tcAgreed, code,
+  });
 
-  // Verify the 6-digit code the student typed. signInWithOtp issues an email
-  // OTP (type "email"); verifyOtp needs no PKCE verifier, so it works on any
-  // device/browser. On success the session is set in the browser client and we
-  // route by status exactly like every other path.
-  const handleStudentVerify = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setVerifyError("");
-    setVerifying(true);
-    const { error: vErr } = await supabase.auth.verifyOtp({
-      email: email.trim().toLowerCase(),
-      token: code.trim(),
-      type: "email",
-    });
-    if (vErr) {
-      setVerifying(false);
-      setVerifyError(friendlyVerifyError(vErr.message));
-      return;
-    }
-    await routeAfterSignIn();
-  };
+  const { handleGoogle } = useGoogleAuth({ supabase, setError, setIsLoading });
 
-  // Re-send the signup confirmation email. Distinct from the student
-  // resend: alum verification is a "confirm signup" email (auth.resend
-  // with type "signup"), not a passwordless OTP.
-  const handleAlumResend = async () => {
-    if (resendCooldown > 0 || isLoading) return;
-    setError("");
-    if (turnstileConfigured && !turnstileToken) {
-      setError("Please complete the verification challenge below.");
-      return;
-    }
-    setIsLoading(true);
-    const { error: resendError } = await supabase.auth.resend({
-      type: "signup",
-      email: email.trim(),
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-        captchaToken: turnstileToken || undefined,
-      },
-    });
-    setIsLoading(false);
-    refreshTurnstile();
-    if (resendError) {
-      setError(resendError.message);
-      return;
-    }
-    setResendCooldown(60);
-  };
-
-  // Verify the 6-digit code for an alum signup confirmation (type "signup",
-  // matching signUp / resend({ type: "signup" })). Same success routing.
-  const handleAlumVerify = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setVerifyError("");
-    setVerifying(true);
-    const { error: vErr } = await supabase.auth.verifyOtp({
-      email: email.trim().toLowerCase(),
-      token: code.trim(),
-      type: "signup",
-    });
-    if (vErr) {
-      setVerifying(false);
-      setVerifyError(friendlyVerifyError(vErr.message));
-      return;
-    }
-    await routeAfterSignIn();
-  };
-
-  // Alumni password recovery. Kept on the PKCE link (redirectTo /auth/callback)
-  // deliberately — recovery is the highest-stakes flow, so the link alone must
-  // not be enough to take over an account. /auth/callback shuttles a valid
-  // recovery click on to /reset-password.
-  const handleForgotPassword = async () => {
-    if (resendCooldown > 0 || isLoading) return;
-    setError("");
-    const trimmed = email.trim();
-    if (!trimmed) {
-      setError("Please enter your email address first.");
-      return;
-    }
-    if (turnstileConfigured && !turnstileToken) {
-      setError("Please complete the verification challenge below.");
-      return;
-    }
-    setIsLoading(true);
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(trimmed, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
-      captchaToken: turnstileToken || undefined,
-    });
-    setIsLoading(false);
-    refreshTurnstile();
-    if (resetError) {
-      setError(resetError.message);
-      return;
-    }
-    // resetPasswordForEmail is anti-enumeration (succeeds even for unknown
-    // emails), so the confirmation never leaks whether an account exists.
-    setForgotSent(true);
-    setResendCooldown(60);
-  };
-
-  // Clear recovery sub-view state (used both on entering and leaving it).
-  const exitForgot = () => {
-    setForgotSent(false);
-    setError("");
-  };
-
-  const handleGoogle = async () => {
-    setError("");
-    setIsLoading(true);
-    const { error: oauthError } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
-    if (oauthError) {
-      setError(oauthError.message);
-      setIsLoading(false);
-    }
-  };
-
-  const handleAlumSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-
-    if (mode === "signup") {
-      // No silent default. The old chooser made this choice unavoidable by
-      // being six buttons; behind a dropdown it can be skipped, and the
-      // value is what an admin verifies you as — so ask rather than guess.
-      if (!role) {
-        setError("Please choose how you're connected to Imperial.");
-        return;
-      }
-      const trimmedFirst = cleanName(firstName);
-      const trimmedSurname = cleanName(surname);
-      if (!trimmedFirst || !trimmedSurname) {
-        setError("First name and surname are required.");
-        return;
-      }
-      if (trimmedFirst.length > 50 || trimmedSurname.length > 50) {
-        setError("First name and surname must be 50 characters or fewer.");
-        return;
-      }
-      if (!isValidName(trimmedFirst) || !isValidName(trimmedSurname)) {
-        setError("Names can only contain letters, spaces, hyphens, apostrophes and periods.");
-        return;
-      }
-      if (password !== repeatPassword) {
-        setError("Passwords do not match.");
-        return;
-      }
-      if (!tcAgreed) {
-        setError("Please agree to the Terms & Conditions and Privacy Policy to continue.");
-        return;
-      }
-    }
-
-    if (!email.trim()) {
-      setError("Email is required.");
-      return;
-    }
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters.");
-      return;
-    }
-    if (turnstileConfigured && !turnstileToken) {
-      setError("Please complete the verification challenge below.");
-      return;
-    }
-
-    setIsLoading(true);
-
-    if (mode === "signup") {
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          // Without this, the confirmation link redirects to the Supabase
-          // Site URL root, which has no code-exchange handler — the alum
-          // lands logged-out on the homepage. Point it at /auth/callback so
-          // clicking the link establishes a session and routes by status,
-          // exactly like the student magic-link flow.
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-          captchaToken: turnstileToken || undefined,
-          // These keys are read by the tg_handle_new_user trigger to populate
-          // public.profiles with role/first_name/surname on insert.
-          // grad_year is collected later during onboarding.
-          data: {
-            // Whatever they picked in the Chooser. tg_handle_new_user casts
-            // this straight to user_role and enforces the Imperial-domain
-            // rule for 'student' only; every other value lands in
-            // pending_review, so this cannot be used to skip review.
-            role: role ?? "alum",
-            first_name: cleanName(firstName),
-            surname: cleanName(surname),
-          },
-        },
-      });
-      refreshTurnstile();
-      if (signUpError) {
-        setError(signUpError.message);
-        setIsLoading(false);
-        return;
-      }
-      setIsLoading(false);
-      // "Confirm email" is ON, so signUp returns no session — the user must
-      // click the emailed link first. Show the check-your-inbox panel rather
-      // than calling routeAfterSignIn (which would find no session and dump
-      // them on '/'). This branch also covers Supabase's email-enumeration
-      // protection: signing up an already-registered address returns no
-      // session and no error, and showing the same panel avoids leaking
-      // whether the account exists. If "Confirm email" is ever turned off,
-      // data.session is populated and we route immediately.
-      if (!data.session) {
-        setEmailSent(true);
-        setResendCooldown(60);
-        return;
-      }
-      await routeAfterSignIn();
-      return;
-    }
-
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-      options: { captchaToken: turnstileToken || undefined },
-    });
-    refreshTurnstile();
-    if (signInError) {
-      // Unconfirmed email: Supabase blocks sign-in until the confirmation
-      // link is clicked. Don't dead-end on the raw "Email not confirmed"
-      // string — resend the confirmation and show the same check-your-inbox
-      // panel as signup. (Students recover via an OTP re-send; this is the
-      // alum equivalent, the sign-in twin of the signup fix.)
-      const unconfirmed =
-        signInError.code === "email_not_confirmed" ||
-        /not confirmed/i.test(signInError.message);
-      if (unconfirmed) {
-        // Best-effort resend; the panel also offers a manual "Resend". With
-        // captcha enabled this auto-resend can't succeed (the single-use token
-        // was just spent by signInWithPassword), so it no-ops here and the
-        // user falls back to the panel's manual Resend, which gets a fresh
-        // token from the remounted widget.
-        await supabase.auth.resend({
-          type: "signup",
-          email: email.trim(),
-          options: {
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
-            captchaToken: turnstileToken || undefined,
-          },
-        });
-        setIsLoading(false);
-        setEmailSent(true);
-        setResendCooldown(60);
-        return;
-      }
-      setError(signInError.message);
-      setIsLoading(false);
-      return;
-    }
-    await routeAfterSignIn();
-  };
+  const { handleForgotPassword, exitForgot } = usePasswordRecovery({
+    supabase, email, isLoading, resendCooldown, turnstileToken,
+    setError, setIsLoading, setForgotSent, setResendCooldown, refreshTurnstile,
+  });
 
   // Same device as the hero h1 and the section heads: the emphasis is a
   // weight step inside one grotesque, not a colour change into a serif italic.
@@ -624,11 +276,7 @@ export default function LoginPage() {
           <div className="rounded-lg border border-border bg-bg-secondary p-6 sm:p-8">
 
             {/* Error */}
-            {error && (
-              <div className="mb-5 rounded-lg border-l-2 border-[#ff4d4d] bg-[#ff4d4d]/8 px-4 py-3 text-[0.8rem] leading-relaxed text-[#ff8080]">
-                {error}
-              </div>
-            )}
+            {error && <div className="mb-5"><ErrorBanner>{error}</ErrorBanner></div>}
 
             {track === null && (
               <Chooser
@@ -853,7 +501,7 @@ function CodeEntryPanel({
         />
 
         {verifyError && (
-          <p className="text-[0.78rem] text-[#ff8080] leading-relaxed">{verifyError}</p>
+          <p role="alert" className="text-[0.78rem] text-[#ff8080] leading-relaxed">{verifyError}</p>
         )}
 
         <Button
@@ -947,7 +595,7 @@ function StudentMagicLinkFlow({
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
               className={inputCls}
-              maxLength={50}
+              maxLength={MAX_NAME_LENGTH}
             />
           </div>
           <div className="flex-1">
@@ -960,7 +608,7 @@ function StudentMagicLinkFlow({
               value={surname}
               onChange={(e) => setSurname(e.target.value)}
               className={inputCls}
-              maxLength={50}
+              maxLength={MAX_NAME_LENGTH}
             />
           </div>
         </div>
@@ -1236,7 +884,7 @@ function AlumForm({
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
               className={inputCls}
-              maxLength={50}
+              maxLength={MAX_NAME_LENGTH}
             />
           </div>
           <div className="flex-1">
@@ -1249,7 +897,7 @@ function AlumForm({
               value={surname}
               onChange={(e) => setSurname(e.target.value)}
               className={inputCls}
-              maxLength={50}
+              maxLength={MAX_NAME_LENGTH}
             />
           </div>
         </div>
