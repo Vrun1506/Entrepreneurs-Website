@@ -1,15 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useUrlFilters, useSearchDraft } from "@/lib/filters/useUrlFilters";
 import { SearchInput, FilterPanel, ChipChoice, RangeFilter } from "@/components/filters/FilterBar";
+import { Pager } from "@/components/ui/Pager";
 import { useListingFreshness } from "@/lib/useListingFreshness";
 import { ListingGoneNotice } from "@/components/ListingGoneNotice";
 import { FullPageLink } from "@/components/FullPageLink";
 import { MarkActionPill } from "@/components/MarkActionPill";
 import { recordListingEvent } from "@/lib/analytics";
 import { formatDate } from "@/lib/dates";
-import type { Vc } from "@/lib/data/vcs";
+import type { Vc, VcFilters } from "@/lib/data/vcs";
 
 const KINDS = [
   { value: "all",   label: "All" },
@@ -17,51 +18,32 @@ const KINDS = [
   { value: "grant", label: "Grants" },
 ] as const;
 
-const KIND_VALUES = KINDS.map((k) => k.value);
-
+// ════════════════════════════════════════════════════════════════════
+// Filtering and paging happen on the server; this component's job is to
+// keep the URL in step with the controls. Same reasoning, same shape as
+// MembersClient: search/kind/deadline are now Postgres query arguments,
+// not a client-side .filter() over the whole approved list, so this page
+// can no longer silently truncate past PostgREST's 1000-row cap the way
+// the member directory used to. See lib/data/vcs.ts / migration
+// 20260904000002.
+// ════════════════════════════════════════════════════════════════════
 export default function VcsClient({
-  items, appliedIds = [],
+  items, matching, filters, pageSize, appliedIds = [],
 }: {
   items: Vc[];
+  matching: number;
+  filters: VcFilters;
+  pageSize: number;
   /** VC/grant IDs the current user has self-marked as applied. */
   appliedIds?: string[];
 }) {
-  // Client-side navigation — see the note in EventsClient. The URL owns the
-  // filters so a view is shareable; the filtering itself stays in the browser.
-  const filters = useUrlFilters();
-  const [query, setQuery] = useSearchDraft(filters);
-  const filter = filters.getOne("kind", KIND_VALUES, "all");
-  const from = filters.get("from");
-  const to   = filters.get("to");
+  const url = useUrlFilters({ navigate: "server", resetKey: "page" });
+  const [queryDraft, setQueryDraft] = useSearchDraft(url);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
-  const appliedSet = useMemo(() => new Set(appliedIds), [appliedIds]);
+  const appliedSet = new Set(appliedIds);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const fromMs = from ? new Date(`${from}T00:00:00`).getTime() : null;
-    const toMs   = to   ? new Date(`${to}T23:59:59.999`).getTime() : null;
-    const dateRangeActive = fromMs != null || toMs != null;
-    const visible = items.filter((v) => !dismissed.has(v.id));
-    return visible.filter((v) => {
-      if (filter !== "all" && v.kind !== filter) return false;
-
-      // If the user has constrained the deadline, rolling-application
-      // VCs (deadline=null) don't match. Without a range set, all
-      // listings stay visible.
-      if (dateRangeActive) {
-        if (!v.deadline) return false;
-        const deadlineMs = new Date(v.deadline).getTime();
-        if (fromMs != null && deadlineMs < fromMs) return false;
-        if (toMs   != null && deadlineMs > toMs)   return false;
-      }
-
-      if (!q) return true;
-      const hay = [v.name, v.description, v.amount ?? "", v.stage ?? ""].join(" ").toLowerCase();
-      return hay.includes(q);
-    });
-  }, [items, query, filter, from, to, dismissed]);
-
-  const activeFilterCount = (filter !== "all" ? 1 : 0) + (from ? 1 : 0) + (to ? 1 : 0);
+  const visible = items.filter((v) => !dismissed.has(v.id));
+  const activeFilterCount = (filters.kind !== "all" ? 1 : 0) + (filters.from ? 1 : 0) + (filters.to ? 1 : 0);
 
   const dismiss = (id: string) => setDismissed((prev) => new Set(prev).add(id));
 
@@ -70,16 +52,16 @@ export default function VcsClient({
       <SearchInput
         label="Search VCs and grants"
         placeholder="Search by name, stage, or amount"
-        value={query}
-        onChange={setQuery}
+        value={queryDraft}
+        onChange={setQueryDraft}
       />
 
       <FilterPanel
         activeCount={activeFilterCount}
-        onClear={() => filters.clear("kind", "from", "to")}
+        onClear={() => url.clear("kind", "from", "to")}
         resultCount={
           <>
-            {filtered.length} of {items.length}
+            {matching}
             <span className="sr-only"> listings shown</span>
           </>
         }
@@ -87,32 +69,48 @@ export default function VcsClient({
         <ChipChoice
           label="Kind"
           options={KINDS}
-          value={filter}
-          onChange={(next) => filters.apply({ kind: next === "all" ? null : next })}
+          value={filters.kind}
+          onChange={(next) => url.apply({ kind: next === "all" ? null : next })}
         />
 
         <RangeFilter
           label="Deadline range"
           hint=" — when set, rolling-application listings are hidden"
           type="date"
-          from={from}
-          to={to}
+          from={filters.from}
+          to={filters.to}
           fromLabel="Deadline from date"
           toLabel="Deadline to date"
-          onFromChange={(v) => filters.apply({ from: v })}
-          onToChange={(v) => filters.apply({ to: v })}
+          // Every change here is now a database query, so wait for the
+          // field to be finished with rather than filtering mid-pick.
+          commitOn="blur"
+          onFromChange={(v) => url.apply({ from: v })}
+          onToChange={(v) => url.apply({ to: v })}
         />
       </FilterPanel>
 
-      {filtered.length === 0 ? (
-        <div className="rounded-lg border border-border bg-bg-card px-6 py-14 text-center text-[0.85rem] text-text-muted">
-          {items.length === 0 ? "No listings yet." : "No listings match your search or filters."}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((v) => <VcCard key={v.id} vc={v} applied={appliedSet.has(v.id)} onDismiss={() => dismiss(v.id)} />)}
-        </div>
-      )}
+      {/* A pending navigation dims the current page rather than replacing it
+          with a skeleton: the results are still valid, just about to change,
+          and swapping them for placeholders on every keystroke would flash. */}
+      <div className={url.pending ? "opacity-60 transition-opacity duration-150" : undefined}>
+        {visible.length === 0 ? (
+          <div className="rounded-lg border border-border bg-bg-card px-6 py-14 text-center text-[0.85rem] text-text-muted">
+            {matching === 0 ? "No listings yet." : "No listings match your search or filters."}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {visible.map((v) => <VcCard key={v.id} vc={v} applied={appliedSet.has(v.id)} onDismiss={() => dismiss(v.id)} />)}
+          </div>
+        )}
+      </div>
+
+      <Pager
+        url={url}
+        page={filters.page}
+        total={matching}
+        pageSize={pageSize}
+        label="VCs & grants pages"
+      />
     </>
   );
 }

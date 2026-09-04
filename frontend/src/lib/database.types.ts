@@ -1506,6 +1506,31 @@ export type Database = {
           start_year: number
         }[]
       }
+      list_approved_vcs_grants: {
+        Args: {
+          p_from?: string
+          p_kind?: string
+          p_limit?: number
+          p_offset?: number
+          p_query?: string
+          p_to?: string
+        }
+        Returns: {
+          amount: string
+          created_at: string
+          deadline: string
+          description: string
+          id: string
+          kind: Database["public"]["Enums"]["vc_grant_kind"]
+          link: string
+          name: string
+          posted_by: string
+          poster_first_name: string
+          poster_surname: string
+          stage: string
+          total_count: number
+        }[]
+      }
       list_community_feed: {
         Args: {
           p_cursor_created_at?: string

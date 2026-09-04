@@ -26,7 +26,7 @@ export default async function VcPage({ params }: { params: Promise<Params> }) {
   const { id } = await params;
   const { supabase, isAdmin } = await requireApprovedUser();
 
-  const v = await approvedVc(supabase, id, isAdmin);
+  const v = await approvedVc(supabase, id);
 
   if (!v) {
     return (
