@@ -10,8 +10,8 @@ export default async function CommitteePage() {
   return (
     <AppShell active="committee" name={displayName} isAdmin={isAdmin}>
       <div className="px-6 sm:px-8 py-12">
-        <div className="max-w-[820px] mx-auto">
-          <div className="mb-8 rule-draw pt-4">
+        <div className="max-w-[1040px] mx-auto">
+          <div className="mb-8 rule-draw pt-4 max-w-[820px]">
             <p className="label-wide text-text-muted mb-6">Meet the Committee</p>
             <h1 className="font-display text-text-primary leading-[1.1] tracking-tight text-[clamp(1.75rem,3vw,2.5rem)]">
               The people running the Foundry
@@ -22,7 +22,7 @@ export default async function CommitteePage() {
           </div>
 
           {members.length === 0 ? (
-            <div className="rounded-lg border border-border bg-bg-card px-6 py-14 text-center text-[0.85rem] text-text-muted">
+            <div className="rounded-lg border border-border bg-bg-card px-6 py-14 text-center text-[0.85rem] text-text-muted max-w-[820px] mx-auto">
               No committee members have been added yet.
             </div>
           ) : (
