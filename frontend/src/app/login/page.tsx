@@ -263,13 +263,47 @@ export default function LoginPage() {
         <div className="w-full max-w-[440px]">
 
           {/* Heading */}
-          <div className="mb-8 text-center">
+          <div className="mb-6 text-center">
             <h1 className="mb-3 text-[clamp(1.9rem,4vw,2.6rem)] font-semibold leading-[1.06] tracking-[-0.035em] text-text-primary">
               {heading}
             </h1>
             <p className="text-[0.9rem] leading-[1.65] text-text-secondary">
               {subtitle}
             </p>
+          </div>
+
+          {/* Sign up / Log in toggle, above the card. Returning users kept
+              missing the small "Already have an account? Sign in" link at
+              the foot of the card, so the mode switch is now also offered
+              here as two buttons; the footer link stays for anyone who
+              scrolls down expecting it there. */}
+          <div className="mb-6 flex justify-center">
+            <div className="inline-flex rounded-lg border border-border-strong bg-white/[0.03] p-1">
+              <button
+                type="button"
+                onClick={() => switchMode("signup")}
+                aria-pressed={mode === "signup"}
+                className={`cursor-pointer rounded-md border-0 px-6 py-2 text-[0.82rem] font-medium transition-colors duration-150 ${
+                  mode === "signup"
+                    ? "bg-white/[0.09] text-text-primary"
+                    : "bg-transparent text-text-secondary hover:text-text-primary"
+                }`}
+              >
+                Sign up
+              </button>
+              <button
+                type="button"
+                onClick={() => switchMode("signin")}
+                aria-pressed={mode === "signin"}
+                className={`cursor-pointer rounded-md border-0 px-6 py-2 text-[0.82rem] font-medium transition-colors duration-150 ${
+                  mode === "signin"
+                    ? "bg-white/[0.09] text-text-primary"
+                    : "bg-transparent text-text-secondary hover:text-text-primary"
+                }`}
+              >
+                Log in
+              </button>
+            </div>
           </div>
 
           {/* Card */}
