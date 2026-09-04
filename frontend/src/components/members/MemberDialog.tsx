@@ -75,7 +75,13 @@ export function MemberDialog({ member: m, onClose }: { member: DirectoryMember; 
       className="w-full max-w-[600px] overflow-hidden rounded-2xl bg-bg-card border border-border shadow-2xl my-auto"
     >
       <div className="relative">
-        <MemberPhoto member={m} aspect="aspect-[2.4/1]" />
+        {/* object-cover at 2.4:1 on a square 512x512 avatar showed only the
+            middle ~42% of it, slicing through the hairline — and no fixed
+            crop position is right for every avatar (headroom varies,
+            tight crops, off-centre, non-face avatars). object-contain
+            never cuts anything off, for any avatar, at the cost of
+            letterboxing left/right on bg-bg-secondary. */}
+        <MemberPhoto member={m} aspect="aspect-[16/10]" fit="contain" />
         <button
           type="button"
           onClick={closeDialog}
