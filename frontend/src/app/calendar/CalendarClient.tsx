@@ -85,11 +85,10 @@ export default function CalendarClient({ items }: { items: CalItem[] }) {
 
       <LegendRow />
 
-      {upcoming.length === 0 ? (
-        <div className="rounded-lg border border-border bg-bg-card px-6 py-14 text-center text-[0.85rem] text-text-muted">
-          Nothing upcoming. Items you post or mark as going/applied show up here automatically.
-        </div>
-      ) : view === "list" ? (
+      {/* Each view owns its own empty state now — previously a single
+          shared message replaced BOTH views whenever upcoming was empty,
+          so switching List/Month tabs looked like it did nothing. */}
+      {view === "list" ? (
         <ListView items={upcoming} onSelect={setSelected} />
       ) : (
         <MonthView items={upcoming} onSelect={setSelected} />
@@ -151,6 +150,14 @@ function ListView({ items, onSelect }: { items: CalItem[]; onSelect: (i: CalItem
     return Array.from(map.entries()).map(([dateKey, rows]) => ({ dateKey, rows }));
   }, [items]);
 
+  if (groups.length === 0) {
+    return (
+      <div className="rounded-lg border border-border bg-bg-card px-6 py-14 text-center text-[0.85rem] text-text-muted">
+        Nothing upcoming. Items you post or mark as going/applied show up here automatically.
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {groups.map((g) => {
@@ -207,7 +214,12 @@ function MonthView({ items, onSelect }: { items: CalItem[]; onSelect: (i: CalIte
   // local-midnight one, and local midnight on the 1st is the previous month
   // in any zone ahead of London — so the heading and the grid would name
   // different months on a visitor's machine in Sydney.
-  const [cursor, setCursor] = useState<MonthCursor>(() => monthOf(items[0].occursAt));
+  //
+  // Falls back to the current month when there's nothing upcoming — items[0]
+  // used to be read unconditionally, which crashed the moment this view
+  // rendered with an empty list instead of showing an empty grid for "now".
+  const [cursor, setCursor] = useState<MonthCursor>(() =>
+    monthOf(items[0]?.occursAt ?? new Date().toISOString()));
 
   const monthLabel = formatMonthYear(cursor.year, cursor.month);
   const grid = useMemo(() => buildMonthGrid(cursor, items), [cursor, items]);
@@ -243,7 +255,15 @@ function MonthView({ items, onSelect }: { items: CalItem[]; onSelect: (i: CalIte
             key={idx}
             className={`min-h-[88px] p-2 bg-bg-card ${cell.inMonth ? "" : "opacity-40"}`}
           >
-            <div className="text-[0.7rem] text-text-muted mb-1">{cell.day}</div>
+            <div
+              className={
+                cell.isToday
+                  ? "inline-flex h-5 w-5 items-center justify-center rounded-full bg-accent text-[0.7rem] font-medium text-bg-primary mb-1"
+                  : "text-[0.7rem] text-text-muted mb-1"
+              }
+            >
+              {cell.day}
+            </div>
             <div className="space-y-1">
               {cell.items.map((i) => (
                 <button
@@ -261,6 +281,12 @@ function MonthView({ items, onSelect }: { items: CalItem[]; onSelect: (i: CalIte
           </div>
         ))}
       </div>
+
+      {items.length === 0 && (
+        <p className="mt-4 text-center text-[0.8rem] text-text-muted">
+          Nothing upcoming. Items you post or mark as going/applied show up here automatically.
+        </p>
+      )}
     </div>
   );
 }
@@ -293,7 +319,7 @@ function DetailDialog({ item, onClose }: { item: CalItem; onClose: () => void })
           type="button"
           onClick={closeDialog}
           aria-label="Close"
-          className="shrink-0 -mr-1 -mt-1 w-9 h-9 rounded-lg bg-white/[0.05] border border-border-strong text-text-primary cursor-pointer hover:bg-white/[0.10] hover:border-accent transition-colors flex items-center justify-center text-lg leading-none"
+          className="shrink-0 w-11 h-11 rounded-lg bg-white/[0.05] border border-border-strong text-text-primary cursor-pointer hover:bg-white/[0.10] hover:border-accent transition-colors flex items-center justify-center text-lg leading-none"
         >
           ×
         </button>
@@ -345,7 +371,7 @@ function DetailDialog({ item, onClose }: { item: CalItem; onClose: () => void })
   );
 }
 
-type MonthCell = { day: number; inMonth: boolean; items: CalItem[] };
+type MonthCell = { day: number; inMonth: boolean; isToday: boolean; items: CalItem[] };
 
 /** A calendar month. `month` is 1-12, matching the day keys in lib/dates. */
 type MonthCursor = { year: number; month: number };
@@ -370,6 +396,9 @@ function buildMonthGrid(cursor: MonthCursor, items: CalItem[]): MonthCell[] {
   const prevMonthDays   = new Date(Date.UTC(year, month - 1, 0)).getUTCDate();
   // ISO week starts Monday. getUTCDay: 0=Sun,...6=Sat. Convert to 0=Mon.
   const startWeekday    = (new Date(Date.UTC(year, month - 1, 1)).getUTCDay() + 6) % 7;
+  // London calendar day — the grid never marked "today" on any cell, even
+  // when the current month was on screen.
+  const todayKey = londonDayKey(new Date().toISOString());
 
   // Keyed by London calendar day — the same key the list view groups on, so
   // the two views cannot disagree about which day a row belongs to.
@@ -383,15 +412,16 @@ function buildMonthGrid(cursor: MonthCursor, items: CalItem[]): MonthCell[] {
 
   const cells: MonthCell[] = [];
   for (let i = 0; i < startWeekday; i++) {
-    cells.push({ day: prevMonthDays - startWeekday + 1 + i, inMonth: false, items: [] });
+    cells.push({ day: prevMonthDays - startWeekday + 1 + i, inMonth: false, isToday: false, items: [] });
   }
   for (let d = 1; d <= daysInMonth; d++) {
-    cells.push({ day: d, inMonth: true, items: byDate.get(dayKey(year, month, d)) ?? [] });
+    const key = dayKey(year, month, d);
+    cells.push({ day: d, inMonth: true, isToday: key === todayKey, items: byDate.get(key) ?? [] });
   }
   // Fill out to a multiple of 7.
   while (cells.length % 7 !== 0) {
     const day = cells.length - (startWeekday + daysInMonth) + 1;
-    cells.push({ day, inMonth: false, items: [] });
+    cells.push({ day, inMonth: false, isToday: false, items: [] });
   }
   return cells;
 }

@@ -10,6 +10,7 @@ import {
 } from "@/lib/validation/posts";
 import { createPost, requestUploadTicket } from "./actions";
 import type { FeedPostView } from "./feedView";
+import { ErrorBanner } from "@/components/forms/Banners";
 
 // ════════════════════════════════════════════════════════════════════
 // Foundry · The composer
@@ -76,6 +77,9 @@ export default function PostComposer({
         method: "POST",
         headers: { Authorization: `Bearer ${ticket.data.token}` },
         body: form,
+        // Without this, a hung gateway leaves `uploading` stuck true
+        // forever with no error — the catch below never fires.
+        signal: AbortSignal.timeout(30_000),
       });
 
       if (!res.ok) {
@@ -176,11 +180,7 @@ export default function PostComposer({
         </ul>
       )}
 
-      {error && (
-        <p className="mt-4 rounded-lg border border-[#ff4d4d]/30 bg-[#ff4d4d]/8 px-3 py-2 text-[0.8rem] text-[#ff6b6b]">
-          {error}
-        </p>
-      )}
+      {error && <div className="mt-4"><ErrorBanner>{error}</ErrorBanner></div>}
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border-subtle pt-4">
         {uploadsAvailable && images.length < POST_MAX_IMAGES ? (

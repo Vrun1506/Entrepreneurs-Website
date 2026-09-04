@@ -1,4 +1,6 @@
-export type ListingKind = "opportunity" | "event" | "vc_grant";
+import type { ListingKind } from "@/lib/listings/registry";
+
+export type { ListingKind };
 export type ListingActionType = "applied" | "going";
 
 /** A row from the get_my_listing_actions RPC. */
@@ -15,11 +17,11 @@ export type ActionRow = {
  * filter-and-map inline.
  */
 export function markedListingIds(
-  rows: unknown,
+  rows: ActionRow[],
   kind: ListingKind,
   action: ListingActionType,
 ): string[] {
-  return ((rows ?? []) as ActionRow[])
+  return rows
     .filter((a) => a.listing_kind === kind && a.action_type === action)
     .map((a) => a.listing_id);
 }

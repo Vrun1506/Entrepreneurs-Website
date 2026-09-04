@@ -1,6 +1,7 @@
 import "server-only";
 import { after } from "next/server";
 import { Redis } from "@upstash/redis";
+import * as Sentry from "@sentry/nextjs";
 
 // ════════════════════════════════════════════════════════════════════
 // Foundry · Read-through cache (Upstash Redis)
@@ -107,6 +108,14 @@ function noteFailure(what: string, e: unknown): void {
       `cache: ${BREAKER_THRESHOLD} consecutive failures — pausing Redis for ` +
         `${BREAKER_COOLDOWN_MS / 1000}s so the rate limiter keeps its quota`,
     );
+    // Only on the trip itself (once per cooldown window, not per failed
+    // call) — this shares the rate limiter's Upstash database, so a
+    // sustained outage here is the leading indicator of the `submit`
+    // bucket's own fail-closed refusals about to start. console.warn alone
+    // is invisible outside Vercel's own logs.
+    Sentry.captureMessage("cache: circuit breaker tripped — pausing Redis reads/writes", {
+      level: "warning", tags: { surface: "cache" },
+    });
   }
   console.warn(`cache: ${what}`, e);
 }

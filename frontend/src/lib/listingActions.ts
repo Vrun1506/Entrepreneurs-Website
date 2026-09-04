@@ -27,21 +27,35 @@ export function actionLabel(kind: ListingKind, marked: boolean): string {
 }
 
 export async function markAction(kind: ListingKind, id: string): Promise<Result> {
-  const { error } = await browserClient().rpc("mark_listing_action", {
-    p_kind:   kind,
-    p_id:     id,
-    p_action: actionFor(kind),
-  });
-  if (error) return err(error.message);
-  return ok();
+  // A rejected promise (network blip, not a Postgrest-shaped {error})
+  // used to propagate straight out of here as an unhandled rejection —
+  // the caller's `if (!res.ok)` rollback never ran, leaving the pill
+  // optimistically flipped and permanently disabled. Catching here fixes
+  // it once for every MarkActionPill on the site instead of at each
+  // call site.
+  try {
+    const { error } = await browserClient().rpc("mark_listing_action", {
+      p_kind:   kind,
+      p_id:     id,
+      p_action: actionFor(kind),
+    });
+    if (error) return err(error.message);
+    return ok();
+  } catch (e) {
+    return err(e instanceof Error ? e.message : "Something went wrong.");
+  }
 }
 
 export async function unmarkAction(kind: ListingKind, id: string): Promise<Result> {
-  const { error } = await browserClient().rpc("unmark_listing_action", {
-    p_kind:   kind,
-    p_id:     id,
-    p_action: actionFor(kind),
-  });
-  if (error) return err(error.message);
-  return ok();
+  try {
+    const { error } = await browserClient().rpc("unmark_listing_action", {
+      p_kind:   kind,
+      p_id:     id,
+      p_action: actionFor(kind),
+    });
+    if (error) return err(error.message);
+    return ok();
+  } catch (e) {
+    return err(e instanceof Error ? e.message : "Something went wrong.");
+  }
 }

@@ -8,6 +8,7 @@ import { Dialog, closeDialog } from "@/components/ui/Dialog";
 import { deleteMyPost, loadMoreMyPosts } from "../actions";
 import PostBody from "../PostBody";
 import type { MyPostView } from "../feedView";
+import { ErrorBanner } from "@/components/forms/Banners";
 
 // ════════════════════════════════════════════════════════════════════
 // Foundry · My posts
@@ -112,11 +113,7 @@ export default function MyPostsClient({
         </div>
       )}
 
-      {error && (
-        <p className="rounded-lg border border-[#ff4d4d]/30 bg-[#ff4d4d]/8 px-3 py-2 text-[0.8rem] text-[#ff6b6b]">
-          {error}
-        </p>
-      )}
+      {error && <ErrorBanner>{error}</ErrorBanner>}
 
       {cursor && (
         <div className="flex justify-center">
@@ -170,11 +167,7 @@ function DeleteDialog({
         &ldquo;{post.title}&rdquo; and any images on it will be removed straight away. This cannot
         be undone.
       </p>
-      {error && (
-        <p className="mt-4 rounded-lg border border-[#ff4d4d]/30 bg-[#ff4d4d]/8 px-3 py-2 text-[0.8rem] text-[#ff6b6b]">
-          {error}
-        </p>
-      )}
+      {error && <div className="mt-4"><ErrorBanner>{error}</ErrorBanner></div>}
       <div className="mt-6 flex justify-end gap-2">
         <Button variant="ghost" size="sm" onClick={(e) => closeDialog(e)}>Cancel</Button>
         <Button

@@ -107,14 +107,14 @@ export async function profileIntakeData(db: Db, profileId: string): Promise<Prof
   const [skills, sectors, interests, intents] = await Promise.all([
     rows("profile_skills", () =>
       db.from("profile_skills").select("skill_id, is_core").eq("profile_id", profileId),
-    ) as unknown as Promise<{ skill_id: number; is_core: boolean }[]>,
+    ),
     rows("profile_sectors", () => db.from("profile_sectors").select("sector_id").eq("profile_id", profileId)),
     rows("profile_interests", () =>
       db.from("profile_interests").select("kind, label").eq("profile_id", profileId),
-    ) as unknown as Promise<{ kind: "academic" | "hobby"; label: string }[]>,
+    ),
     rows("profile_intents", () =>
       db.from("profile_intents").select("intent, rank").eq("profile_id", profileId).order("rank"),
-    ) as unknown as Promise<{ intent: string; rank: number }[]>,
+    ),
   ]);
 
   return {

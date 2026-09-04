@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { approveVcGrant, rejectVcGrant } from "./actions";
 import { formatDate } from "@/lib/dates";
 import { Button } from "@/components/ui/Button";
+import { ErrorBanner } from "@/components/forms/Banners";
 
 type Vc = {
   id: string;
@@ -99,11 +100,7 @@ export default function VcReviewCard({ vc: v }: { vc: Vc }) {
         </div>
       )}
 
-      {error && (
-        <div className="mx-6 mb-3 px-3 py-2 rounded-lg bg-[#ff4d4d]/8 border border-[#ff4d4d]/20 text-[0.75rem] text-[#ff6b6b]">
-          {error}
-        </div>
-      )}
+      {error && <div className="mx-6 mb-3"><ErrorBanner>{error}</ErrorBanner></div>}
 
       <div className="px-6 pb-6">
         {showReject ? (

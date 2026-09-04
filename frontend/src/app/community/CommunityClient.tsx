@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { loadMoreFeed, refreshLikeCounts } from "./actions";
 import PostCard from "./PostCard";
 import PostComposer from "./PostComposer";
+import { ErrorBanner } from "@/components/forms/Banners";
 import type { FeedPostView } from "./feedView";
 
 // ════════════════════════════════════════════════════════════════════
@@ -154,11 +155,7 @@ export default function CommunityClient({
         </div>
       )}
 
-      {error && (
-        <p className="rounded-lg border border-[#ff4d4d]/30 bg-[#ff4d4d]/8 px-3 py-2 text-[0.8rem] text-[#ff6b6b]">
-          {error}
-        </p>
-      )}
+      {error && <ErrorBanner>{error}</ErrorBanner>}
 
       {cursor && (
         <div className="flex justify-center">

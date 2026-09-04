@@ -15,6 +15,7 @@ skills-lock.json
 # shipped — the migrations, tests and commit messages are.
 build-list.md
 next.md
+full-audit-fixes.md
 
 # graphify knowledge graph: 4.5MB of generated output (graph.json,
 # graph.html, GRAPH_REPORT.md) rebuilt from source by `graphify update .`.
@@ -61,3 +62,14 @@ pre-*-schema.sql
 # history either. The scripts that do the actual work are tracked under
 # infra/ and server/ — this is just the narrative of where things ended up.
 production-runbook.md
+
+# `.local.` names a file as a personal/dev-only artifact by convention
+# (mirrors .env.local). scripts/seed-ux.local.mjs hardcodes Supabase's
+# public local-dev demo keys, harmless only against a local Docker stack —
+# this stops a future edit that points it at a real project from shipping
+# by accident.
+*.local.mjs
+*.local.js
+*.local.ts
+
+azure-clerk-migration-playbook.md

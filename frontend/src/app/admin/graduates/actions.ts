@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import * as Sentry from "@sentry/nextjs";
 import { invalidate } from "@/lib/cache";
 import { requireAdmin } from "@/lib/auth/actionAuth";
 import { enqueueEmailsBulk, renderGraduationEmail } from "@/lib/email";
@@ -88,6 +89,7 @@ export async function deleteGraduates(cutoffYear: number): Promise<DeleteResult>
       // Accounts are already deleted; queue failure is a partial-state
       // event. Surface the error to the admin so they can investigate,
       // but report the deletion count accurately.
+      Sentry.captureException(e, { level: "error", tags: { surface: "admin", path: "delete-graduates-email" } });
       const msg = e instanceof Error ? e.message : String(e);
       // Membership changed, so the cached directory is stale.
       await invalidate("directoryFacets");

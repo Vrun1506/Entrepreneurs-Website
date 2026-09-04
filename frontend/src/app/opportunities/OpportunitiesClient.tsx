@@ -52,9 +52,27 @@ export default function OpportunitiesClient({
 
   const dismiss = (id: string) => setDismissed((prev) => new Set(prev).add(id));
 
+  const rollbackBookmark = (id: string, wasBookmarked: boolean) => {
+    setBookmarks((prev) => {
+      const next = new Set(prev);
+      if (wasBookmarked) next.add(id); else next.delete(id);
+      return next;
+    });
+    if (wasBookmarked && removeOnUnbookmark) {
+      setDismissed((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
+  };
+
   const handleToggleBookmark = (id: string) => {
     // Optimistic update — flip the in-memory set, then call the server
-    // and revert on failure.
+    // and revert on failure. The .catch() matters as much as the
+    // `!res.ok` branch: an actual thrown rejection (network blip
+    // invoking the action, not a typed failure) would otherwise skip the
+    // rollback entirely and leave the star stuck in the wrong state.
     const wasBookmarked = bookmarks.has(id);
     setBookmarks((prev) => {
       const next = new Set(prev);
@@ -64,22 +82,14 @@ export default function OpportunitiesClient({
     if (wasBookmarked && removeOnUnbookmark) {
       setDismissed((prev) => new Set(prev).add(id));
     }
-    void toggleOpportunityBookmark(id).then((res) => {
-      if (!res.ok) {
-        setBookmarks((prev) => {
-          const next = new Set(prev);
-          if (wasBookmarked) next.add(id); else next.delete(id);
-          return next;
-        });
-        if (wasBookmarked && removeOnUnbookmark) {
-          setDismissed((prev) => {
-            const next = new Set(prev);
-            next.delete(id);
-            return next;
-          });
-        }
-      }
-    });
+    void toggleOpportunityBookmark(id)
+      .then((res) => {
+        if (!res.ok) rollbackBookmark(id, wasBookmarked);
+      })
+      .catch((e) => {
+        console.error("Failed to toggle bookmark:", e);
+        rollbackBookmark(id, wasBookmarked);
+      });
   };
 
   return (

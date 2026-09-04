@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { ErrorBanner } from "@/components/forms/Banners";
 
 export default function DeleteAccountSection({ email }: { email: string }) {
   const router = useRouter();
@@ -48,11 +49,7 @@ export default function DeleteAccountSection({ email }: { email: string }) {
         </button>
       ) : (
         <div className="space-y-4 pt-4 border-t border-border-subtle">
-          {error && (
-            <div className="px-3 py-2 rounded-lg bg-[#ff4d4d]/8 border border-[#ff4d4d]/20 text-[0.75rem] text-[#ff6b6b]">
-              {error}
-            </div>
-          )}
+          {error && <ErrorBanner>{error}</ErrorBanner>}
           <div>
             <label htmlFor="confirm-email" className="block text-[0.75rem] text-text-muted mb-1.5">
               Type your email <span className="text-text-secondary">{email}</span> to confirm

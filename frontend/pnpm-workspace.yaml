@@ -40,6 +40,12 @@ overrides:
   dompurify@<3.4.13: '^3.4.13'
   protobufjs@<7.6.5: '^7.6.5'
   '@opentelemetry/core@<2.8.0': '^2.8.0'
+  # Unbounded memory growth (GHSA-c83g-rgw3-j3cx) + prototype-write crash via
+  # untrusted stats (GHSA-73wf-gq98-2v4g). Build-tool-only — arrives via
+  # @babel/helper-compilation-targets, pulled in by Sentry's webpack/bundler
+  # plugins, eslint-config-next, and next's own styled-jsx step. Never reaches
+  # the deployed app.
+  browserslist@<4.28.7: '^4.28.7'
 allowBuilds:
   '@sentry/cli': false
   core-js: false

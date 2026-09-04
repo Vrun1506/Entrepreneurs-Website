@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import * as Sentry from "@sentry/nextjs";
 import { invalidate } from "@/lib/cache";
 import { requireAdmin } from "@/lib/auth/actionAuth";
 import {
@@ -55,6 +56,7 @@ export async function approveUser(userId: string): Promise<Result> {
   } catch (e) {
     // Approval is committed; surface the email failure so the admin
     // can follow up but don't reverse the approval.
+    Sentry.captureException(e, { level: "error", tags: { surface: "admin", path: "approve-user-email" } });
     const msg = e instanceof Error ? e.message : String(e);
     // Membership changed, so the cached directory is stale.
     await invalidate("directoryFacets");
@@ -97,6 +99,7 @@ export async function rejectUser(userId: string, reason: string): Promise<Result
   } catch (e) {
     // Email failed but DB rejection is already committed. Surface to admin
     // so they know to follow up manually, but don't revert the rejection.
+    Sentry.captureException(e, { level: "error", tags: { surface: "admin", path: "reject-user-email" } });
     const msg = e instanceof Error ? e.message : String(e);
     // Membership changed, so the cached directory is stale.
     await invalidate("directoryFacets");

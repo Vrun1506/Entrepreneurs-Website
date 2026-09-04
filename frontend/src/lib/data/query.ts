@@ -1,4 +1,5 @@
 import "server-only";
+import * as Sentry from "@sentry/nextjs";
 import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.overrides";
 import { reportIfCapped } from "@/lib/supabase/rowCap";
@@ -83,6 +84,7 @@ export async function rows<T>(
   const { data, error } = await run();
   if (error) {
     console.error(`Failed to load ${source}:`, error);
+    Sentry.captureException(error, { tags: { surface: "data-read", source } });
     return [];
   }
   return reportIfCapped(source, data ?? []);
@@ -100,6 +102,7 @@ export async function maybeRow<R extends SingleLike>(
   const { data, error } = await run();
   if (error) {
     console.error(`Failed to load ${source}:`, error);
+    Sentry.captureException(error, { tags: { surface: "data-read", source } });
     return null;
   }
   return (data ?? null) as NonNullable<R["data"]> | null;

@@ -32,7 +32,7 @@ export async function markedIds(
  * sit on a calendar.
  */
 export type ActivityItem = {
-  listingKind: "opportunity" | "event" | "vc_grant";
+  listingKind: ListingKind;
   listingId: string;
   actionType: "applied" | "going";
   markedAt: string;
@@ -44,7 +44,7 @@ export type ActivityItem = {
 };
 
 type ActivityRow = {
-  listing_kind: "opportunity" | "event" | "vc_grant";
+  listing_kind: ListingKind;
   listing_id: string;
   action_type: "applied" | "going";
   marked_at: string;

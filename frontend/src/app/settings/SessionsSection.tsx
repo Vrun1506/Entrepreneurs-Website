@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { ErrorBanner } from "@/components/forms/Banners";
 
 // ════════════════════════════════════════════════════════════════════
 // Foundry · Active sessions card
@@ -42,11 +43,7 @@ export default function SessionsSection() {
         <div className="text-[0.95rem] font-medium text-text-primary">Active sessions</div>
       </div>
 
-      {error && (
-        <div className="px-4 py-3 rounded-lg bg-[#ff4d4d]/8 border border-[#ff4d4d]/20 text-[0.8rem] text-[#ff6b6b] leading-relaxed">
-          {error}
-        </div>
-      )}
+      {error && <ErrorBanner>{error}</ErrorBanner>}
 
       {!confirming ? (
         <button
