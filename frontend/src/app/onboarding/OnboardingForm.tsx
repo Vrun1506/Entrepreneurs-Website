@@ -14,6 +14,7 @@ import { destinationForStatus } from "@/lib/auth/status";
 import { describeSupabaseError } from "@/lib/supabaseErrors";
 import { Button } from "@/components/ui/Button";
 import { invalidateDirectoryCache } from "@/app/profile/actions";
+import { track } from "@/components/analytics/PostHogProvider";
 
 // ════════════════════════════════════════════════════════════════════
 // Foundry · Onboarding — identity only
@@ -113,6 +114,7 @@ export default function OnboardingForm({ role, firstName, surname }: Props) {
       setIsLoading(false);
       return;
     }
+    track("onboarding_completed", { role });
     // The RPC decides the status: student ⇒ approved, everything else ⇒
     // pending_review (allow-list, default deny — 20260828000002). Route on
     // the same rule, through destinationForStatus rather than a second

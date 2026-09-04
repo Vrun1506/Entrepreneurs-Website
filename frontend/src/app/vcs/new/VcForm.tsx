@@ -10,6 +10,7 @@ import { submitVcGrant, updateOwnVcGrant } from "@/app/vcs/actions";
 import { vcGrantSchema } from "@/lib/validation/listings";
 import { collectFieldErrors, showFieldErrors, FORM_ERROR, type FieldErrors } from "@/lib/validation/fields";
 import { Button } from "@/components/ui/Button";
+import { track } from "@/components/analytics/PostHogProvider";
 
 type Mode = "user" | "admin";
 
@@ -86,6 +87,7 @@ export default function VcForm({
         setIsLoading(false);
         return;
       }
+      track("listing_edited", { kind: "vc_grant", mode });
       router.replace("/my-submissions");
       router.refresh();
       return;
@@ -99,6 +101,7 @@ export default function VcForm({
       return;
     }
 
+    track("listing_submitted", { kind: "vc_grant", mode });
     router.replace(mode === "admin" ? "/admin/vcs" : "/vcs?submitted=1");
     router.refresh();
   };

@@ -11,6 +11,7 @@ import { submitOpportunity, updateOwnOpportunity } from "@/app/opportunities/act
 import { opportunitySchema } from "@/lib/validation/listings";
 import { collectFieldErrors, showFieldErrors, FORM_ERROR, type FieldErrors } from "@/lib/validation/fields";
 import { Button } from "@/components/ui/Button";
+import { track } from "@/components/analytics/PostHogProvider";
 
 type Lookup = ChipItem;
 type Mode = "user" | "admin";
@@ -142,6 +143,7 @@ export default function OpportunityForm({ signupEmail, skills, sectors, mode, ed
       return;
     }
 
+    track(editingId ? "listing_edited" : "listing_submitted", { kind: "opportunity", mode });
     router.replace(
       editingId ? "/my-submissions"
       : mode === "admin" ? "/admin/opportunities"

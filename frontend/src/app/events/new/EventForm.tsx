@@ -10,6 +10,7 @@ import { submitEvent, updateOwnEvent } from "@/app/events/actions";
 import { eventSchema } from "@/lib/validation/listings";
 import { collectFieldErrors, showFieldErrors, FORM_ERROR, type FieldErrors } from "@/lib/validation/fields";
 import { Button } from "@/components/ui/Button";
+import { track } from "@/components/analytics/PostHogProvider";
 
 type Mode = "user" | "admin";
 
@@ -100,6 +101,7 @@ export default function EventForm({ signupEmail, defaultOrganiser, mode, editing
         setIsLoading(false);
         return;
       }
+      track("listing_edited", { kind: "event", mode });
       router.replace("/my-submissions");
       router.refresh();
       return;
@@ -113,6 +115,7 @@ export default function EventForm({ signupEmail, defaultOrganiser, mode, editing
       return;
     }
 
+    track("listing_submitted", { kind: "event", mode });
     router.replace(mode === "admin" ? "/admin/events" : "/events?submitted=1");
     router.refresh();
   };

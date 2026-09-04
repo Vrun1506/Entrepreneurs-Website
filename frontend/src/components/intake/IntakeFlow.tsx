@@ -27,6 +27,7 @@ import {
   type Affiliation,
   type StepId,
 } from "@/lib/intake/steps";
+import { track } from "@/components/analytics/PostHogProvider";
 import { MIN_SKILLS, initialState, type IntakeState } from "@/lib/intake/state";
 import { useIntakeDraft } from "@/lib/intake/useIntakeDraft";
 import StepRail from "./StepRail";
@@ -350,6 +351,7 @@ export default function IntakeFlow({
     setBusy(false);
     if (rpcError) { setError(describeSupabaseError(rpcError)); bounceIfSessionExpired(rpcError); return; }
     clearDraft();
+    track("intake_completed");
     setDone(true);
   };
 

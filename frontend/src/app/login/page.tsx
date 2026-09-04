@@ -19,6 +19,7 @@ import { useAlumAuth } from "@/lib/auth/hooks/useAlumAuth";
 import { useGoogleAuth } from "@/lib/auth/hooks/useGoogleAuth";
 import { usePasswordRecovery } from "@/lib/auth/hooks/usePasswordRecovery";
 import type { Mode, Role, Track } from "@/lib/auth/hooks/loginTypes";
+import { track as trackEvent } from "@/components/analytics/PostHogProvider";
 
 /* ── Decorative background ────────────────────────────────────────── */
 // The auth pages used to sit on two gold radial-gradient glows and a 64px
@@ -141,6 +142,10 @@ export default function LoginPage() {
   // paths can't drift apart. Fail-closed: any RPC/lookup failure sends them
   // to '/' rather than risk wrong-routing.
   const routeAfterSignIn = async () => {
+    // Shared by every flow (student OTP, alum password, Google OAuth) that
+    // reaches a session, so this one call site covers the whole auth funnel
+    // rather than needing a capture in each of the four hooks above.
+    trackEvent("auth_completed", { mode, track });
     const { data: isAdmin } = await supabase.rpc("is_admin");
     if (isAdmin) {
       router.replace("/admin");

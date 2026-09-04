@@ -11,6 +11,7 @@ import {
 import { createPost, requestUploadTicket } from "./actions";
 import type { FeedPostView } from "./feedView";
 import { ErrorBanner } from "@/components/forms/Banners";
+import { track } from "@/components/analytics/PostHogProvider";
 
 // ════════════════════════════════════════════════════════════════════
 // Foundry · The composer
@@ -221,6 +222,7 @@ export default function PostComposer({
               setError("");
               const res = await createPost({ title, body, images });
               if (!res.ok) { setError(res.error); return; }
+              track("post_created", { imageCount: images.length });
               setTitle("");
               setBody("");
               setImages([]);
