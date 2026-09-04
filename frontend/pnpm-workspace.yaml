@@ -46,6 +46,13 @@ overrides:
   # plugins, eslint-config-next, and next's own styled-jsx step. Never reaches
   # the deployed app.
   browserslist@<4.28.7: '^4.28.7'
+  # unzipSync infinite loop on a malformed ZIP64 archive (GHSA-px8p-9vwx-vf98).
+  # A direct runtime dependency of posthog-js (`^0.4.8`, not a devDependency),
+  # which this app loads client-side — unlike browserslist above, not
+  # confined to build tooling. Caret bounds at 0.4.x, matching what
+  # posthog-js itself pins; @types/three's separate 0.8.3 copy is types-only
+  # and already past the patched version.
+  fflate@<0.4.9: '^0.4.9'
 allowBuilds:
   '@sentry/cli': false
   core-js: false
