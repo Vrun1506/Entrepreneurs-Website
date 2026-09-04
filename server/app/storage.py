@@ -34,6 +34,12 @@ def _service() -> BlobServiceClient:
     return BlobServiceClient(
         f"https://{cfg.storage_account}.blob.core.windows.net",
         credential=DefaultAzureCredential(),
+        # The SDK default (20s) is unbounded enough to matter here: every
+        # call through this client now runs inside asyncio.to_thread from
+        # main.py, so a hung connection ties up a thread-pool slot rather
+        # than the event loop — bounded, but still worth capping tightly
+        # given uploads/deletes are small payloads, not long transfers.
+        connection_timeout=10,
     )
 
 

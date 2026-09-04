@@ -16,6 +16,11 @@ dependencies = [
     "pyjwt==2.13.0",
     "azure-storage-blob==12.30.1",
     "azure-identity==1.25.3",
+    # qpdf-backed PDF parsing for documents.py — reads the real object graph
+    # (encryption dictionary, /OpenAction, /AA, the JavaScript name tree)
+    # instead of a byte search that can't see through object-stream
+    # compression. Ships a bundled qpdf; no system package needed.
+    "pikepdf==10.12.0",
 ]
 
 [project.optional-dependencies]

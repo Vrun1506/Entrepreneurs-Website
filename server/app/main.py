@@ -17,6 +17,7 @@ maps to, which keeps the blast radius of a compromise to this container.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from fastapi import FastAPI, Header, HTTPException, Request, UploadFile
@@ -102,14 +103,29 @@ async def upload_image(
     # A profile picture is never shown larger than a small circle; the
     # feed's 1600px ceiling would store it four times larger than anything
     # will ever render it.
+    # sanitise_image is CPU-bound (full decode, resize, WebP re-encode) and
+    # synchronous. Called inline, it blocks this worker's whole event loop
+    # for the duration — with two Uvicorn workers (gunicorn.conf.py), that
+    # is a concurrency ceiling of exactly 2 for the entire process, image
+    # uploads included. to_thread moves the decode/encode off the event
+    # loop so a slow image does not stall every other in-flight request on
+    # this worker, including this endpoint's own concurrent callers.
     max_edge = AVATAR_MAX_EDGE if ticket.purpose == "profile_picture" else None
     try:
-        image = sanitise_image(body) if max_edge is None else sanitise_image(body, max_edge=max_edge)
+        image = (
+            await asyncio.to_thread(sanitise_image, body)
+            if max_edge is None
+            else await asyncio.to_thread(sanitise_image, body, max_edge=max_edge)
+        )
     except RejectedImage as exc:
         raise HTTPException(status_code=415, detail=str(exc)) from exc
 
     try:
-        put_blob(
+        # put_blob is a synchronous, blocking Azure SDK call — same
+        # concurrency-ceiling problem as sanitise_image above, and the SDK
+        # gives no async client here, so to_thread is the same fix.
+        await asyncio.to_thread(
+            put_blob,
             ticket.container,
             ticket.key,
             image.data,
@@ -155,12 +171,17 @@ async def upload_document(
         raise HTTPException(status_code=400, detail="No file was uploaded.")
 
     try:
-        document = sanitise_document(body)
+        # sanitise_document now actually parses the PDF object graph
+        # (pikepdf) rather than a byte search — the same
+        # blocks-the-event-loop concern as sanitise_image above applies to
+        # it now too, so it gets the same to_thread treatment.
+        document = await asyncio.to_thread(sanitise_document, body)
     except RejectedDocument as exc:
         raise HTTPException(status_code=415, detail=str(exc)) from exc
 
     try:
-        put_blob(
+        await asyncio.to_thread(
+            put_blob,
             ticket.container,
             ticket.key,
             document.data,
@@ -227,10 +248,17 @@ async def delete_blobs(
             raise HTTPException(status_code=400, detail="Each item needs a valid blob key.")
         parsed.append((container, key))
 
+    # Up to 100 items, each a serial blocking Azure call — worst case (a
+    # degraded storage connection) would otherwise stall this worker's
+    # event loop for the whole batch, taking every other concurrent
+    # request on it down too, /health included. to_thread moves each
+    # delete off the loop; still sequential (delete_blob isn't
+    # thread-safe to fan out further without its own client per thread),
+    # but no longer blocking.
     deleted, missing = 0, 0
     for container, key in parsed:
         try:
-            if delete_blob(container, key):
+            if await asyncio.to_thread(delete_blob, container, key):
                 deleted += 1
             else:
                 missing += 1

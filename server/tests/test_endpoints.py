@@ -13,6 +13,7 @@ import time
 import zipfile
 
 import jwt
+import pikepdf
 import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
@@ -112,7 +113,19 @@ def zip_bomb_docx() -> bytes:
 
 
 def real_pdf() -> bytes:
-    return b"%PDF-1.4\n" + b"x" * 300 + b"\n%%EOF"
+    """A minimal but structurally real, unencrypted, action-free PDF.
+
+    documents.py now actually parses the PDF object graph (pikepdf) rather
+    than checking magic bytes plus a substring search, so a fake-but-
+    plausible blob like the old `b"%PDF-1.4\\n" + b"x" * 300` no longer
+    passes — pikepdf correctly rejects it as unreadable, same as it would a
+    genuinely corrupt upload.
+    """
+    buf = io.BytesIO()
+    with pikepdf.Pdf.new() as pdf:
+        pdf.add_blank_page()
+        pdf.save(buf)
+    return buf.getvalue()
 
 
 def test_health_needs_no_auth(client: TestClient) -> None:
@@ -258,11 +271,44 @@ def test_uploads_a_docx_cv(client: TestClient) -> None:
 
 
 def test_rejects_a_password_protected_pdf(client: TestClient) -> None:
-    encrypted = b"%PDF-1.4\n" + b"/Encrypt 5 0 R\n" + b"x" * 300
+    buf = io.BytesIO()
+    with pikepdf.Pdf.new() as pdf:
+        pdf.add_blank_page()
+        pdf.save(buf, encryption=pikepdf.Encryption(owner="ownerpw", user="userpw"))
     res = client.post(
         "/v1/documents",
         headers={"Authorization": f"Bearer {cv_ticket()}"},
-        files={"file": ("cv.pdf", encrypted, "application/pdf")},
+        files={"file": ("cv.pdf", buf.getvalue(), "application/pdf")},
+    )
+    assert res.status_code == 415
+    assert client.written == {}  # type: ignore[attr-defined]
+
+
+def test_rejects_a_pdf_with_an_open_action_script(client: TestClient) -> None:
+    buf = io.BytesIO()
+    with pikepdf.Pdf.new() as pdf:
+        pdf.add_blank_page()
+        pdf.Root.OpenAction = pdf.make_indirect(
+            pikepdf.Dictionary(S=pikepdf.Name.JavaScript, JS=pikepdf.String("app.alert('pwned')"))
+        )
+        pdf.save(buf)
+    res = client.post(
+        "/v1/documents",
+        headers={"Authorization": f"Bearer {cv_ticket()}"},
+        files={"file": ("cv.pdf", buf.getvalue(), "application/pdf")},
+    )
+    assert res.status_code == 415
+    assert client.written == {}  # type: ignore[attr-defined]
+
+
+def test_rejects_an_unreadable_pdf(client: TestClient) -> None:
+    """Magic bytes claim PDF; the rest is garbage — distinct from the
+    encrypted case, and from the old naive check this replaced, which
+    couldn't tell the two apart from a substring search either way."""
+    res = client.post(
+        "/v1/documents",
+        headers={"Authorization": f"Bearer {cv_ticket()}"},
+        files={"file": ("cv.pdf", b"%PDF-1.4\n" + b"x" * 300, "application/pdf")},
     )
     assert res.status_code == 415
     assert client.written == {}  # type: ignore[attr-defined]
