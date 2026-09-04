@@ -26,13 +26,19 @@ exist to keep that file from being something other than what it claims:
     with, and a member cannot review or the matcher parse content it can't
     read either.
 
-Deliberately NOT handled here: PDF embedded JavaScript / launch actions.
-Inert in every context this file is actually opened in (the member's own
-browser, or an admin's, via a signed URL with Content-Disposition:
-attachment) and stripping it would mean re-authoring the PDF, which
-conflicts with storing the original bytes verbatim. Accepted and
-documented, not silently ignored — see the security section of this
-project's plan.
+PDF embedded JavaScript and /Launch actions are rejected outright, the same
+way a macro-enabled .docm is: both are executable payload riding inside a
+document upload, and "inert in a browser" doesn't mean inert everywhere —
+Content-Disposition: attachment only stops inline rendering, and a PDF
+reader that isn't a browser (Adobe Acrobat, chiefly) does run embedded
+JavaScript and can act on a /Launch action. This is the well-known
+malicious-résumé attack shape, and it's aimed squarely at whoever has the
+most reason to open a stranger's CV — an admin. Detected with pikepdf
+(qpdf-backed) rather than a byte search, because the earlier /Encrypt-only
+check that shipped here shared a real weakness with that shape of check:
+it can't see through a PDF's own object-stream compression, so anything
+encoded that way — a real encryption dictionary, or a JavaScript action —
+would silently pass a plain substring search.
 """
 
 from __future__ import annotations
@@ -40,6 +46,8 @@ from __future__ import annotations
 import io
 import zipfile
 from dataclasses import dataclass
+
+import pikepdf
 
 MIN_BYTES = 256  # Below this nothing resembling a real CV can exist.
 
@@ -68,15 +76,71 @@ _DOCX_CONTENT_TYPE = (
 )
 
 
+# A PDF action's /S entry names its type. Only these two can make anything
+# run — /GoTo, /URI and the rest just navigate or link, which is the whole
+# point of having a PDF that isn't a plain scan.
+_DANGEROUS_ACTION_TYPES = frozenset({pikepdf.Name.JavaScript, pikepdf.Name.Launch})
+
+
+def _action_is_dangerous(action: object) -> bool:
+    return isinstance(action, pikepdf.Dictionary) and action.get("/S") in _DANGEROUS_ACTION_TYPES
+
+
+def _action_group_is_dangerous(action_group: object) -> bool:
+    """An /AA dict maps trigger names (open, close, mouse-enter, ...) to
+    action dicts — the per-page and per-annotation sibling of the document
+    catalog's single /OpenAction."""
+    return isinstance(action_group, pikepdf.Dictionary) and any(
+        _action_is_dangerous(sub) for sub in action_group.values()
+    )
+
+
+def _has_dangerous_content(pdf: pikepdf.Pdf) -> bool:
+    root = pdf.Root
+    if _action_is_dangerous(root.get("/OpenAction")):
+        return True
+    if _action_group_is_dangerous(root.get("/AA")):
+        return True
+
+    names = root.get("/Names")
+    # A non-empty /Names/JavaScript name tree *is* embedded JavaScript —
+    # unlike /OpenAction and /AA, there's no benign action type sharing this
+    # slot, so presence alone is the signal.
+    if isinstance(names, pikepdf.Dictionary) and "/JavaScript" in names:
+        return True
+
+    for page in pdf.pages:
+        if _action_group_is_dangerous(page.get("/AA")):
+            return True
+        for annot in page.get("/Annots", []):
+            if not isinstance(annot, pikepdf.Dictionary):
+                continue
+            if _action_is_dangerous(annot.get("/A")) or _action_group_is_dangerous(annot.get("/AA")):
+                return True
+    return False
+
+
 def _validate_pdf(data: bytes) -> None:
-    if b"/Encrypt" in data:
-        # A real encrypted PDF's trailer references an /Encrypt object; a
-        # PDF that merely mentions the string in body text is vanishingly
-        # unlikely for a CV and rejecting the false positive costs the
-        # member a re-export, not a security gap the other direction.
+    try:
+        with pikepdf.Pdf.open(io.BytesIO(data)) as pdf:
+            # is_encrypted covers owner-only encryption too, where opening
+            # with an empty user password succeeds but the file is still
+            # marked encrypted — PasswordError alone would miss that case.
+            if pdf.is_encrypted:
+                raise RejectedDocument(
+                    "That PDF is password-protected. Please upload an unprotected copy."
+                )
+            if _has_dangerous_content(pdf):
+                raise RejectedDocument(
+                    "That PDF contains an embedded script or launch action, which "
+                    "isn't accepted. Please upload a plain PDF export."
+                )
+    except pikepdf.PasswordError as exc:
         raise RejectedDocument(
             "That PDF is password-protected. Please upload an unprotected copy."
-        )
+        ) from exc
+    except pikepdf.PdfError as exc:
+        raise RejectedDocument("That file could not be read.") from exc
 
 
 def _validate_docx(data: bytes) -> None:
