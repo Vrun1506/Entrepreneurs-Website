@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { clearRecoveryMarker } from "./actions";
 import { Button } from "@/components/ui/Button";
+import { ErrorBanner } from "@/components/forms/Banners";
 
 export default function ResetPasswordForm() {
   const router = useRouter();
@@ -71,11 +72,7 @@ export default function ResetPasswordForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {error && (
-        <div className="px-4 py-3 rounded-lg bg-[#ff4d4d]/8 border border-[#ff4d4d]/20 text-[0.8rem] text-[#ff6b6b] leading-relaxed">
-          {error}
-        </div>
-      )}
+      {error && <ErrorBanner>{error}</ErrorBanner>}
 
       <div>
         <label htmlFor="new-password" className="block text-[0.75rem] text-text-muted mb-1.5">New password</label>

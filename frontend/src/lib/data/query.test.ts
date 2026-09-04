@@ -4,7 +4,7 @@ import type { PostgrestError, PostgrestSingleResponse } from "@supabase/supabase
 import { rows, maybeRow } from "./query";
 import { MAX_ROWS } from "@/lib/supabase/rowCap";
 
-vi.mock("@sentry/nextjs", () => ({ captureMessage: vi.fn() }));
+vi.mock("@sentry/nextjs", () => ({ captureMessage: vi.fn(), captureException: vi.fn() }));
 
 const boom = { message: "boom", details: "", hint: "", code: "XX000" } as PostgrestError;
 const many = (n: number) => Array.from({ length: n }, (_, i) => ({ i }));
@@ -13,6 +13,7 @@ describe("rows", () => {
   beforeEach(() => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     vi.mocked(Sentry.captureMessage).mockClear();
+    vi.mocked(Sentry.captureException).mockClear();
   });
   afterEach(() => vi.restoreAllMocks());
 
@@ -29,6 +30,10 @@ describe("rows", () => {
     const out = await rows("list_approved_events", async () => ({ data: null, error: boom }));
     expect(out).toEqual([]);
     expect(console.error).toHaveBeenCalledWith("Failed to load list_approved_events:", boom);
+    expect(Sentry.captureException).toHaveBeenCalledWith(
+      boom,
+      { tags: { surface: "data-read", source: "list_approved_events" } },
+    );
   });
 
   // The reason this wrapper exists at all. reportIfCapped used to be a line
@@ -46,7 +51,10 @@ describe("rows", () => {
 });
 
 describe("maybeRow", () => {
-  beforeEach(() => vi.spyOn(console, "error").mockImplementation(() => {}));
+  beforeEach(() => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.mocked(Sentry.captureException).mockClear();
+  });
   afterEach(() => vi.restoreAllMocks());
 
   it("returns the row on success", async () => {
@@ -56,6 +64,10 @@ describe("maybeRow", () => {
   it("returns null on error, having logged it", async () => {
     expect(await maybeRow("profiles", async () => ({ data: null, error: boom }))).toBeNull();
     expect(console.error).toHaveBeenCalledWith("Failed to load profiles:", boom);
+    expect(Sentry.captureException).toHaveBeenCalledWith(
+      boom,
+      { tags: { surface: "data-read", source: "profiles" } },
+    );
   });
 
   // This one is really a typecheck, and it is here because the tests above

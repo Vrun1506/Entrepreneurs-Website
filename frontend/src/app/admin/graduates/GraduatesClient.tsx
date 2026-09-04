@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { previewGraduates, deleteGraduates } from "./actions";
+import { ErrorBanner } from "@/components/forms/Banners";
 
 type Preview = {
   count: number;
@@ -76,11 +77,7 @@ export default function GraduatesClient({ defaultCutoff }: { defaultCutoff: numb
           </button>
         </div>
 
-        {error && (
-          <div className="px-4 py-3 rounded-lg bg-[#ff4d4d]/8 border border-[#ff4d4d]/20 text-[0.8rem] text-[#ff6b6b] leading-relaxed">
-            {error}
-          </div>
-        )}
+        {error && <ErrorBanner>{error}</ErrorBanner>}
 
         {successCount !== null && (
           <div className="px-4 py-3 rounded-lg bg-accent-muted border border-accent/30 text-[0.825rem] text-accent-light leading-relaxed space-y-1">

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import * as Sentry from "@sentry/nextjs";
 import { invalidate } from "@/lib/cache";
 import { requireAdmin } from "@/lib/auth/actionAuth";
 import { sendAccountRemovalEmail } from "@/lib/email";
@@ -37,6 +38,7 @@ export async function adminDeleteUser(userId: string, reason: string): Promise<R
       reason:    trimmed,
     });
   } catch (e) {
+    Sentry.captureException(e, { level: "error", tags: { surface: "admin", path: "delete-user-email" } });
     const msg = e instanceof Error ? e.message : String(e);
     // Membership changed, so the cached directory is stale.
     await invalidate("directoryFacets");

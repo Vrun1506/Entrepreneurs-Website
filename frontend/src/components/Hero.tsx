@@ -1,9 +1,17 @@
 "use client";
 
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import { useRef } from "react";
-import HeroScene from "@/components/HeroScene";
 import { scrollBehavior } from "@/lib/motion";
+
+// three.js is a heavy dependency to ship in the main bundle of the public
+// marketing page every prospective member hits before signing up. The
+// static Image fallback below is already the scene's own "not live yet"
+// state (see its own comment), so deferring the module fetch to the client
+// costs nothing visually — it's the same frame either way until the point
+// cloud is sampled.
+const HeroScene = dynamic(() => import("@/components/HeroScene"), { ssr: false });
 
 // ════════════════════════════════════════════════════════════════════
 // Foundry · Hero

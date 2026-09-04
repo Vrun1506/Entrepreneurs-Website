@@ -1,6 +1,7 @@
 import "server-only";
 import { NextResponse, type NextRequest } from "next/server";
 import { timingSafeEqual } from "node:crypto";
+import * as Sentry from "@sentry/nextjs";
 import { createServiceClient } from "@/lib/supabase/service";
 
 // ════════════════════════════════════════════════════════════════════
@@ -70,6 +71,9 @@ async function drain(req: NextRequest): Promise<NextResponse> {
   // ─── Auth ──────────────────────────────────────────────────────────
   const secret = process.env.CRON_SECRET;
   if (!secret) {
+    Sentry.captureMessage("drain-blob-deletions: CRON_SECRET is not configured", {
+      level: "error", tags: { surface: "cron", path: "drain-blob-deletions" },
+    });
     return NextResponse.json({ error: "CRON_SECRET is not configured" }, { status: 500 });
   }
   const auth = req.headers.get("authorization") ?? "";
@@ -84,10 +88,16 @@ async function drain(req: NextRequest): Promise<NextResponse> {
   // would stay, and nothing would say so.
   const gateway = process.env.UPLOAD_GATEWAY_URL;
   if (!gateway) {
+    Sentry.captureMessage("drain-blob-deletions: UPLOAD_GATEWAY_URL is not configured", {
+      level: "error", tags: { surface: "cron", path: "drain-blob-deletions" },
+    });
     return NextResponse.json({ error: "UPLOAD_GATEWAY_URL is not configured" }, { status: 500 });
   }
   const serviceToken = process.env.GATEWAY_SERVICE_TOKEN;
   if (!serviceToken) {
+    Sentry.captureMessage("drain-blob-deletions: GATEWAY_SERVICE_TOKEN is not configured", {
+      level: "error", tags: { surface: "cron", path: "drain-blob-deletions" },
+    });
     return NextResponse.json({ error: "GATEWAY_SERVICE_TOKEN is not configured" }, { status: 500 });
   }
 
@@ -97,6 +107,9 @@ async function drain(req: NextRequest): Promise<NextResponse> {
   const { data: claimed, error: claimErr } = await supabase
     .rpc("claim_blob_deletion_batch", { p_limit: BATCH_SIZE });
   if (claimErr) {
+    Sentry.captureException(claimErr, {
+      level: "error", tags: { surface: "cron", path: "drain-blob-deletions-claim" },
+    });
     return NextResponse.json({ error: `Claim failed: ${claimErr.message}` }, { status: 500 });
   }
   const rows = (claimed ?? []) as ClaimedRow[];

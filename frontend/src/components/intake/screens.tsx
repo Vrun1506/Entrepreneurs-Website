@@ -22,6 +22,7 @@ import {
 } from "@/lib/intake/state";
 import { Field, ChoiceCards, PillChoice, TagInput, FilePicker, RankPicker, SkillPicker, type SkillOption } from "./controls";
 import type { Affiliation } from "@/lib/intake/steps";
+import { MAX_NAME_LENGTH } from "@/lib/text";
 
 export type Patch = (p: Partial<IntakeState>) => void;
 
@@ -72,7 +73,7 @@ export function FaceScreen({ s, patch, firstName, avatarUploading, avatarError, 
           type="text"
           value={s.preferredName}
           onChange={(e) => patch({ preferredName: e.target.value })}
-          maxLength={50}
+          maxLength={MAX_NAME_LENGTH}
           placeholder={firstName}
           className={inputCls}
         />

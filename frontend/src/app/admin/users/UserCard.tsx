@@ -5,6 +5,7 @@ import { approveUser, rejectUser } from "./actions";
 import SocialLinks from "@/components/SocialLinks";
 import { formatDate } from "@/lib/dates";
 import { Button } from "@/components/ui/Button";
+import { ErrorBanner } from "@/components/forms/Banners";
 import type { Affiliation } from "@/lib/intake/steps";
 
 type Member = {
@@ -98,11 +99,7 @@ export default function UserCard({ member }: { member: Member }) {
         </div>
       )}
 
-      {error && (
-        <div className="mb-3 px-3 py-2 rounded-lg bg-[#ff4d4d]/8 border border-[#ff4d4d]/20 text-[0.75rem] text-[#ff6b6b]">
-          {error}
-        </div>
-      )}
+      {error && <div className="mb-3"><ErrorBanner>{error}</ErrorBanner></div>}
 
       {showReject ? (
         <div className="space-y-3 pt-3 border-t border-border-subtle">

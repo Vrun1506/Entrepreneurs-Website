@@ -186,7 +186,11 @@ export function TagInput({
                   type="button"
                   onClick={() => onRemove(v)}
                   aria-label={`Remove ${v}`}
-                  className="ml-0.5 flex h-5 w-5 cursor-pointer items-center justify-center rounded border border-border-strong bg-white/[0.04] text-text-secondary transition-colors duration-150 hover:border-accent hover:text-text-primary"
+                  // The visible box stays chip-sized so the pill doesn't bulk up, but
+                  // the actual tap target extends 4px past it on every side via the
+                  // pseudo-element below — safe because chips sit in an 8px gap-2
+                  // grid, so two adjacent extended targets meet without overlapping.
+                  className="relative ml-0.5 flex h-7 w-7 cursor-pointer items-center justify-center rounded border border-border-strong bg-white/[0.04] text-text-secondary transition-colors duration-150 before:absolute before:-inset-1 before:content-[''] hover:border-accent hover:text-text-primary"
                 >
                   <svg width="9" height="9" viewBox="0 0 9 9" fill="none" aria-hidden>
                     <path
@@ -337,7 +341,10 @@ export function SkillPicker({
                     type="button"
                     onClick={() => onRemove(id)}
                     aria-label={`Remove ${skill.name}`}
-                    className="ml-0.5 flex h-5 w-5 cursor-pointer items-center justify-center rounded border border-border-strong bg-white/[0.04] text-text-secondary transition-colors duration-150 hover:border-accent hover:text-text-primary"
+                    // See TagInput's matching remove button above for why this
+                    // extends its hit area via a pseudo-element instead of just
+                    // growing the visible box.
+                    className="relative ml-0.5 flex h-7 w-7 cursor-pointer items-center justify-center rounded border border-border-strong bg-white/[0.04] text-text-secondary transition-colors duration-150 before:absolute before:-inset-1 before:content-[''] hover:border-accent hover:text-text-primary"
                   >
                     <svg width="9" height="9" viewBox="0 0 9 9" fill="none" aria-hidden>
                       <path d="M1 1L8 8M8 1L1 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />

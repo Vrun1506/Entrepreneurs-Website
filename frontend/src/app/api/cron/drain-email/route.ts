@@ -2,6 +2,7 @@ import "server-only";
 import { NextResponse, type NextRequest } from "next/server";
 import { Resend } from "resend";
 import { timingSafeEqual } from "node:crypto";
+import * as Sentry from "@sentry/nextjs";
 import { createServiceClient } from "@/lib/supabase/service";
 
 // ════════════════════════════════════════════════════════════════════
@@ -69,6 +70,9 @@ async function drain(req: NextRequest): Promise<NextResponse> {
   // ─── Auth ──────────────────────────────────────────────────────────
   const secret = process.env.CRON_SECRET;
   if (!secret) {
+    Sentry.captureMessage("drain-email: CRON_SECRET is not configured", {
+      level: "error", tags: { surface: "cron", path: "drain-email" },
+    });
     return NextResponse.json(
       { error: "CRON_SECRET is not configured" },
       { status: 500 },
@@ -84,6 +88,9 @@ async function drain(req: NextRequest): Promise<NextResponse> {
   // ─── Env preflight ─────────────────────────────────────────────────
   const resendKey = process.env.RESEND_API_KEY;
   if (!resendKey) {
+    Sentry.captureMessage("drain-email: RESEND_API_KEY is not configured", {
+      level: "error", tags: { surface: "cron", path: "drain-email" },
+    });
     return NextResponse.json(
       { error: "RESEND_API_KEY is not configured" },
       { status: 500 },
@@ -91,6 +98,9 @@ async function drain(req: NextRequest): Promise<NextResponse> {
   }
   const fromAddress = process.env.RESEND_FROM;
   if (!fromAddress) {
+    Sentry.captureMessage("drain-email: RESEND_FROM is not configured", {
+      level: "error", tags: { surface: "cron", path: "drain-email" },
+    });
     return NextResponse.json(
       { error: "RESEND_FROM is not configured" },
       { status: 500 },
@@ -103,6 +113,9 @@ async function drain(req: NextRequest): Promise<NextResponse> {
   const { data: claimed, error: claimErr } = await supabase
     .rpc("claim_outbound_email_batch", { p_limit: BATCH_SIZE });
   if (claimErr) {
+    Sentry.captureException(claimErr, {
+      level: "error", tags: { surface: "cron", path: "drain-email-claim" },
+    });
     return NextResponse.json(
       { error: `Claim failed: ${claimErr.message}` },
       { status: 500 },
@@ -153,20 +166,37 @@ type SendOutcome =
   | { kind: "transient"; error: string }
   | { kind: "permanent"; error: string };
 
+// Resend's SDK exposes no signal/timeout option (checked its PostOptions
+// type), unlike every other external call in the codebase. A manual race
+// can't cancel the underlying request, but it does stop one hung send from
+// eating the whole batch's share of the route's maxDuration — the idempotency
+// key below makes the eventual real response harmless to ignore.
+const SEND_TIMEOUT_MS = 15_000;
+
 async function sendOne(
   resend: Resend,
   fromAddress: string,
   row: ClaimedRow,
 ): Promise<SendOutcome> {
   try {
-    const { data, error } = await resend.emails.send({
-      from:    fromAddress,
-      to:      row.to_address,
-      subject: row.subject,
-      text:    row.text_body,
-      html:    row.html_body,
-      ...(row.reply_to ? { replyTo: row.reply_to } : {}),
-    });
+    // idempotencyKey pinned to the row's own id: if the process is killed
+    // after Resend accepts the send but before recordResult() writes
+    // sent_at, the row's lock eventually expires and becomes claimable
+    // again. Without this, that re-claim resends a message that already
+    // reached the recipient — Resend dedupes any repeat request carrying
+    // the same key instead.
+    const { data, error } = await Promise.race([
+      resend.emails.send({
+        from:    fromAddress,
+        to:      row.to_address,
+        subject: row.subject,
+        text:    row.text_body,
+        html:    row.html_body,
+        ...(row.reply_to ? { replyTo: row.reply_to } : {}),
+      }, { idempotencyKey: row.id }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Resend send timed out")), SEND_TIMEOUT_MS)),
+    ]);
     if (!error) {
       return { kind: "sent", messageId: data?.id ?? null };
     }

@@ -58,6 +58,7 @@ export async function submitContactTicket(input: unknown): Promise<Result> {
     // DB/network internals). Log server-side for diagnosis; return a generic
     // message the form shows verbatim.
     console.error("submitContactTicket: enqueue failed", e);
+    Sentry.captureException(e, { tags: { surface: "contact", path: "ticket-enqueue" } });
     return { ok: false, error: "Something went wrong sending your message. Please try again shortly." };
   }
 
@@ -77,6 +78,7 @@ export async function submitContactTicket(input: unknown): Promise<Result> {
       });
     } catch (e) {
       console.error("submitContactTicket: confirmation enqueue failed", e);
+      Sentry.captureException(e, { tags: { surface: "contact", path: "confirmation-enqueue" } });
     }
   }
 

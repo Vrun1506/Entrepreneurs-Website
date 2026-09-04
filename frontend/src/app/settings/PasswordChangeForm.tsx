@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
 import { TurnstileWidget, turnstileConfigured } from "@/components/forms/TurnstileWidget";
+import { ErrorBanner, SuccessBanner } from "@/components/forms/Banners";
 
 export default function PasswordChangeForm({ hasPassword, email }: { hasPassword: boolean; email: string }) {
   const supabase = createClient();
@@ -124,16 +125,8 @@ export default function PasswordChangeForm({ hasPassword, email }: { hasPassword
         </p>
       </div>
 
-      {error && (
-        <div className="px-4 py-3 rounded-lg bg-[#ff4d4d]/8 border border-[#ff4d4d]/20 text-[0.8rem] text-[#ff6b6b] leading-relaxed">
-          {error}
-        </div>
-      )}
-      {saved && !error && (
-        <div className="px-4 py-3 rounded-lg bg-accent-muted border border-accent/30 text-[0.8rem] text-accent-light leading-relaxed">
-          Password updated.
-        </div>
-      )}
+      {error && <ErrorBanner>{error}</ErrorBanner>}
+      {saved && !error && <SuccessBanner>Password updated.</SuccessBanner>}
 
       <div>
         <label htmlFor="current-password" className="block text-[0.75rem] text-text-muted mb-1.5">Current password</label>

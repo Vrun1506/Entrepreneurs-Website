@@ -32,11 +32,19 @@ export default function OpportunityActions({
 
   const toggleBookmark = () => {
     // Optimistic, reverted if the write fails — same contract as the card.
+    // The .catch() covers an actual thrown rejection (network blip
+    // invoking the action), which would otherwise skip the rollback and
+    // leave the star stuck showing the wrong state.
     const was = bookmarked;
     setBookmarked(!was);
-    void toggleOpportunityBookmark(o.id).then((res) => {
-      if (!res.ok) setBookmarked(was);
-    });
+    void toggleOpportunityBookmark(o.id)
+      .then((res) => {
+        if (!res.ok) setBookmarked(was);
+      })
+      .catch((e) => {
+        console.error("Failed to toggle bookmark:", e);
+        setBookmarked(was);
+      });
   };
 
   return (

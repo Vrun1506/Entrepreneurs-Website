@@ -8,6 +8,7 @@ import { Pager } from "@/components/ui/Pager";
 import { useUrlFilters } from "@/lib/filters/useUrlFilters";
 import { REPORT_CATEGORIES } from "@/lib/validation/posts";
 import { adminDeletePost } from "@/app/community/actions";
+import { ErrorBanner } from "@/components/forms/Banners";
 import type { PostReport } from "@/lib/data/posts";
 import { resolveReport } from "./actions";
 
@@ -201,11 +202,7 @@ function ActionDialog({
         className="mt-2 w-full rounded-lg border border-border-strong bg-white/[0.03] px-3 py-2 text-[0.85rem] text-text-primary"
       />
 
-      {error && (
-        <p className="mt-4 rounded-lg border border-[#ff4d4d]/30 bg-[#ff4d4d]/8 px-3 py-2 text-[0.8rem] text-[#ff6b6b]">
-          {error}
-        </p>
-      )}
+      {error && <div className="mt-4"><ErrorBanner>{error}</ErrorBanner></div>}
 
       <div className="mt-6 flex justify-end gap-2">
         <Button variant="ghost" size="sm" onClick={(e) => closeDialog(e)}>Cancel</Button>

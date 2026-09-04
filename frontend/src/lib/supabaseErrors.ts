@@ -23,12 +23,27 @@
 // — which is the same "add cases as they show up" loop as before, now
 // with the leak closed while you wait.
 
+import { MAX_NAME_LENGTH } from "@/lib/text";
+
 type AnyError =
   | string
   | Error
   | { message?: string; code?: string; details?: string | null; hint?: string | null }
   | null
   | undefined;
+
+// Shared with describeSupabaseError below so a caller can both show the
+// friendly message AND redirect to /login — unlike a page-load or server
+// action gate, a client-initiated RPC call (ProfileForm/IntakeFlow talk to
+// Supabase directly from the browser) has no framework-level redirect on
+// expiry; without this, the member has to notice the banner and navigate
+// themselves.
+export function isSessionExpiredError(err: AnyError): boolean {
+  if (err == null || typeof err === "string") return false;
+  const message = ("message" in err && err.message) ? String(err.message) : "";
+  const code = ("code" in err && err.code) ? String(err.code) : "";
+  return code === "PGRST301" || /jwt|jwk|invalid claim|invalid signature/i.test(message);
+}
 
 export function describeSupabaseError(err: AnyError): string {
   if (err == null) return "Something went wrong.";
@@ -39,7 +54,7 @@ export function describeSupabaseError(err: AnyError): string {
 
   // Auth / session expiry — JWT errors come through with code "PGRST301"
   // or messages like "JWT expired" / "invalid claim".
-  if (code === "PGRST301" || /jwt|jwk|invalid claim|invalid signature/i.test(message)) {
+  if (isSessionExpiredError(err)) {
     return "Your session has expired. Please sign in again.";
   }
 
@@ -159,7 +174,7 @@ const CHECK_CONSTRAINT_MESSAGES: Record<string, string> = {
   post_reports_category:                      "Choose one of the listed reasons.",
   profiles_cv_path_len:                       "That CV reference is too long.",
   profiles_cv_original_filename_len:          "That filename is too long — try renaming the file.",
-  profiles_preferred_name_len:                "That name must be between 1 and 50 characters.",
+  profiles_preferred_name_len:                `That name must be between 1 and ${MAX_NAME_LENGTH} characters.`,
   profiles_bio_focus_len:                     "Keep this to 500 characters or fewer.",
   profiles_bio_hobbies_len:                   "Keep this to 500 characters or fewer.",
   profiles_current_focus_check:               "Choose one of the listed options for what takes up most of your week.",

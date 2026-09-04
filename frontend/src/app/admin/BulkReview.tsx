@@ -109,7 +109,7 @@ export function BulkReview<T>({ items, getId, renderCard, bulkApprove, bulkRejec
 
       {selected.size > 0 && (
         <div className="sticky bottom-4 z-30 mx-auto max-w-[640px] rounded-2xl bg-bg-card border border-accent/30 shadow-lg p-4">
-          {error && <div className="text-[0.8rem] text-[#ff6b6b] mb-2">{error}</div>}
+          {error && <div role="alert" className="text-[0.8rem] text-[#ff6b6b] mb-2">{error}</div>}
           <div className="flex items-center gap-3 flex-wrap">
             <span className="text-[0.85rem] text-text-primary font-medium">{selected.size} selected</span>
             {!rejecting ? (

@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { approveOpportunity, rejectOpportunity } from "./actions";
 import { formatDate } from "@/lib/dates";
 import { Button } from "@/components/ui/Button";
+import { ErrorBanner } from "@/components/forms/Banners";
 
 type Opportunity = {
   id: string;
@@ -156,11 +157,7 @@ export default function OpportunityReviewCard({ opportunity: o }: { opportunity:
         </div>
       )}
 
-      {error && (
-        <div className="mx-6 mb-3 px-3 py-2 rounded-lg bg-[#ff4d4d]/8 border border-[#ff4d4d]/20 text-[0.75rem] text-[#ff6b6b]">
-          {error}
-        </div>
-      )}
+      {error && <div className="mx-6 mb-3"><ErrorBanner>{error}</ErrorBanner></div>}
 
       <div className="px-6 pb-6">
         {showReject ? (

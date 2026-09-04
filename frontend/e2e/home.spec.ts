@@ -240,10 +240,21 @@ test.describe("home", () => {
     const nav = page.getByRole("navigation", { name: "Main" });
 
     await expect(nav.getByRole("link", { name: "Members" })).toBeVisible();
-    await page.getByRole("button", { name: "Collapse navigation" }).click();
 
-    // Labels go, the destinations stay reachable by their accessible name.
-    await expect(page.getByRole("button", { name: "Expand navigation" })).toBeVisible();
+    // The rail's collapse button is part of the page shell, which paints
+    // (and looks clickable) from streamed SSR HTML before React has
+    // necessarily finished hydrating it — a real click landing in that
+    // window is a native DOM event with no listener attached yet, so it
+    // is silently swallowed. Retrying the click (rather than the page)
+    // is what actually happens if a person's first click does nothing:
+    // they click again.
+    await expect(async () => {
+      await page.getByRole("button", { name: "Collapse navigation" }).click();
+      // Labels go, the destinations stay reachable by their accessible name.
+      await expect(page.getByRole("button", { name: "Expand navigation" })).toBeVisible({
+        timeout: 1000,
+      });
+    }).toPass();
 
     await page.reload();
     await expect(page.getByRole("button", { name: "Expand navigation" })).toBeVisible();

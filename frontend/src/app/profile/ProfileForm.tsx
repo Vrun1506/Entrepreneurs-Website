@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { ChipGroup, type ChipItem } from "@/components/forms/ChipGroup";
@@ -10,9 +10,9 @@ import {
   Field, ChoiceCards, PillChoice, TagInput, FilePicker, RankPicker, SkillPicker, type SkillOption,
 } from "@/components/intake/controls";
 import { AvatarCropper } from "@/components/media/AvatarCropper";
-import { cleanName, cleanText, isValidName } from "@/lib/text";
+import { cleanName, cleanText, isValidName, MAX_NAME_LENGTH } from "@/lib/text";
 import { gradYearOptions, validateGradYear } from "@/lib/gradYears";
-import { describeSupabaseError } from "@/lib/supabaseErrors";
+import { describeSupabaseError, isSessionExpiredError } from "@/lib/supabaseErrors";
 import { Button } from "@/components/ui/Button";
 import { invalidateDirectoryCache } from "@/app/profile/actions";
 import {
@@ -117,6 +117,16 @@ export default function ProfileForm(props: Props) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
+  const errorRef = useRef<HTMLDivElement>(null);
+
+  // The banner renders at the very top of this page, but Save (and most
+  // validation triggers) sit far below it on a page this long — a failed
+  // save otherwise reads as "nothing happened" because the reason is
+  // off-screen. IntakeFlow already does this on every step change; this is
+  // the same fix for the one page that was missing it.
+  useEffect(() => {
+    if (error) errorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [error]);
 
   const toggleSector = (id: number) => {
     const next = new Set(sectorIds);
@@ -144,8 +154,8 @@ export default function ProfileForm(props: Props) {
       setError("First name and surname are required.");
       return;
     }
-    if (trimmedFirst.length > 50 || trimmedSurname.length > 50) {
-      setError("First name and surname must be 50 characters or fewer.");
+    if (trimmedFirst.length > MAX_NAME_LENGTH || trimmedSurname.length > MAX_NAME_LENGTH) {
+      setError(`First name and surname must be ${MAX_NAME_LENGTH} characters or fewer.`);
       return;
     }
     if (!isValidName(trimmedFirst) || !isValidName(trimmedSurname)) {
@@ -222,6 +232,14 @@ export default function ProfileForm(props: Props) {
     if (rpcError) {
       setError(describeSupabaseError(rpcError));
       setIsLoading(false);
+      // This RPC runs straight from the browser client, so there is no
+      // framework-level redirect on an expired session the way a page load
+      // or server action gets — send them back to sign in rather than
+      // leaving them to notice the banner. Brief delay so the message above
+      // is actually readable before the page navigates away.
+      if (isSessionExpiredError(rpcError)) {
+        window.setTimeout(() => router.push("/login"), 1500);
+      }
       return;
     }
 
@@ -240,7 +258,7 @@ export default function ProfileForm(props: Props) {
 
   return (
     <div className="space-y-8">
-      {error && <ErrorBanner>{error}</ErrorBanner>}
+      {error && <div ref={errorRef}><ErrorBanner>{error}</ErrorBanner></div>}
       {saved && !error && <SuccessBanner>Saved.</SuccessBanner>}
 
       <PhotoSection avatarUrl={props.avatarUrl} />
@@ -258,11 +276,11 @@ export default function ProfileForm(props: Props) {
         <div className="flex gap-3">
           <div className="flex-1">
             <label htmlFor="first-name" className="block text-[0.75rem] text-text-muted mb-1.5">First name</label>
-            <input id="first-name" type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} className={inputCls} maxLength={50} required />
+            <input id="first-name" type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} className={inputCls} maxLength={MAX_NAME_LENGTH} required />
           </div>
           <div className="flex-1">
             <label htmlFor="surname" className="block text-[0.75rem] text-text-muted mb-1.5">Surname</label>
-            <input id="surname" type="text" value={surname} onChange={(e) => setSurname(e.target.value)} className={inputCls} maxLength={50} required />
+            <input id="surname" type="text" value={surname} onChange={(e) => setSurname(e.target.value)} className={inputCls} maxLength={MAX_NAME_LENGTH} required />
           </div>
         </div>
 
@@ -270,7 +288,7 @@ export default function ProfileForm(props: Props) {
           <label htmlFor="preferred-name" className="block text-[0.75rem] text-text-muted mb-1.5">
             What people call you <span className="text-text-muted/70 ml-1">— optional</span>
           </label>
-          <input id="preferred-name" type="text" value={preferredName} onChange={(e) => setPreferredName(e.target.value)} className={inputCls} maxLength={50} />
+          <input id="preferred-name" type="text" value={preferredName} onChange={(e) => setPreferredName(e.target.value)} className={inputCls} maxLength={MAX_NAME_LENGTH} />
         </div>
 
         <div>
@@ -300,7 +318,7 @@ export default function ProfileForm(props: Props) {
             LinkedIn URL{" "}
             {props.role === "student" && <span className="text-text-muted/70 ml-1">— optional</span>}
           </label>
-          <input id="linkedin" type="url" value={linkedin} onChange={(e) => setLinkedin(e.target.value)} className={inputCls} maxLength={512} required={props.role !== "student"} />
+          <input id="linkedin" type="url" placeholder="https://linkedin.com/in/your-handle" value={linkedin} onChange={(e) => setLinkedin(e.target.value)} className={inputCls} maxLength={512} required={props.role !== "student"} />
         </div>
 
         <div>
@@ -440,6 +458,9 @@ function PhotoSection({ avatarUrl }: { avatarUrl: string | null }) {
         method: "POST",
         headers: { Authorization: `Bearer ${ticket.data.token}` },
         body: form,
+        // Without this, a hung gateway leaves `uploading` stuck true
+        // forever with no error — the catch below never fires.
+        signal: AbortSignal.timeout(30_000),
       });
       if (!res.ok) {
         const detail = await res.json().catch(() => null);
@@ -557,6 +578,9 @@ function CvSection({
         method: "POST",
         headers: { Authorization: `Bearer ${ticket.data.token}` },
         body: form,
+        // Without this, a hung gateway leaves `uploading` stuck true
+        // forever with no error — the catch below never fires.
+        signal: AbortSignal.timeout(30_000),
       });
       if (!res.ok) {
         const detail = await res.json().catch(() => null);

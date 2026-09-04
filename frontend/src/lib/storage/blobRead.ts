@@ -1,4 +1,5 @@
 import "server-only";
+import * as Sentry from "@sentry/nextjs";
 import {
   BlobSASPermissions,
   BlobServiceClient,
@@ -116,7 +117,12 @@ async function delegationKey(cfg: Config): Promise<UserDelegationKey> {
 
   const startsOn = new Date(now - 5 * 60 * 1000); // clock-skew allowance
   const expiresOn = new Date(now + KEY_TTL_HOURS * 3600 * 1000);
-  const key = await serviceClient(cfg).getUserDelegationKey(startsOn, expiresOn);
+  // Unbounded otherwise: a hung Azure network path would hang whichever
+  // server action/page render triggered this refresh until the platform's
+  // own function timeout killed it with an opaque error.
+  const key = await serviceClient(cfg).getUserDelegationKey(startsOn, expiresOn, {
+    abortSignal: AbortSignal.timeout(10_000),
+  });
 
   keyCache = { key, refreshAfter: now + KEY_REFRESH_AFTER_HOURS * 3600 * 1000 };
   return key;
@@ -149,6 +155,7 @@ export async function signedImageUrls(
     // Logged, not thrown. Storage being unreachable degrades the feed to
     // text; it does not take the page down.
     console.error("Failed to obtain an Azure user delegation key:", e);
+    Sentry.captureException(e, { tags: { surface: "blob-read", op: "delegationKey" } });
     return keys.map(() => null);
   }
 
@@ -174,6 +181,7 @@ export async function signedImageUrls(
       return `https://${cfg.account}.blob.core.windows.net/${container}/${blobKey}?${sas}`;
     } catch (e) {
       console.error("Failed to sign a read URL for:", blobKey, e);
+      Sentry.captureException(e, { tags: { surface: "blob-read", op: "signedImageUrls" } });
       return null;
     }
   });
@@ -200,6 +208,7 @@ export async function signedCvUrl(blobKey: string): Promise<string | null> {
     key = await delegationKey(cfg);
   } catch (e) {
     console.error("Failed to obtain an Azure user delegation key:", e);
+    Sentry.captureException(e, { tags: { surface: "blob-read", op: "delegationKey" } });
     return null;
   }
 
@@ -224,6 +233,7 @@ export async function signedCvUrl(blobKey: string): Promise<string | null> {
     return `https://${cfg.account}.blob.core.windows.net/${container}/${blobKey}?${sas}`;
   } catch (e) {
     console.error("Failed to sign a read URL for:", blobKey, e);
+    Sentry.captureException(e, { tags: { surface: "blob-read", op: "signedCvUrl" } });
     return null;
   }
 }
@@ -241,9 +251,12 @@ export async function downloadCvBytes(blobKey: string): Promise<Buffer | null> {
 
   try {
     const container = serviceClient(cfg).getContainerClient(cfg.containers.cv);
-    return await container.getBlockBlobClient(blobKey).downloadToBuffer();
+    return await container.getBlockBlobClient(blobKey).downloadToBuffer(undefined, undefined, {
+      abortSignal: AbortSignal.timeout(10_000),
+    });
   } catch (e) {
     console.error("Failed to download CV blob:", blobKey, e);
+    Sentry.captureException(e, { tags: { surface: "blob-read", op: "downloadCvBytes" } });
     return null;
   }
 }
@@ -275,11 +288,12 @@ export async function blobsExist(
   try {
     const container = serviceClient(cfg).getContainerClient(cfg.containers[purpose]);
     const results = await Promise.all(
-      keys.map((k) => container.getBlockBlobClient(k).exists()),
+      keys.map((k) => container.getBlockBlobClient(k).exists({ abortSignal: AbortSignal.timeout(10_000) })),
     );
     return results.every(Boolean);
   } catch (e) {
     console.error("Failed to verify uploaded blobs:", e);
+    Sentry.captureException(e, { tags: { surface: "blob-read", op: "blobsExist" } });
     return false;
   }
 }

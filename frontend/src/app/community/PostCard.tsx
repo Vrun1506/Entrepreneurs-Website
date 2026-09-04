@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Dialog, closeDialog } from "@/components/ui/Dialog";
 import { REPORT_CATEGORIES } from "@/lib/validation/posts";
 import { adminDeletePost, deleteMyPost, reportPost, toggleLike } from "./actions";
+import { ErrorBanner } from "@/components/forms/Banners";
 import PostBody from "./PostBody";
 import type { FeedPostView } from "./feedView";
 
@@ -197,9 +198,7 @@ function ConfirmDelete({
         be undone.
       </p>
       {error && (
-        <p className="mt-4 rounded-lg border border-[#ff4d4d]/30 bg-[#ff4d4d]/8 px-3 py-2 text-[0.8rem] text-[#ff6b6b]">
-          {error}
-        </p>
+        <div className="mt-4"><ErrorBanner>{error}</ErrorBanner></div>
       )}
       <div className="mt-6 flex justify-end gap-2">
         <Button variant="ghost" size="sm" onClick={(e) => closeDialog(e)}>Cancel</Button>
@@ -259,9 +258,7 @@ function AdminRemove({
       />
 
       {error && (
-        <p className="mt-4 rounded-lg border border-[#ff4d4d]/30 bg-[#ff4d4d]/8 px-3 py-2 text-[0.8rem] text-[#ff6b6b]">
-          {error}
-        </p>
+        <div className="mt-4"><ErrorBanner>{error}</ErrorBanner></div>
       )}
 
       <div className="mt-6 flex justify-end gap-2">
@@ -346,9 +343,7 @@ function ReportPost({ post, onClose }: { post: FeedPostView; onClose: () => void
       />
 
       {error && (
-        <p className="mt-4 rounded-lg border border-[#ff4d4d]/30 bg-[#ff4d4d]/8 px-3 py-2 text-[0.8rem] text-[#ff6b6b]">
-          {error}
-        </p>
+        <div className="mt-4"><ErrorBanner>{error}</ErrorBanner></div>
       )}
 
       <div className="mt-6 flex justify-end gap-2">

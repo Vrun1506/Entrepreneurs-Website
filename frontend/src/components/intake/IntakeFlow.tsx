@@ -10,7 +10,7 @@ import type { ChipItem } from "@/components/forms/ChipGroup";
 import type { DirectoryMember } from "@/lib/data/directory";
 import type { SkillOption } from "./controls";
 import { createClient } from "@/lib/supabase/client";
-import { describeSupabaseError } from "@/lib/supabaseErrors";
+import { describeSupabaseError, isSessionExpiredError } from "@/lib/supabaseErrors";
 import {
   requestAvatarTicket,
   confirmAvatarUpload,
@@ -199,6 +199,9 @@ export default function IntakeFlow({
         method: "POST",
         headers: { Authorization: `Bearer ${ticket.data.token}` },
         body: form,
+        // Without this, a hung gateway leaves avatarUploading stuck true
+        // forever with no error — the catch below never fires.
+        signal: AbortSignal.timeout(30_000),
       });
       if (!res.ok) {
         const detail = await res.json().catch(() => null);
@@ -231,32 +234,52 @@ export default function IntakeFlow({
     const ticket = await requestCvTicket();
     if (!ticket.ok) return ticket.error;
 
-    const form = new FormData();
-    form.append("file", s.cvFile);
-    const res = await fetch(ticket.data.uploadUrl, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${ticket.data.token}` },
-      body: form,
-    });
-    if (!res.ok) {
-      const detail = await res.json().catch(() => null);
-      return detail?.detail ?? "That file couldn't be uploaded. Try a PDF or DOCX.";
+    try {
+      const form = new FormData();
+      form.append("file", s.cvFile);
+      const res = await fetch(ticket.data.uploadUrl, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${ticket.data.token}` },
+        body: form,
+        // Without this, a hung gateway hangs the Continue button forever
+        // with no error — see the same fix on onCropAvatar above.
+        signal: AbortSignal.timeout(30_000),
+      });
+      if (!res.ok) {
+        const detail = await res.json().catch(() => null);
+        return detail?.detail ?? "That file couldn't be uploaded. Try a PDF or DOCX.";
+      }
+      const stored = await res.json();
+
+      const confirmed = await confirmCvUpload(stored.key, s.cvFile.name, s.cvConsent);
+      if (!confirmed.ok) return confirmed.error;
+
+      // Suggestion chips are no longer returned inline — confirmCvUpload
+      // parses the CV in the background and persists the result, so a
+      // fresh upload clears whatever the previous CV suggested until the
+      // effect below picks up the new value once the Skills screen mounts.
+      patch({
+        cvUploadedKey: stored.key,
+        cvOriginalFilename: s.cvFile.name,
+        suggestedSkillIds: [],
+      });
+      return null;
+    } catch {
+      // Network error or the timeout above firing — this call previously had
+      // no catch at all, so either one was an unhandled rejection.
+      return "Couldn't reach the file service. Try again in a moment.";
     }
-    const stored = await res.json();
+  };
 
-    const confirmed = await confirmCvUpload(stored.key, s.cvFile.name, s.cvConsent);
-    if (!confirmed.ok) return confirmed.error;
-
-    // Suggestion chips are no longer returned inline — confirmCvUpload
-    // parses the CV in the background and persists the result, so a
-    // fresh upload clears whatever the previous CV suggested until the
-    // effect below picks up the new value once the Skills screen mounts.
-    patch({
-      cvUploadedKey: stored.key,
-      cvOriginalFilename: s.cvFile.name,
-      suggestedSkillIds: [],
-    });
-    return null;
+  // These RPCs run straight from the browser client, so there is no
+  // framework-level redirect on an expired session the way a page load or
+  // server action gets — send them back to sign in rather than leaving them
+  // to notice the banner. Brief delay so the message above is readable
+  // before the page navigates away.
+  const bounceIfSessionExpired = (rpcError: Parameters<typeof isSessionExpiredError>[0]) => {
+    if (isSessionExpiredError(rpcError)) {
+      window.setTimeout(() => router.push("/login"), 1500);
+    }
   };
 
   /**
@@ -270,7 +293,7 @@ export default function IntakeFlow({
     const { error: rpcError } = await supabase.rpc("set_my_linkedin", {
       p_linkedin_url: s.linkedin.trim(),
     });
-    if (rpcError) return describeSupabaseError(rpcError);
+    if (rpcError) { bounceIfSessionExpired(rpcError); return describeSupabaseError(rpcError); }
     setLinkedinSaved(true);
     return null;
   };
@@ -327,7 +350,7 @@ export default function IntakeFlow({
       p_intents: s.intents,
     });
     setBusy(false);
-    if (rpcError) { setError(describeSupabaseError(rpcError)); return; }
+    if (rpcError) { setError(describeSupabaseError(rpcError)); bounceIfSessionExpired(rpcError); return; }
     clearDraft();
     setDone(true);
   };
@@ -373,7 +396,7 @@ export default function IntakeFlow({
     // 20260901000013) — this error path is the real backstop, not just
     // defensive styling, in case the button was ever shown when it
     // shouldn't have been.
-    if (rpcError) { setError(describeSupabaseError(rpcError)); return; }
+    if (rpcError) { setError(describeSupabaseError(rpcError)); bounceIfSessionExpired(rpcError); return; }
     clearDraft();
     router.push("/home");
   };

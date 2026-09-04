@@ -44,15 +44,27 @@ export function MemberDialog({ member: m, onClose }: { member: DirectoryMember; 
       .select("bio_focus, bio_hobbies, linkedin_url, github_url, portfolio_url")
       .eq("id", m.id)
       .maybeSingle()
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        if (error || !data) {
+      .then(
+        ({ data, error }) => {
+          if (cancelled) return;
+          if (error || !data) {
+            console.error("Failed to load profile details:", error);
+            setLoadFailed(true);
+            return;
+          }
+          setFull(data as FullProfile);
+        },
+        // PromiseLike (the lazy Supabase builder), not a real Promise — no
+        // .catch(), but the two-arg .then() rejection handler works the
+        // same way. Without this, an actual thrown rejection (as opposed
+        // to a Postgrest-shaped {error}) left the dialog's skeleton
+        // spinning forever with no error state ever set.
+        (error: unknown) => {
+          if (cancelled) return;
           console.error("Failed to load profile details:", error);
           setLoadFailed(true);
-          return;
-        }
-        setFull(data as FullProfile);
-      });
+        },
+      );
     return () => { cancelled = true; };
   }, [m.id]);
 
@@ -68,7 +80,7 @@ export function MemberDialog({ member: m, onClose }: { member: DirectoryMember; 
           type="button"
           onClick={closeDialog}
           aria-label="Close"
-          className="absolute top-3 right-3 shrink-0 w-8 h-8 rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70 text-white flex items-center justify-center transition-colors cursor-pointer border-0"
+          className="absolute top-3 right-3 shrink-0 w-11 h-11 rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70 text-white flex items-center justify-center transition-colors cursor-pointer border-0"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <path d="M18 6L6 18M6 6l12 12" />

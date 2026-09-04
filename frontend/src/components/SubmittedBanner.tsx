@@ -20,7 +20,7 @@ export default function SubmittedBanner({ kind }: { kind: string }) {
         type="button"
         onClick={() => setShow(false)}
         aria-label="Dismiss"
-        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-border-strong bg-white/[0.04] leading-none text-text-muted cursor-pointer transition-colors duration-150 hover:border-accent hover:text-text-primary"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-border-strong bg-white/[0.04] leading-none text-text-muted cursor-pointer transition-colors duration-150 hover:border-accent hover:text-text-primary"
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
           <path d="M18 6L6 18M6 6l12 12" />

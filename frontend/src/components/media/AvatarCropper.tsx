@@ -20,7 +20,7 @@ import { useEffect, useId, useRef, useState } from "react";
 // draw sideways before the member even starts cropping.
 // ════════════════════════════════════════════════════════════════════
 
-const BOX = 288; // on-screen crop box, px
+const MAX_BOX = 288; // on-screen crop box ceiling, px — shrinks to fit narrow containers
 const OUTPUT = 512; // stored square, px — matches server AVATAR_MAX_EDGE
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 3;
@@ -54,6 +54,22 @@ export function AvatarCropper({
   const dragRef = useRef<{ startX: number; startY: number; origin: Offset } | null>(null);
   const [prevFile, setPrevFile] = useState(file);
 
+  // BOX was a fixed 288px constant — wider than the available card width on
+  // an ordinary phone once real padding is accounted for, so the circle
+  // overflowed its card on narrow viewports. Measuring the actual
+  // container keeps it a true "cover" fit at any width, up to MAX_BOX.
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [box, setBox] = useState(MAX_BOX);
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const measure = () => setBox(Math.min(MAX_BOX, Math.floor(el.clientWidth)));
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   // Reset for a new file during render, not in an effect — this is the
   // "adjusting state when a prop changes" case React's own docs steer away
   // from an effect for: it runs once per actual file change, synchronously,
@@ -75,8 +91,8 @@ export function AvatarCropper({
         // Centre immediately, computed from this bitmap and zoom=1 — not a
         // separate effect reacting to `bitmap`, which would show one frame
         // clamped to a corner before re-centring.
-        const s = (BOX / Math.min(bmp.width, bmp.height)) * OVERSCAN;
-        setOffset({ x: (BOX - bmp.width * s) / 2, y: (BOX - bmp.height * s) / 2 });
+        const s = (box / Math.min(bmp.width, bmp.height)) * OVERSCAN;
+        setOffset({ x: (box - bmp.width * s) / 2, y: (box - bmp.height * s) / 2 });
       })
       .catch(() => {
         if (!cancelled) setError("That image couldn't be read. Try a different file.");
@@ -84,19 +100,20 @@ export function AvatarCropper({
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-centering on every box resize (e.g. rotating a phone) would fight an in-progress crop; only a new file should re-run this.
   }, [file]);
 
   // Scale that makes the image cover the crop box at zoom = 1, like
   // object-fit: cover, plus OVERSCAN so there's already pan room at
   // zoom = 1 — then zoom multiplies on top of that.
-  const baseScale = bitmap ? (BOX / Math.min(bitmap.width, bitmap.height)) * OVERSCAN : 1;
+  const baseScale = bitmap ? (box / Math.min(bitmap.width, bitmap.height)) * OVERSCAN : 1;
   const scale = baseScale * zoom;
   const dw = bitmap ? bitmap.width * scale : 0;
   const dh = bitmap ? bitmap.height * scale : 0;
 
   const clamp = (o: Offset, w: number, h: number): Offset => {
-    const minX = Math.min(0, BOX - w);
-    const minY = Math.min(0, BOX - h);
+    const minX = Math.min(0, box - w);
+    const minY = Math.min(0, box - h);
     return { x: Math.min(0, Math.max(minX, o.x)), y: Math.min(0, Math.max(minY, o.y)) };
   };
 
@@ -108,7 +125,7 @@ export function AvatarCropper({
   const applyZoom = (z: number) => {
     setZoom(z);
     if (!bitmap) return;
-    const s = (BOX / Math.min(bitmap.width, bitmap.height)) * OVERSCAN * z;
+    const s = (box / Math.min(bitmap.width, bitmap.height)) * OVERSCAN * z;
     setOffset((prev) => clamp(prev, bitmap.width * s, bitmap.height * s));
   };
 
@@ -133,7 +150,7 @@ export function AvatarCropper({
     canvas.height = OUTPUT;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    const k = OUTPUT / BOX;
+    const k = OUTPUT / box;
     ctx.drawImage(bitmap, 0, 0, bitmap.width, bitmap.height, offset.x * k, offset.y * k, dw * k, dh * k);
     canvas.toBlob(
       (blob) => {
@@ -148,31 +165,36 @@ export function AvatarCropper({
     <div className="rounded-lg border border-border-strong bg-white/[0.04] p-5">
       {error && <p className="mb-3 text-[0.8rem] text-[#ff8080]">{error}</p>}
 
+      {/* Always rendered (not gated on bitmap) so containerRef can measure
+          the real available width before the first image ever loads —
+          an empty flex container still spans its parent's full width. */}
+      <div ref={containerRef} className="flex justify-center">
+        {bitmap && (
+          <div
+            tabIndex={0}
+            role="group"
+            aria-label="Photo position — drag, or use the arrow keys, to choose what shows in the circle"
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerUp}
+            onKeyDown={(e) => {
+              const step = e.shiftKey ? NUDGE * 3 : NUDGE;
+              if (e.key === "ArrowLeft") { e.preventDefault(); nudge(step, 0); }
+              if (e.key === "ArrowRight") { e.preventDefault(); nudge(-step, 0); }
+              if (e.key === "ArrowUp") { e.preventDefault(); nudge(0, step); }
+              if (e.key === "ArrowDown") { e.preventDefault(); nudge(0, -step); }
+            }}
+            style={{ width: box, height: box }}
+            className="relative cursor-move touch-none select-none overflow-hidden rounded-full border border-border-strong bg-black/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            <CropperImage bitmap={bitmap} width={dw} height={dh} x={offset.x} y={offset.y} />
+          </div>
+        )}
+      </div>
+
       {bitmap && (
         <>
-          <div className="flex justify-center">
-            <div
-              tabIndex={0}
-              role="group"
-              aria-label="Photo position — drag, or use the arrow keys, to choose what shows in the circle"
-              onPointerDown={onPointerDown}
-              onPointerMove={onPointerMove}
-              onPointerUp={onPointerUp}
-              onPointerCancel={onPointerUp}
-              onKeyDown={(e) => {
-                const step = e.shiftKey ? NUDGE * 3 : NUDGE;
-                if (e.key === "ArrowLeft") { e.preventDefault(); nudge(step, 0); }
-                if (e.key === "ArrowRight") { e.preventDefault(); nudge(-step, 0); }
-                if (e.key === "ArrowUp") { e.preventDefault(); nudge(0, step); }
-                if (e.key === "ArrowDown") { e.preventDefault(); nudge(0, -step); }
-              }}
-              style={{ width: BOX, height: BOX }}
-              className="relative cursor-move touch-none select-none overflow-hidden rounded-full border border-border-strong bg-black/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-            >
-              <CropperImage bitmap={bitmap} width={dw} height={dh} x={offset.x} y={offset.y} />
-            </div>
-          </div>
-
           <div className="mt-5">
             <label htmlFor={zoomId} className="mb-1.5 block text-[0.7rem] font-medium uppercase tracking-[0.14em] text-text-secondary">
               Zoom

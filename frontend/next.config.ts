@@ -27,6 +27,18 @@ const securityHeaders = [
   },
 ];
 
+// Every authenticated route segment. `no-store` here is what actually
+// answers the "does bfcache show a stale member-only page after logout"
+// question — the middleware's own session re-check only runs on a real
+// network request, and bfcache restores without one. Scoped to these
+// segments rather than site-wide so the public marketing pages keep normal
+// caching behaviour.
+const AUTHENTICATED_SEGMENTS = [
+  "home", "profile", "settings", "admin", "calendar", "community", "intake",
+  "onboarding", "members", "opportunities", "events", "vcs", "messaging",
+  "my-activity", "my-bookmarks", "my-submissions", "pending", "rejected",
+];
+
 const nextConfig: NextConfig = {
   reactCompiler: true,
   poweredByHeader: false,
@@ -36,6 +48,14 @@ const nextConfig: NextConfig = {
         source: "/:path*",
         headers: securityHeaders,
       },
+      ...AUTHENTICATED_SEGMENTS.map((segment) => ({
+        source: `/${segment}/:path*`,
+        headers: [{ key: "Cache-Control", value: "no-store" }],
+      })),
+      ...AUTHENTICATED_SEGMENTS.map((segment) => ({
+        source: `/${segment}`,
+        headers: [{ key: "Cache-Control", value: "no-store" }],
+      })),
     ];
   },
 };

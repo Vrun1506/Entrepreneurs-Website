@@ -7,6 +7,7 @@ import { useUrlFilters, useSearchDraft } from "@/lib/filters/useUrlFilters";
 import { SearchInput, FilterPanel, ChipGroup, RangeFilter } from "@/components/filters/FilterBar";
 import { Pager } from "@/components/ui/Pager";
 import { adminDeleteUser } from "./actions";
+import { ErrorBanner } from "@/components/forms/Banners";
 import type { UserStatus } from "@/lib/database.overrides";
 // Type-only, so the server-only module is erased rather than imported.
 import type { AdminMember, AdminMemberFilters } from "@/lib/data/admin";
@@ -243,11 +244,7 @@ function DeleteUserModal({ member, onClose }: { member: AdminMember; onClose: ()
           This permanently removes their profile, posted opportunities, events, VC/grant submissions, and any admin actions they took. They will be emailed the reason below. <span className="text-[#ff6b6b]">This cannot be undone.</span>
         </p>
 
-        {error && (
-          <div className="mb-4 px-3 py-2 rounded-lg bg-[#ff4d4d]/8 border border-[#ff4d4d]/20 text-[0.75rem] text-[#ff6b6b]">
-            {error}
-          </div>
-        )}
+        {error && <div className="mb-4"><ErrorBanner>{error}</ErrorBanner></div>}
 
         <label htmlFor="reason" className="block text-[0.75rem] text-text-muted mb-1.5">
           Reason (sent to user)

@@ -3,6 +3,17 @@ import { createClient } from "@/lib/supabase/server";
 import { listPendingOpportunities } from "@/lib/data/admin";
 import OpportunitiesReview from "./OpportunitiesReview";
 
+// bulkApproveOpportunities/bulkRejectOpportunities are one SECURITY
+// DEFINER RPC call per id (see runBulk's own comment on why that's
+// sequential, not parallel). A genuinely large batch — the exact "worked
+// in batches" review pattern this app's own product notes call a normal
+// usage scene, not an edge case — can exceed the platform default before
+// the loop finishes. Matches the cron routes' own maxDuration override
+// for the same reason. Server Actions inherit maxDuration from the
+// invoking route, not from the action module, so this has to live here
+// rather than in actions.ts.
+export const maxDuration = 60;
+
 export default async function AdminOpportunitiesPage() {
   const supabase = await createClient();
 
