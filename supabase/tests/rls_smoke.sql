@@ -2040,9 +2040,166 @@ begin
     raise exception 'FAIL: submit_intake did not reject a non-approved caller';
   end if;
 
+  -- 22f. update_profile refuses a caller whose status is not 'approved' —
+  --      the gap 20260902000002 closed: a member rejected mid-session must
+  --      not be able to keep saving profile edits from an already-open tab.
+  set local role none;
+  perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+  update public.profiles set status = 'rejected' where id = v_a;
+
+  v_ok := false;
+  perform _set_caller(v_a);
+  begin
+    -- grad_year is null here deliberately: the status check must raise
+    -- before any field validation runs, so this call would fail differently
+    -- (and validly so) if the gate below it were ever skipped.
+    perform public.update_profile(
+      p_first_name    => 'Al',
+      p_surname       => 'Um',
+      p_course        => 'MEng',
+      p_grad_year     => null,
+      p_linkedin_url  => 'https://linkedin.com/in/foundry-test',
+      p_github_url    => null,
+      p_portfolio_url => null
+    );
+    raise exception 'FAIL: a rejected member saved profile edits via update_profile';
+  exception when sqlstate '42501' then v_ok := true;
+  end;
+  if not v_ok then
+    raise exception 'FAIL: update_profile did not reject a non-approved caller';
+  end if;
+
   set local role none;
   perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
   update public.profiles set status = 'approved' where id = v_a;
+end;
+$$;
+
+-- 23. approve_user refuses to re-process a target that is not currently
+--     pending_review — the guard 20260902000003 added to match reject_user's
+--     existing convention. Without it, a devtools-bypassed double-click or a
+--     race between two admin tabs both succeed, each firing a duplicate
+--     acceptance email and writing a duplicate admin_actions row.
+do $$
+declare
+  v_a     uuid := (select v from _test_ctx where k='user_a');
+  v_admin uuid := (select v from _test_ctx where k='admin');
+  v_ok    boolean := false;
+begin
+  set local role none;
+  perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+  update public.profiles set status = 'pending_review' where id = v_a;
+
+  perform _set_caller(v_admin);
+  perform * from public.approve_user(v_a, null);  -- first call: succeeds
+
+  begin
+    perform * from public.approve_user(v_a, null);  -- second call: must refuse
+    raise exception 'FAIL: approve_user re-processed an already-approved target';
+  exception when sqlstate 'P0001' then v_ok := true;
+  end;
+  if not v_ok then
+    raise exception 'FAIL: approve_user did not guard against re-approval';
+  end if;
+
+  set local role none;
+  perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+  update public.profiles set status = 'approved' where id = v_a;
+end;
+$$;
+
+-- 24. approve_opportunity/reject_opportunity/approve_event/reject_event/
+--     approve_vc_grant/reject_vc_grant refuse to re-process a target that
+--     is not currently 'pending' — the guard 20260904000001 added to match
+--     approve_user/reject_user's own convention (test 23 above), extended
+--     to the three listing types. Without it: a double-click past the
+--     client-side disabled state, or two admin tabs racing, both succeed —
+--     a double-reject fires the poster two identical rejection emails, and
+--     an approve-then-reject on the same stale tab silently un-publishes
+--     an already-approved listing.
+do $$
+declare
+  v_a     uuid := (select v from _test_ctx where k='user_a');
+  v_admin uuid := (select v from _test_ctx where k='admin');
+  v_opp   uuid := gen_random_uuid();
+  v_ev    uuid := gen_random_uuid();
+  v_vc    uuid := gen_random_uuid();
+  v_ok    boolean;
+begin
+  set local role postgres;
+  insert into public.opportunities (
+    id, posted_by, status, position_name, company, pay, location_type,
+    description, start_month, start_year, application_deadline,
+    contact_email, apply_method
+  ) values (v_opp, v_a, 'pending', 'Guard test role', 'Co', '£50k', 'remote',
+            'Description that is at least twenty chars long.',
+            1, 2027, current_date + 30, 'a@imperial.ac.uk', 'email');
+  insert into public.events (
+    id, posted_by, status, title, description, luma_link, event_at,
+    location, organiser_name, contact_email
+  ) values (v_ev, v_a, 'pending', 'Guard test event',
+            'Description that is at least twenty chars long.', 'https://lu.ma/gt',
+            now() + interval '30 days', 'London', 'A User', 'a@imperial.ac.uk');
+  insert into public.vcs_grants (
+    id, kind, posted_by, status, name, description, link
+  ) values (v_vc, 'vc', v_a, 'pending', 'Guard test fund',
+            'Description that is at least twenty chars long.', 'https://example.com/gt');
+
+  perform _set_caller(v_admin);
+
+  -- (a) double-approve is refused, for all three types.
+  perform public.approve_opportunity(v_opp, null);
+  v_ok := false;
+  begin
+    perform public.approve_opportunity(v_opp, null);
+    raise exception 'FAIL: approve_opportunity re-processed an already-approved listing';
+  exception when sqlstate 'P0001' then v_ok := true;
+  end;
+  if not v_ok then raise exception 'FAIL: approve_opportunity did not guard against re-approval'; end if;
+
+  perform public.approve_event(v_ev, null);
+  v_ok := false;
+  begin
+    perform public.approve_event(v_ev, null);
+    raise exception 'FAIL: approve_event re-processed an already-approved listing';
+  exception when sqlstate 'P0001' then v_ok := true;
+  end;
+  if not v_ok then raise exception 'FAIL: approve_event did not guard against re-approval'; end if;
+
+  perform public.approve_vc_grant(v_vc, null);
+  v_ok := false;
+  begin
+    perform public.approve_vc_grant(v_vc, null);
+    raise exception 'FAIL: approve_vc_grant re-processed an already-approved listing';
+  exception when sqlstate 'P0001' then v_ok := true;
+  end;
+  if not v_ok then raise exception 'FAIL: approve_vc_grant did not guard against re-approval'; end if;
+
+  -- (b) cross-action race: a stale tab's reject on an already-approved
+  -- listing must also be refused, not silently un-publish it.
+  v_ok := false;
+  begin
+    perform * from public.reject_opportunity(v_opp, 'stale tab');
+    raise exception 'FAIL: reject_opportunity un-approved an already-approved listing';
+  exception when sqlstate 'P0001' then v_ok := true;
+  end;
+  if not v_ok then raise exception 'FAIL: reject_opportunity did not guard against a cross-action race'; end if;
+
+  -- (c) double-reject is refused (second call would otherwise re-fire the
+  -- poster's rejection email).
+  set local role postgres;
+  update public.opportunities
+     set status = 'pending', approved_at = null, approved_by = null, rejected_reason = null
+   where id = v_opp;
+  perform _set_caller(v_admin);
+  perform * from public.reject_opportunity(v_opp, 'spam');
+  v_ok := false;
+  begin
+    perform * from public.reject_opportunity(v_opp, 'spam');
+    raise exception 'FAIL: reject_opportunity re-processed an already-rejected listing';
+  exception when sqlstate 'P0001' then v_ok := true;
+  end;
+  if not v_ok then raise exception 'FAIL: reject_opportunity did not guard against re-rejection'; end if;
 end;
 $$;
 

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { computeDisplayName } from "@/lib/auth/guard";
+import { destinationForStatus } from "@/lib/auth/status";
 import AppShell from "@/components/app/AppShell";
 import { listSkillsDetailed, listSectors, profileIntakeData } from "@/lib/data/taxonomy";
 import { signedImageUrls } from "@/lib/storage/blobRead";
@@ -36,8 +37,11 @@ export default async function ProfilePage() {
   const profile = profileRes.data;
   const isAdmin = !!isAdminRes.data;
   if (!profile) redirect("/login");
-  // Admins bypass the onboarding gate so they can browse the user-facing UI for diagnostics.
-  if (!isAdmin && profile.status === "pending_onboarding") redirect("/onboarding");
+  // Admins bypass the status gate so they can browse the user-facing UI for
+  // diagnostics. Every non-approved status redirects (not just
+  // pending_onboarding) — a member who is rejected or still in the review
+  // queue mid-session must not keep landing on their editable profile.
+  if (!isAdmin && profile.status !== "approved") redirect(destinationForStatus(profile.status));
 
   const [avatarUrl] = profile.avatar_path
     ? await signedImageUrls([profile.avatar_path], "profile_picture")
