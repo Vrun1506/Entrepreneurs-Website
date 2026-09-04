@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import AppShell from "@/components/app/AppShell";
 import { requireApprovedUser } from "@/lib/auth/guard";
-import { Skeleton, FilterBarSkeleton, CardGridSkeleton } from "@/components/ui/Skeleton";
+import { FilterBarSkeleton, CardGridSkeleton } from "@/components/ui/Skeleton";
 import {
   directoryPage,
   DIRECTORY_PAGE_SIZE,
@@ -54,11 +54,6 @@ export default async function CommunityPage({
             <h1 className="font-display text-text-primary leading-[1.1] tracking-tight text-[clamp(1.75rem,3.5vw,2.5rem)]">
               The Foundry directory
             </h1>
-            <p className="text-[0.875rem] text-text-muted mt-3 leading-relaxed">
-              <Suspense fallback={<Skeleton className="h-3 w-24 inline-block align-middle" />}>
-                <MemberCount data={data} />
-              </Suspense>
-            </p>
           </div>
           <Suspense
             fallback={
@@ -74,11 +69,6 @@ export default async function CommunityPage({
       </div>
     </AppShell>
   );
-}
-
-async function MemberCount({ data }: { data: Promise<DirectoryPage> }) {
-  const { facets } = await data;
-  return <>{facets.total} member{facets.total === 1 ? "" : "s"}.</>;
 }
 
 async function Directory({

@@ -738,6 +738,10 @@ declare
     'admin_delete_user','admin_delete_graduates','admin_get_signup_emails',
     'admin_outbound_email_stats',
     'admin_list_profiles','admin_profile_facets','admin_list_pending_profiles',
+    -- committee escalation (20260904000003): admin_set_committee guards on
+    -- is_admin() itself; list_committee_cards is the member-readable gallery,
+    -- same visibility gate as list_directory_cards.
+    'admin_set_committee','list_committee_cards',
     -- public / member reads
     'list_approved_opportunities','list_approved_events',
     'list_approved_vcs_grants',

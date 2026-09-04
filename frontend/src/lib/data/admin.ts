@@ -394,6 +394,8 @@ type AdminProfileRow = {
   course: string | null;
   grad_year: number | null;
   email: string | null;
+  is_committee: boolean;
+  committee_role: string | null;
   created_at: string;
   skill_names: string[] | null;
   sector_names: string[] | null;
@@ -413,6 +415,8 @@ export function toAdminMember(r: AdminProfileRow) {
     // purpose: the admin table renders it in a column, and contacting a
     // member is what this page is for.
     email:     r.email,
+    isCommittee:   r.is_committee,
+    committeeRole: r.committee_role,
     createdAt: r.created_at,
     skills:    r.skill_names  ?? [],
     sectors:   r.sector_names ?? [],

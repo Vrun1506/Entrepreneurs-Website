@@ -62,10 +62,13 @@ export type NavKey =
   | "home"
   | "community"
   | "members"
+  | "foundryAi"
+  | "connections"
   | "messaging"
   | "opportunities"
   | "events"
   | "vcs"
+  | "committee"
   | "calendar"
   | "activity"
   | "submissions"
@@ -91,6 +94,23 @@ const I = {
   ),
   messaging: (
     <path d="M4 4.5h12a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H8.5L5 17v-3.5H4a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1Z" />
+  ),
+  foundryAi: (
+    <>
+      <path d="M10 3c.6 3 1.4 4.4 4.4 5-3 .6-3.8 2-4.4 5-.6-3-1.4-4.4-4.4-5 3-.6 3.8-2 4.4-5Z" />
+      <path d="M16 13c.25 1 .6 1.35 1.6 1.6-1 .25-1.35.6-1.6 1.6-.25-1-.6-1.35-1.6-1.6 1-.25 1.35-.6 1.6-1.6Z" />
+    </>
+  ),
+  connections: (
+    <>
+      <circle cx="5" cy="6" r="1.8" />
+      <circle cx="15" cy="6" r="1.8" />
+      <circle cx="10" cy="15" r="1.8" />
+      <path d="M6.5 7.3 8.7 13M13.5 7.3 11.3 13M6.8 6h6.4" />
+    </>
+  ),
+  committee: (
+    <path d="M10 3.5l1.6 3.3 3.6.5-2.6 2.5.6 3.6L10 11.7l-3.2 1.7.6-3.6-2.6-2.5 3.6-.5L10 3.5Z" />
   ),
   opportunities: (
     <>
@@ -157,7 +177,10 @@ function Icon({ d }: { d: React.ReactNode }) {
 const PRIMARY: Item[] = [
   { key: "home", href: "/home", label: "Home", icon: <Icon d={I.home} /> },
   { key: "community", href: "/community", label: "Community", icon: <Icon d={I.community} /> },
+  { key: "committee", href: "/committee", label: "Meet the Committee", icon: <Icon d={I.committee} /> },
   { key: "members", href: "/members", label: "Members", icon: <Icon d={I.members} /> },
+  { key: "foundryAi", href: "/foundry-ai", label: "Foundry AI", icon: <Icon d={I.foundryAi} /> },
+  { key: "connections", href: "/connections", label: "Connections", icon: <Icon d={I.connections} /> },
   { key: "messaging", href: "/messaging", label: "Messaging", icon: <Icon d={I.messaging} /> },
   { key: "opportunities", href: "/opportunities", label: "Opportunities", icon: <Icon d={I.opportunities} /> },
   { key: "events", href: "/events", label: "Events", icon: <Icon d={I.events} /> },

@@ -438,7 +438,7 @@ function Chooser({ mode, onPick }: { mode: Mode; onPick: (t: Track) => void }) {
         blurb={
           mode === "signup"
             ? "Undergrad, postgrad or PhD. Verified by your Imperial email."
-            : "Sign in with your Imperial email and a code."
+            : undefined
         }
         onClick={() => onPick("student")}
       />
@@ -446,8 +446,8 @@ function Chooser({ mode, onPick }: { mode: Mode; onPick: (t: Track) => void }) {
         title="Alum, mentor, investor or staff"
         blurb={
           mode === "signup"
-            ? "Everyone else. You'll say which on the next screen, and an admin verifies you."
-            : "Sign in with your email and password."
+            ? "Everyone else. Your profile will be verified by an admin."
+            : undefined
         }
         onClick={() => onPick("other")}
       />

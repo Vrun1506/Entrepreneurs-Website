@@ -101,7 +101,6 @@ export default function IntakeFlow({
   }));
   const clearDraft = useIntakeDraft(memberId, s, setS);
   const [step, setStep] = useState<StepId>("face");
-  const [furthest, setFurthest] = useState<StepId>("face");
   const [dir, setDir] = useState<"fwd" | "back">("fwd");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -323,7 +322,6 @@ export default function IntakeFlow({
     setError("");
     setDir(direction);
     setStep(to);
-    if (indexOf(to) > indexOf(furthest)) setFurthest(to);
     if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "auto" });
   };
 
@@ -464,7 +462,7 @@ export default function IntakeFlow({
         ) : (
           <div className="grid gap-12 lg:grid-cols-[15rem_1fr]">
             <aside className="hidden lg:block">
-              <StepRail current={step} furthest={furthest} onJump={(to) => go(to, "back")} />
+              <StepRail current={step} onJump={(to) => go(to, "back")} />
             </aside>
 
             <div className="min-w-0">
@@ -534,7 +532,7 @@ export default function IntakeFlow({
                 <p className="mb-3 text-[0.7rem] font-medium uppercase tracking-[0.14em] text-text-muted">
                   {GROUPS.length} groups · {TOTAL_SCREENS} screens
                 </p>
-                <StepRail current={step} furthest={furthest} onJump={(to) => go(to, "back")} />
+                <StepRail current={step} onJump={(to) => go(to, "back")} />
               </div>
             </div>
           </div>

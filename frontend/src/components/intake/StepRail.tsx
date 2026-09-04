@@ -9,23 +9,20 @@ import { labelCls } from "@/components/forms/styles";
 // The rail's job is to show that the flow is finite and grouped, so the
 // gate reads as short rather than as the first three of nine unknowns.
 //
-// Only visited steps are pressable, and they are drawn as controls —
-// surface plus a border-strong outline — rather than as tinted text. A
-// step you can return to and a step you cannot must not look the same.
+// Every non-current step is pressable, whether already visited or not —
+// almost everything past screen 01 is optional anyway (see IntakeFlow's
+// validate()), and the server enforces the few compulsory fields at
+// Finish/Skip regardless of which order the member clicked through.
 // ════════════════════════════════════════════════════════════════════
 
 export default function StepRail({
   current,
-  furthest,
   onJump,
 }: {
   current: StepId;
-  /** The deepest screen reached so far; anything past it is not navigable. */
-  furthest: StepId;
   onJump: (id: StepId) => void;
 }) {
   const currentIdx = indexOf(current);
-  const furthestIdx = indexOf(furthest);
 
   return (
     <nav aria-label="Intake progress" className="w-full">
@@ -40,7 +37,6 @@ export default function StepRail({
               const idx = indexOf(id);
               const isCurrent = idx === currentIdx;
               const isDone = idx < currentIdx;
-              const reachable = idx <= furthestIdx && !isCurrent;
 
               const numCls = isDone
                 ? "text-signal"
@@ -72,19 +68,13 @@ export default function StepRail({
 
               return (
                 <li key={id}>
-                  {reachable ? (
-                    <button
-                      type="button"
-                      onClick={() => onJump(id)}
-                      className="w-full cursor-pointer rounded-lg border border-border bg-white/[0.02] px-3 py-2 text-left text-[0.8rem] text-text-secondary transition-colors duration-150 hover:border-border-strong hover:bg-white/[0.05] hover:text-text-primary"
-                    >
-                      {inner}
-                    </button>
-                  ) : (
-                    <div className="rounded-lg border border-transparent px-3 py-2 text-[0.8rem] text-text-muted">
-                      {inner}
-                    </div>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => onJump(id)}
+                    className="w-full cursor-pointer rounded-lg border border-border bg-white/[0.02] px-3 py-2 text-left text-[0.8rem] text-text-secondary transition-colors duration-150 hover:border-border-strong hover:bg-white/[0.05] hover:text-text-primary"
+                  >
+                    {inner}
+                  </button>
                 </li>
               );
             })}

@@ -93,7 +93,7 @@ export function FaceScreen({ s, patch, firstName, avatarUploading, avatarError, 
           <div className="flex items-center gap-4 rounded-lg border border-border-strong bg-white/[0.04] p-4">
             {/* eslint-disable-next-line @next/next/no-img-element -- object URL, not a remote asset */}
             <img src={s.photoPreview} alt="" className="h-16 w-16 shrink-0 rounded-full object-cover" />
-            <span className="min-w-0 flex-1 text-[0.85rem] text-text-primary">Looking good.</span>
+            <span className="min-w-0 flex-1 text-[0.85rem] text-text-primary">Great! You can change your profile picture in your settings at any time.</span>
             <button
               type="button"
               onClick={() => replaceRef.current?.click()}
