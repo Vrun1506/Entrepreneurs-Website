@@ -14,6 +14,7 @@ export function MemberPhoto({
   member,
   aspect = "aspect-square",
   rounded = "",
+  fit = "cover",
 }: {
   member: { firstName: string; surname: string; avatarUrl: string | null };
   /** Tailwind aspect-ratio class — "aspect-square" for cards, a wider
@@ -21,6 +22,15 @@ export function MemberPhoto({
   aspect?: string;
   /** Tailwind rounding classes for the corners that touch the panel edge. */
   rounded?: string;
+  /** "cover" fills the box and is exactly right when aspect is square —
+   *  no cropping happens because the box IS the image's own shape.
+   *  "contain" is for a non-square aspect (the dialog hero): the source
+   *  avatar is a square crop and nobody's crop is composed the same way
+   *  (headroom, tight-cropped, off-centre, a logo, whatever), so there is
+   *  no position bias that's correct for every avatar — "contain" is the
+   *  only option that never cuts anything off, for any avatar, full stop.
+   *  It letterboxes left/right on bg-bg-secondary instead. */
+  fit?: "cover" | "contain";
 }) {
   const initials = `${member.firstName[0] ?? ""}${member.surname[0] ?? ""}`.toUpperCase();
 
@@ -30,7 +40,7 @@ export function MemberPhoto({
       <img
         src={member.avatarUrl}
         alt=""
-        className={`w-full object-cover bg-bg-secondary ${aspect} ${rounded}`}
+        className={`w-full ${fit === "contain" ? "object-contain" : "object-cover"} bg-bg-secondary ${aspect} ${rounded}`}
       />
     );
   }
