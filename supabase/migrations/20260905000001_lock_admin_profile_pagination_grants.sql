@@ -1,0 +1,33 @@
+-- ════════════════════════════════════════════════════════════════════
+-- Foundry · Lock admin_profile_facets / admin_list_pending_profiles grants
+--
+-- Security audit 2026-09-05 (MEDIUM).
+--
+-- 20260826000004_admin_profile_pagination.sql recreated three functions
+-- via `drop function` + `create or replace` in one dynamic block:
+-- admin_list_profiles, admin_profile_facets, admin_list_pending_profiles.
+-- Only admin_list_profiles ever got its revoke/grant pair restated —
+-- first missed there too, then fixed incidentally in
+-- 20260904000003_committee.sql:371-376 when that function grew two
+-- columns and had to be recreated again. The other two were never
+-- touched again, so they never got an explicit `revoke ... from public,
+-- anon`.
+--
+-- On this Supabase project a freshly (re)created function's OID is
+-- EXECUTE-able by anon/authenticated by default, regardless of what an
+-- earlier migration revoked from the previous OID (root cause documented
+-- in 20260608000001). So both functions have been anon-callable since
+-- 2026-08-26.
+--
+-- Not currently exploitable: both self-check is_admin() as their first
+-- statement and reject a NULL auth.uid() (anon has none), so this has
+-- never leaked data. But it breaks this repo's stated defense-in-depth
+-- policy, and supabase/tests/rls_smoke.sql's test 21 tripwire is
+-- structurally blind to it — both names already sit on the "fine for
+-- authenticated" allowlist, which doesn't distinguish "authenticated
+-- only" from "anon leaked too." This migration is the actual fix; the
+-- allowlist gap is a separate, not-yet-scheduled hardening item.
+-- ════════════════════════════════════════════════════════════════════
+
+revoke execute on function public.admin_profile_facets() from public, anon;
+revoke execute on function public.admin_list_pending_profiles(int, int) from public, anon;

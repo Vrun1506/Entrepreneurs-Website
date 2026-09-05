@@ -695,6 +695,18 @@ $$;
 --     or is an RLS helper (is_admin/is_approved) the policies call. Adding a
 --     new user-facing RPC means adding it here on purpose — that deliberate
 --     edit is the point of the tripwire.
+--
+--     Security audit 2026-09-05: the check below this comment only ever
+--     asked "is this function reachable by anon OR authenticated" — every
+--     name on the allowlist passes that regardless of which role can
+--     actually call it, so a function that leaked EXECUTE to anon while
+--     self-defending in-body (admin_profile_facets, admin_list_pending_profiles,
+--     list_approved_vcs_grants — all fixed in 20260905000003) sat on this
+--     allowlist and passed silently. The second assertion below closes
+--     that: every allowlisted name except _set_caller (this test's own
+--     helper) and is_admin/is_approved (deliberately anon-executable pure
+--     predicates, see 20260830000005) is meant for authenticated only,
+--     never anon, so it fails CI if any of them regains anon EXECUTE.
 set local role postgres;
 do $$
 declare
@@ -780,6 +792,18 @@ begin
   if v_leaked is not null then
     raise exception
       'FAIL: internal function(s) EXECUTE-able by anon/authenticated: %', v_leaked;
+  end if;
+
+  select string_agg(distinct p.proname, ', ' order by p.proname)
+    into v_leaked
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace and n.nspname = 'public'
+   where p.proname = any (v_allowed)
+     and p.proname not in ('_set_caller', 'is_admin', 'is_approved')
+     and has_function_privilege('anon', p.oid, 'EXECUTE');
+  if v_leaked is not null then
+    raise exception
+      'FAIL: authenticated-only function(s) EXECUTE-able by anon: %', v_leaked;
   end if;
 end;
 $$;
